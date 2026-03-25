@@ -75,7 +75,6 @@ export function useTreeOperations(rootNode, history) {
     touch()
   }
 
-  // ★ Установка картинки
   function setNodeImage(nodeId, dataUrl) {
     history.save()
     const node = findNodeById(rootNode.value, nodeId)
@@ -84,12 +83,19 @@ export function useTreeOperations(rootNode, history) {
     touch()
   }
 
-  // ★ Удаление картинки
   function removeNodeImage(nodeId) {
     history.save()
     const node = findNodeById(rootNode.value, nodeId)
     if (!node) return
     node.image = null
+    touch()
+  }
+
+  // ★ Обновление заметки
+  function updateNotes(nodeId, notes) {
+    const node = findNodeById(rootNode.value, nodeId)
+    if (!node) return
+    node.notes = notes
     touch()
   }
 
@@ -102,6 +108,7 @@ export function useTreeOperations(rootNode, history) {
     updateNodePosition,
     resetAllPositions,
     setNodeImage,
-    removeNodeImage
+    removeNodeImage,
+    updateNotes
   }
 }

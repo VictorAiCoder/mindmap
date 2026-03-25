@@ -18,28 +18,22 @@
     @dragleave.stop="isImageDragOver = false"
     @drop.prevent.stop="onImageDrop"
   >
-    <!-- ★ Картинка НАД узлом — абсолютно позиционирована выше -->
+    <!-- Картинка НАД узлом -->
     <div v-if="hasImage" class="map-node__image-float">
-      <img
-        :src="pos.node.image"
-        class="map-node__image"
-        alt=""
-        draggable="false"
-      />
+      <img :src="pos.node.image" class="map-node__image" alt="" draggable="false" />
       <button
         class="map-node__image-remove"
         @click.stop="$emit('removeImage')"
         @mousedown.stop
-        title="Удалить картинку"
       >
         <v-icon icon="mdi-close" size="12" />
       </button>
     </div>
 
-    <!-- Фон узла -->
+    <!-- Фон -->
     <div class="map-node__bg" :style="bgStyle" />
 
-    <!-- Контент узла -->
+    <!-- Контент -->
     <div class="map-node__content">
       <button
         v-if="hasChildren"
@@ -55,28 +49,51 @@
 
       <span class="map-node__text">{{ pos.node.text }}</span>
 
+      <v-icon
+        v-if="hasNotes"
+        icon="mdi-text-box-outline"
+        size="12"
+        class="map-node__notes-icon"
+        :color="isRoot ? 'white' : pos.node.color"
+      />
+
       <span v-if="pos.node.collapsed && hasChildren" class="map-node__badge">
         {{ pos.node.children.length }}
       </span>
 
       <v-icon
         v-if="pos.hasCustomPos"
-        icon="mdi-pin"
-        size="10"
-        class="map-node__pin"
-        color="grey"
+        icon="mdi-pin" size="10"
+        class="map-node__pin" color="grey"
       />
     </div>
 
-    <!-- Кнопки действий -->
+    <!-- Превью заметки ПОД узлом -->
+    <div
+      v-if="notesPreview"
+      class="map-node__notes-preview"
+      :style="notesPreviewStyle"
+      @click.stop="$emit('openNotes')"
+      @mousedown.stop
+    >
+      <v-icon icon="mdi-text-box-outline" size="12" class="map-node__notes-preview-icon" color="grey" />
+      <span class="map-node__notes-text">{{ notesPreview }}</span>
+    </div>
+
+    <!-- Кнопки -->
     <div class="map-node__actions" @mousedown.stop>
       <button
         v-if="!hasImage"
         class="map-node__action map-node__action--image"
         @click.stop="triggerImageUpload"
-        title="Добавить картинку"
       >
         <v-icon icon="mdi-image-plus" size="14" />
+      </button>
+      <button
+        class="map-node__action map-node__action--notes"
+        @click.stop="$emit('openNotes')"
+      >
+        <v-icon :icon="hasNotes ? 'mdi-text-box-edit-outline' : 'mdi-text-box-plus-outline'" size="14" />
       </button>
       <button class="map-node__action map-node__action--add" @click.stop="$emit('addChild')">
         <v-icon icon="mdi-plus" size="14" />
@@ -100,20 +117,14 @@
       </button>
     </div>
 
-    <!-- Скрытый input -->
-    <input
-      ref="imageInput"
-      type="file"
-      accept="image/*"
-      hidden
-      @change="onImageSelected"
-    />
+    <input ref="imageInput" type="file" accept="image/*" hidden @change="onImageSelected" />
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
 import { processImageFile, getImageFromDrop } from '../composables/useImageHandler'
+import { getNotesPreview } from '../composables/useMarkdown'
 
 const props = defineProps({
   pos: { type: Object, required: true },
@@ -126,7 +137,8 @@ const props = defineProps({
 const emit = defineEmits([
   'edit', 'addChild', 'delete', 'toggle',
   'resetPosition', 'startDrag',
-  'setImage', 'removeImage'
+  'setImage', 'removeImage',
+  'openNotes'
 ])
 
 const imageInput = ref(null)
@@ -136,6 +148,13 @@ const isRoot = computed(() => props.pos.depth === 0)
 const isLeaf = computed(() => props.pos.depth >= 2)
 const hasChildren = computed(() => props.pos.node.children?.length > 0)
 const hasImage = computed(() => !!props.pos.node.image)
+const hasNotes = computed(() => !!props.pos.node.notes?.trim())
+
+const notesPreview = computed(() => getNotesPreview(props.pos.node.notes, 3, 100))
+
+const notesPreviewStyle = computed(() => ({
+  borderLeftColor: props.pos.node.color || '#5C6BC0'
+}))
 
 const nodeStyle = computed(() => {
   const x = props.liveX != null ? props.liveX : props.pos.x
@@ -154,21 +173,9 @@ const nodeStyle = computed(() => {
 
 const bgStyle = computed(() => {
   const color = props.pos.node.color || '#5C6BC0'
-  if (isRoot.value) {
-    return { background: color, borderRadius: '25px' }
-  }
-  if (isLeaf.value) {
-    return {
-      background: 'transparent',
-      borderBottom: `2.5px solid ${color}`,
-      borderRadius: '0'
-    }
-  }
-  return {
-    background: color + '22',
-    border: `2px solid ${color}`,
-    borderRadius: '20px'
-  }
+  if (isRoot.value) return { background: color, borderRadius: '25px' }
+  if (isLeaf.value) return { background: 'transparent', borderBottom: `2.5px solid ${color}`, borderRadius: '0' }
+  return { background: color + '22', border: `2px solid ${color}`, borderRadius: '20px' }
 })
 
 function onMouseDown(e) {
@@ -220,7 +227,6 @@ async function onImageDrop(e) {
   user-select: none;
   transition: transform 0.15s ease, opacity 0.15s ease, left 0.2s ease, top 0.2s ease;
   z-index: 2;
-  /* ★ Разрешаем overflow чтобы картинка выходила за пределы */
   overflow: visible;
 }
 
@@ -254,7 +260,7 @@ async function onImageDrop(e) {
   z-index: 11;
 }
 
-/* ★ Картинка — плавает НАД узлом */
+/* Картинка над узлом */
 .map-node__image-float {
   position: absolute;
   bottom: 100%;
@@ -305,15 +311,10 @@ async function onImageDrop(e) {
   transition: opacity 0.2s;
 }
 
-.map-node:hover .map-node__image-remove {
-  opacity: 1;
-}
+.map-node:hover .map-node__image-remove { opacity: 1; }
+.map-node__image-remove:hover { background: rgba(244, 67, 54, 0.9); }
 
-.map-node__image-remove:hover {
-  background: rgba(244, 67, 54, 0.9);
-}
-
-/* Фон узла */
+/* Фон */
 .map-node__bg {
   position: absolute;
   inset: 0;
@@ -338,19 +339,24 @@ async function onImageDrop(e) {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 120px;
+  max-width: 100px;
 }
 
 .map-node--root .map-node__text {
   font-size: 16px;
   font-weight: 700;
   color: white;
-  max-width: 160px;
+  max-width: 140px;
 }
 
 .map-node--leaf .map-node__text {
   font-size: 12px;
   font-weight: 400;
+}
+
+.map-node__notes-icon {
+  opacity: 0.6;
+  flex-shrink: 0;
 }
 
 .map-node__toggle {
@@ -383,7 +389,50 @@ async function onImageDrop(e) {
 
 .map-node__pin { opacity: 0.4; }
 
-/* Кнопки действий */
+/* ★ Превью заметки — ПОД узлом */
+.map-node__notes-preview {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  padding: 6px 10px;
+  width: max-content;
+  max-width: 220px;
+  background: rgb(var(--v-theme-surface));
+  border-left: 3px solid;
+  border-radius: 0 6px 6px 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  z-index: 1;
+}
+
+.map-node__notes-preview:hover {
+  transform: translateY(1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.map-node__notes-preview-icon {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.map-node__notes-text {
+  font-size: 11px;
+  line-height: 1.4;
+  color: rgba(var(--v-theme-on-surface), 0.7);
+  white-space: pre-line;
+  word-break: break-word;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+/* Кнопки */
 .map-node__actions {
   position: absolute;
   top: -10px;
@@ -396,7 +445,6 @@ async function onImageDrop(e) {
   pointer-events: none;
 }
 
-/* ★ Сдвигаем actions выше если есть картинка */
 .map-node--has-image .map-node__actions {
   top: auto;
   bottom: -10px;
@@ -426,4 +474,5 @@ async function onImageDrop(e) {
 .map-node__action--delete { background: #F44336; color: white; }
 .map-node__action--reset { background: #FF9800; color: white; }
 .map-node__action--image { background: #9C27B0; color: white; }
+.map-node__action--notes { background: #607D8B; color: white; }
 </style>

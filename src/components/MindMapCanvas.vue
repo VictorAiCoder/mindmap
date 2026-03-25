@@ -11,7 +11,6 @@
   >
     <template v-if="mindmap && layoutData.positions.length">
       <div class="canvas-scene" :style="sceneStyle">
-        <!-- SVG линии -->
         <svg class="scene-svg">
           <defs>
             <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
@@ -32,7 +31,6 @@
           />
         </svg>
 
-        <!-- HTML узлы -->
         <MapNode
           v-for="pos in layoutData.positions"
           :key="pos.id"
@@ -52,16 +50,16 @@
           @drop="onNodeDrop(pos.id)"
           @set-image="(dataUrl) => handleSetImage(pos.id, dataUrl)"
           @remove-image="handleRemoveImage(pos.id)"
+          @open-notes="notesNodeId = pos.id"
         />
       </div>
     </template>
 
-    <!-- Fallback -->
     <div v-else class="d-flex align-center justify-center" style="height: 100%">
       <v-progress-circular indeterminate color="primary" />
     </div>
 
-    <!-- Редактирование узла -->
+    <!-- Редактирование текста узла -->
     <div v-if="editingId" class="edit-overlay" @click.self="finishEdit">
       <div class="edit-popup">
         <v-text-field
@@ -82,7 +80,13 @@
       </div>
     </div>
 
-    <!-- Зум-контролы -->
+    <!-- ★ Панель заметок -->
+    <NotesPanel
+      :node-id="notesNodeId"
+      @close="notesNodeId = null"
+    />
+
+    <!-- Зум -->
     <div class="zoom-controls">
       <v-btn icon="mdi-plus" size="small" variant="tonal" @click="zoomIn" />
       <v-chip size="small" variant="tonal" class="my-1">{{ zoomPercent }}%</v-chip>
@@ -101,6 +105,7 @@
 <script setup>
 import { ref, computed, inject, nextTick } from 'vue'
 import MapNode from './MapNode.vue'
+import NotesPanel from './NotesPanel.vue'
 import { useLayout } from '../composables/useLayout'
 import { useNodeDrag } from '../composables/useNodeDrag'
 
@@ -149,12 +154,7 @@ function onWheel(e) {
 
 function zoomIn() { zoom.value = Math.min(3, zoom.value + 0.15) }
 function zoomOut() { zoom.value = Math.max(0.2, zoom.value - 0.15) }
-
-function resetView() {
-  zoom.value = 1
-  panX.value = 0
-  panY.value = 0
-}
+function resetView() { zoom.value = 1; panX.value = 0; panY.value = 0 }
 
 function onPanStart(e) {
   if (nodeDrag.isDraggingNode.value) return
@@ -174,7 +174,7 @@ function onPanMove(e) {
 
 function onPanEnd() { isPanning.value = false }
 
-// Node Drag
+// Node drag
 const nodeDrag = useNodeDrag(mindmap, zoom)
 
 function getLiveX(pos) {
@@ -200,11 +200,7 @@ const liveConnections = computed(() => {
   for (const pos of positions) {
     const lx = getLiveX(pos)
     const ly = getLiveY(pos)
-    posMap.set(pos.id, {
-      ...pos,
-      x: lx != null ? lx : pos.x,
-      y: ly != null ? ly : pos.y
-    })
+    posMap.set(pos.id, { ...pos, x: lx != null ? lx : pos.x, y: ly != null ? ly : pos.y })
   }
 
   const connections = []
@@ -248,19 +244,14 @@ const liveConnections = computed(() => {
 
   const root = mindmap?.rootNode?.value
   if (root) buildConns(root)
-
   return connections
 })
 
 // DnD
 const dragOverId = ref(null)
+function onNodeDrop(targetId) { mindmap?.drag.dropOn(targetId); dragOverId.value = null }
 
-function onNodeDrop(targetId) {
-  mindmap?.drag.dropOn(targetId)
-  dragOverId.value = null
-}
-
-// Редактирование
+// Edit
 const editingId = ref(null)
 const editText = ref('')
 const editFieldRef = ref(null)
@@ -282,7 +273,7 @@ function finishEdit() {
 
 function cancelEdit() { editingId.value = null }
 
-// Добавление / Удаление
+// CRUD
 function handleAddChild(parentId) {
   const newId = mindmap?.addChild(parentId)
   if (newId) nextTick(() => startEdit(newId))
@@ -294,7 +285,6 @@ function handleDelete(nodeId) {
   if (pos) notify(`Узел «${pos.node.text}» удалён`, 'error', 'mdi-delete')
 }
 
-// Позиции
 function handleResetNodePosition(nodeId) {
   mindmap?.updateNodePosition(nodeId, null, null)
   notify('Позиция сброшена', 'info', 'mdi-pin-off')
@@ -305,7 +295,6 @@ function handleAutoLayout() {
   notify('Авто-раскладка применена', 'success', 'mdi-auto-fix')
 }
 
-// ★ Картинки
 function handleSetImage(nodeId, dataUrl) {
   mindmap?.setNodeImage(nodeId, dataUrl)
   notify('Картинка добавлена', 'success', 'mdi-image')
@@ -315,6 +304,9 @@ function handleRemoveImage(nodeId) {
   mindmap?.removeNodeImage(nodeId)
   notify('Картинка удалена', 'info', 'mdi-image-off')
 }
+
+// ★ Notes panel
+const notesNodeId = ref(null)
 </script>
 
 <style scoped>
@@ -328,15 +320,12 @@ function handleRemoveImage(nodeId) {
 }
 
 .canvas-wrapper:active { cursor: grabbing; }
-
 .canvas-scene { position: absolute; }
 
 .scene-svg {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
   overflow: visible;
   pointer-events: none;
 }
@@ -346,15 +335,11 @@ function handleRemoveImage(nodeId) {
   transition: opacity 0.2s, d 0.15s ease;
 }
 
-.conn-line:hover {
-  opacity: 1;
-  stroke-width: 3.5;
-}
+.conn-line:hover { opacity: 1; stroke-width: 3.5; }
 
 .zoom-controls {
   position: absolute;
-  bottom: 20px;
-  right: 20px;
+  bottom: 20px; right: 20px;
   display: flex;
   flex-direction: column;
   align-items: center;

@@ -1,0 +1,99 @@
+{
+  "id": "node_1774440951339_6_xn313",
+  "text": "Главная идея",
+  "color": "#5C6BC0",
+  "collapsed": false,
+  "children": [
+    {
+      "id": "node_1774445769291_5_joxiv",
+      "text": "Новый узел",
+      "color": "#5C6BC0",
+      "collapsed": false,
+      "children": [
+        {
+          "id": "node_1774445759496_3_fy1z3",
+          "text": "Новый узел2",
+          "color": "#EF5350",
+          "collapsed": false,
+          "children": [],
+          "customX": 1832,
+          "customY": 59
+        },
+        {
+          "id": "node_1774445765467_4_kqlh1",
+          "text": "Новый узел",
+          "color": "#26A69A",
+          "collapsed": false,
+          "children": [],
+          "customX": 1759,
+          "customY": 174
+        },
+        {
+          "id": "node_1774440951339_5_tqrrm",
+          "text": "Подтема 3",
+          "color": "#AB47BC",
+          "collapsed": false,
+          "children": [
+            {
+              "id": "node_1774445932880_8_slrqc",
+              "text": "Новый узел",
+              "color": "#66BB6A",
+              "collapsed": true,
+              "children": [
+                {
+                  "id": "node_1774446224077_9_b6i82",
+                  "text": "Новый узел",
+                  "color": "#FFA726",
+                  "collapsed": false,
+                  "children": [],
+                  "customX": null,
+                  "customY": null
+                }
+              ],
+              "customX": 2147,
+              "customY": 186
+            },
+            {
+              "id": "node_1774440951339_3_v55j7",
+              "text": "Подтема 1",
+              "color": "#26A69A",
+              "collapsed": true,
+              "children": [
+                {
+                  "id": "node_1774440951339_2_uqtnc",
+                  "text": "Детали 1.1",
+                  "color": "#66BB6A",
+                  "collapsed": false,
+                  "children": [],
+                  "customX": null,
+                  "customY": null
+                }
+              ],
+              "customX": 2182,
+              "customY": 329
+            },
+            {
+              "id": "node_1774445772395_6_bx5jb",
+              "text": "Новый узел",
+              "color": "#66BB6A",
+              "collapsed": false,
+              "children": [],
+              "customX": 2108,
+              "customY": 584,
+              "image": "data:image/webp;base64,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"
+            }
+          ],
+          "customX": 1776,
+          "customY": 330
+        }
+      ],
+      "customX": null,
+      "customY": null,
+      "image": "data:image/webp;base64,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",
+      "notes": "# 🧠 MindMap — Простая интеллект-карта на Vue\n\n> Минималистичный редактор интеллект-карт с поддержкой drag-and-drop, экспорта/импорта и автосохранения.\n\n\n## ✨ Возможности (MVP)\n\n- Создание иерархической карты идей\n- Добавление, редактирование и удаление узлов\n- Перетаскивание узлов между родителями (drag & drop)\n- Экспорт в JSON / Импорт из JSON\n- Автоматическое сохранение в localStorage\n- Простой и чистый интерфейс на Vuetify\n\n> 💡 Визуализация выполнена в виде вложенной иерархии (как в Notion), а не графической карты — для простоты и скорости разработки."
+    }
+  ],
+  "customX": null,
+  "customY": null,
+  "image": "data:image/webp;base64,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"
+}

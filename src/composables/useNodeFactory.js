@@ -11,7 +11,7 @@ function pickRandomColor() {
   return NODE_COLORS[Math.floor(Math.random() * NODE_COLORS.length)]
 }
 
-export function createNode({ text = 'Новый узел', color, children = [], image = null } = {}) {
+export function createNode({ text = 'Новый узел', color, children = [], image = null, notes = '' } = {}) {
   return {
     id: generateId(),
     text,
@@ -19,7 +19,8 @@ export function createNode({ text = 'Новый узел', color, children = [],
     collapsed: false,
     customX: null,
     customY: null,
-    image,         // ★ Data URL картинки или null
+    image,
+    notes,       // ★ markdown-заметка
     children
   }
 }
@@ -32,6 +33,7 @@ export function createDefaultTree() {
       createNode({
         text: 'Подтема 1',
         color: '#26A69A',
+        notes: '**Важно:** проработать детали\n\n- пункт 1\n- пункт 2',
         children: [
           createNode({ text: 'Детали 1.1', color: '#66BB6A' })
         ]
