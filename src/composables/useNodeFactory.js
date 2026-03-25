@@ -1,6 +1,4 @@
 // src/composables/useNodeFactory.js
-// Паттерн: Factory — создание узлов
-
 import { NODE_COLORS, DEFAULT_COLOR } from './constants'
 
 let counter = 0
@@ -13,12 +11,15 @@ function pickRandomColor() {
   return NODE_COLORS[Math.floor(Math.random() * NODE_COLORS.length)]
 }
 
+// ★ Добавлены customX / customY для ручного позиционирования
 export function createNode({ text = 'Новый узел', color, children = [] } = {}) {
   return {
     id: generateId(),
     text,
     color: color ?? pickRandomColor(),
     collapsed: false,
+    customX: null,
+    customY: null,
     children
   }
 }

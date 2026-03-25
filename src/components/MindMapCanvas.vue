@@ -10,29 +10,19 @@
     @mouseleave="onPanEnd"
   >
     <template v-if="mindmap && layoutData.positions.length">
-      <!--
-        Единый контейнер для SVG-линий и HTML-узлов.
-        Трансформация применяется ОДИН РАЗ к общему родителю.
-      -->
       <div class="canvas-scene" :style="sceneStyle">
-        <!-- SVG — только линии, без viewBox, в пиксельных координатах -->
+        <!-- SVG линии -->
         <svg class="scene-svg">
-          <!-- Сетка -->
           <defs>
             <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-              <path
-                d="M 40 0 L 0 0 0 40"
-                fill="none"
-                stroke="rgba(0,0,0,0.06)"
-                stroke-width="0.5"
-              />
+              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(0,0,0,0.06)" stroke-width="0.5" />
             </pattern>
           </defs>
           <rect x="0" y="0" width="100%" height="100%" fill="url(#grid)" />
 
-          <!-- Соединительные кривые -->
+          <!-- Линии пересчитываются с учётом live-позиций -->
           <path
-            v-for="conn in layoutData.connections"
+            v-for="conn in liveConnections"
             :key="conn.id"
             :d="conn.path"
             :stroke="conn.color"
@@ -43,18 +33,21 @@
           />
         </svg>
 
-        <!-- HTML-узлы — в тех же пиксельных координатах -->
+        <!-- HTML узлы -->
         <MapNode
           v-for="pos in layoutData.positions"
           :key="pos.id"
           :pos="pos"
           :is-dragged-over="dragOverId === pos.id"
+          :is-being-dragged="nodeDrag.draggingNodeId.value === pos.id"
+          :live-x="getLiveX(pos)"
+          :live-y="getLiveY(pos)"
           @edit="startEdit(pos.id)"
           @add-child="handleAddChild(pos.id)"
           @delete="handleDelete(pos.id)"
           @toggle="mindmap.toggleCollapse(pos.id)"
-          @drag-start="onNodeDragStart($event, pos.id)"
-          @drag-end="onNodeDragEnd"
+          @reset-position="handleResetNodePosition(pos.id)"
+          @start-drag="(e) => nodeDrag.startNodeDrag(e, pos.id, pos.x, pos.y)"
           @drag-over="dragOverId = pos.id"
           @drag-leave="dragOverId = null"
           @drop="onNodeDrop(pos.id)"
@@ -94,6 +87,19 @@
       <v-chip size="small" variant="tonal" class="my-1">{{ zoomPercent }}%</v-chip>
       <v-btn icon="mdi-minus" size="small" variant="tonal" @click="zoomOut" />
       <v-btn icon="mdi-fit-to-screen" size="small" variant="tonal" class="mt-1" @click="resetView" />
+      <v-divider class="my-1" />
+      <!-- Кнопка авто-раскладки -->
+      <v-tooltip text="Авто-раскладка" location="left">
+        <template #activator="{ props: tip }">
+          <v-btn
+            v-bind="tip"
+            icon="mdi-auto-fix"
+            size="small"
+            variant="tonal"
+            @click="handleAutoLayout"
+          />
+        </template>
+      </v-tooltip>
     </div>
   </div>
 </template>
@@ -102,11 +108,12 @@
 import { ref, computed, inject, nextTick } from 'vue'
 import MapNode from './MapNode.vue'
 import { useLayout } from '../composables/useLayout'
+import { useNodeDrag } from '../composables/useNodeDrag'
 
 const mindmap = inject('mindmap', null)
 const notify = inject('notify', () => {})
 
-// Layout
+// --- Layout ---
 const emptyLayout = {
   positions: [],
   connections: [],
@@ -129,10 +136,6 @@ const lastPan = { x: 0, y: 0 }
 
 const zoomPercent = computed(() => Math.round(zoom.value * 100))
 
-/**
- * Единый стиль трансформации для всей сцены.
- * SVG и HTML-узлы двигаются вместе — координаты совпадают.
- */
 const sceneStyle = computed(() => {
   const b = layoutData.value.bounds
   return {
@@ -140,7 +143,6 @@ const sceneStyle = computed(() => {
     height: `${b.height}px`,
     transform: `translate(${panX.value}px, ${panY.value}px) scale(${zoom.value})`,
     transformOrigin: '0 0',
-    // Смещаем начало координат чтобы учесть padding (bounds.minX/minY)
     left: `${-b.minX}px`,
     top: `${-b.minY}px`
   }
@@ -161,7 +163,10 @@ function resetView() {
 }
 
 function onPanStart(e) {
+  // Не начинаем pan если перетаскиваем узел или кликнули на узел/оверлей
+  if (nodeDrag.isDraggingNode.value) return
   if (e.target.closest('.map-node') || e.target.closest('.edit-overlay')) return
+
   isPanning.value = true
   lastMouse.x = e.clientX
   lastMouse.y = e.clientY
@@ -175,14 +180,104 @@ function onPanMove(e) {
   panY.value = lastPan.y + (e.clientY - lastMouse.y)
 }
 
-function onPanEnd() { isPanning.value = false }
+function onPanEnd() {
+  isPanning.value = false
+}
 
-// --- Drag & Drop ---
+// --- Node Drag (перемещение узлов) ---
+const nodeDrag = useNodeDrag(mindmap, zoom)
+
+// Live-позиции — при перетаскивании узел двигается в реальном времени
+function getLiveX(pos) {
+  if (nodeDrag.draggingNodeId.value === pos.id) {
+    return nodeDrag.getDraggedPosition(pos.id, pos.x, pos.y).x
+  }
+  return null
+}
+
+function getLiveY(pos) {
+  if (nodeDrag.draggingNodeId.value === pos.id) {
+    return nodeDrag.getDraggedPosition(pos.id, pos.x, pos.y).y
+  }
+  return null
+}
+
+// ★ Live-соединения — пересчитываем линии для перетаскиваемого узла
+const liveConnections = computed(() => {
+  const positions = layoutData.value.positions
+  if (!positions.length) return []
+
+  // Строим карту live-позиций
+  const posMap = new Map()
+  for (const pos of positions) {
+    const lx = getLiveX(pos)
+    const ly = getLiveY(pos)
+    posMap.set(pos.id, {
+      ...pos,
+      x: lx != null ? lx : pos.x,
+      y: ly != null ? ly : pos.y
+    })
+  }
+
+  const connections = []
+
+  function buildConns(node) {
+    if (node.collapsed || !node.children?.length) return
+    const pp = posMap.get(node.id)
+    if (!pp) return
+
+    for (const child of node.children) {
+      const cp = posMap.get(child.id)
+      if (!cp) continue
+
+      let sx, sy, ex, ey
+
+      // Определяем направление линии динамически
+      const childCenterX = cp.x + cp.w / 2
+      const parentCenterX = pp.x + pp.w / 2
+
+      if (childCenterX >= parentCenterX) {
+        sx = pp.x + pp.w
+        sy = pp.y + pp.h / 2
+        ex = cp.x
+        ey = cp.y + cp.h / 2
+      } else {
+        sx = pp.x
+        sy = pp.y + pp.h / 2
+        ex = cp.x + cp.w
+        ey = cp.y + cp.h / 2
+      }
+
+      const dist = Math.abs(ex - sx)
+      const dx = Math.min(dist * 0.45, 80)
+      const isRight = ex > sx
+      const cp1x = isRight ? sx + dx : sx - dx
+      const cp2x = isRight ? ex - dx : ex + dx
+
+      connections.push({
+        id: `${node.id}__${child.id}`,
+        path: `M ${sx} ${sy} C ${cp1x} ${sy}, ${cp2x} ${ey}, ${ex} ${ey}`,
+        color: child.color || '#999'
+      })
+
+      buildConns(child)
+    }
+  }
+
+  // Проходим по дереву из rootNode
+  const root = mindmap?.rootNode?.value
+  if (root) buildConns(root)
+
+  return connections
+})
+
+// --- DnD между узлами (перенос в другого родителя) ---
 const dragOverId = ref(null)
 
-function onNodeDragStart(e, nodeId) { mindmap?.drag.start(nodeId) }
-function onNodeDragEnd() { mindmap?.drag.end(); dragOverId.value = null }
-function onNodeDrop(targetId) { mindmap?.drag.dropOn(targetId); dragOverId.value = null }
+function onNodeDrop(targetId) {
+  mindmap?.drag.dropOn(targetId)
+  dragOverId.value = null
+}
 
 // --- Редактирование ---
 const editingId = ref(null)
@@ -217,6 +312,18 @@ function handleDelete(nodeId) {
   mindmap?.deleteNode(nodeId)
   if (pos) notify(`Узел «${pos.node.text}» удалён`, 'error', 'mdi-delete')
 }
+
+// --- Сброс позиции одного узла ---
+function handleResetNodePosition(nodeId) {
+  mindmap?.updateNodePosition(nodeId, null, null)
+  notify('Позиция сброшена', 'info', 'mdi-pin-off')
+}
+
+// --- Авто-раскладка (сброс всех позиций) ---
+function handleAutoLayout() {
+  mindmap?.resetAllPositions()
+  notify('Авто-раскладка применена', 'success', 'mdi-auto-fix')
+}
 </script>
 
 <style scoped>
@@ -233,7 +340,6 @@ function handleDelete(nodeId) {
   cursor: grabbing;
 }
 
-/* Единая сцена — SVG и HTML в одних координатах */
 .canvas-scene {
   position: absolute;
 }
@@ -250,7 +356,7 @@ function handleDelete(nodeId) {
 
 .conn-line {
   opacity: 0.65;
-  transition: opacity 0.2s;
+  transition: opacity 0.2s, d 0.15s ease;
 }
 
 .conn-line:hover {

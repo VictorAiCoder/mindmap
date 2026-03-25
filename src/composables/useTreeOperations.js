@@ -1,10 +1,9 @@
-// src/composables/useTreeOperations.js — финальная версия
+// src/composables/useTreeOperations.js
 import { triggerRef } from 'vue'
-import { findNodeById, findParentOf } from './useTreeTraversal'
+import { findNodeById, findParentOf, traverseTree } from './useTreeTraversal'
 import { createNode } from './useNodeFactory'
 
 export function useTreeOperations(rootNode, history) {
-  /** Принудительно уведомляет Vue что rootNode изменился */
   function touch() {
     triggerRef(rootNode)
   }
@@ -59,5 +58,32 @@ export function useTreeOperations(rootNode, history) {
     touch()
   }
 
-  return { addChild, updateText, updateColor, deleteNode, toggleCollapse }
+  // ★ Обновление кастомной позиции узла
+  function updateNodePosition(nodeId, x, y) {
+    const node = findNodeById(rootNode.value, nodeId)
+    if (!node) return
+    node.customX = x
+    node.customY = y
+    touch()
+  }
+
+  // ★ Сброс всех кастомных позиций (авто-раскладка)
+  function resetAllPositions() {
+    history.save()
+    traverseTree(rootNode.value, (node) => {
+      node.customX = null
+      node.customY = null
+    })
+    touch()
+  }
+
+  return {
+    addChild,
+    updateText,
+    updateColor,
+    deleteNode,
+    toggleCollapse,
+    updateNodePosition,
+    resetAllPositions
+  }
 }

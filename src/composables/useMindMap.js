@@ -1,7 +1,5 @@
 // src/composables/useMindMap.js
-// Проверяем что возвращает useMindMap — rootNode должен быть ref
-
-import { ref } from 'vue'
+import { ref, triggerRef } from 'vue'
 import { useHistory } from './useHistory'
 import { useTreeOperations } from './useTreeOperations'
 import { useDragDrop } from './useDragDrop'
@@ -22,9 +20,8 @@ export function useMindMap() {
     rootNode.value = createDefaultTree()
   }
 
-  // Возвращаем rootNode как ref — это важно
   return {
-    rootNode,       // <-- ref
+    rootNode,
     ...tree,
     drag,
     undo: history.undo,

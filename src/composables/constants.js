@@ -8,5 +8,12 @@ export const NODE_COLORS = [
 ]
 
 export const DEFAULT_COLOR = '#5C6BC0'
-
 export const EXPORT_FILENAME_PREFIX = 'mindmap'
+
+// Layout
+export const NODE_W = 160
+export const NODE_H = 40
+export const ROOT_W = 200
+export const ROOT_H = 50
+export const GAP_H = 100
+export const GAP_V = 14

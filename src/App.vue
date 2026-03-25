@@ -1,5 +1,4 @@
 <!-- src/App.vue -->
-<!-- Ключевое: provide ДОЛЖЕН быть здесь, ДО рендера детей -->
 <template>
   <v-app :theme="theme">
     <ToolbarPanel
@@ -14,6 +13,7 @@
       @undo="mindmap.undo()"
       @redo="mindmap.redo()"
       @toggle-theme="toggleTheme"
+      @auto-layout="handleAutoLayout"
     />
 
     <v-main>
@@ -38,14 +38,7 @@ import ToolbarPanel from './components/ToolbarPanel.vue'
 import MindMap from './components/MindMap.vue'
 import { useMindMap } from './composables/useMindMap'
 
-// 1. Создаём ЕДИНСТВЕННЫЙ экземпляр
 const mindmap = useMindMap()
-
-// 2. Проверка — раскомментируй для отладки:
-// console.log('mindmap.rootNode:', mindmap.rootNode)
-// console.log('mindmap.rootNode.value:', mindmap.rootNode.value)
-
-// 3. Provide — ДО любого рендера дочерних компонентов
 provide('mindmap', mindmap)
 
 const snackbar = reactive({
@@ -70,12 +63,13 @@ function toggleTheme() {
 const nodeCount = computed(() => mindmap.countNodes())
 const depth = computed(() => mindmap.getDepth())
 
-// Экспорт / Импорт
+// Экспорт
 function handleExport() {
   mindmap.exportTree('json')
   notify('Карта экспортирована', 'success', 'mdi-download')
 }
 
+// Импорт
 async function handleImport(file) {
   try {
     await mindmap.importTree(file)
@@ -83,6 +77,12 @@ async function handleImport(file) {
   } catch (err) {
     notify(err.message, 'error', 'mdi-alert')
   }
+}
+
+// Авто-раскладка
+function handleAutoLayout() {
+  mindmap.resetAllPositions()
+  notify('Авто-раскладка применена', 'success', 'mdi-auto-fix')
 }
 </script>
 

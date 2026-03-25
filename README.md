@@ -20,12 +20,73 @@
 
 ---
 
-## 🚀 Быстрый запуск
+## 📋 Итоговая архитектура
 
-### Требования
-- Node.js ≥ 16.x
-- npm или yarn
+```
+src/
+├── composables/
+│   ├── constants.js          # Все магические значения в одном месте
+│   ├── useTreeTraversal.js   # Visitor — единый обход дерева
+│   ├── useNodeFactory.js     # Factory — создание узлов
+│   ├── useTreeOperations.js  # CRUD + triggerRef для реактивности
+│   ├── useDragDrop.js        # Drag & Drop логика
+│   ├── useHistory.js         # Memento — undo/redo
+│   ├── usePersistence.js     # Strategy — экспорт JSON/Markdown + localStorage
+│   ├── useLayout.js          # Расчёт позиций для радиальной карты
+│   └── useMindMap.js         # Facade — единый API
+├── components/
+│   ├── ToolbarPanel.vue      # Панель — props/emit (1 уровень)
+│   ├── MindMap.vue           # Обёртка + горячие клавиши
+│   ├── MindMapCanvas.vue     # SVG + HTML в единой системе координат
+│   └── MapNode.vue           # Визуальный узел карты
+├── App.vue                   # Provide mindmap + notify
+└── main.js
+```
 
+## 🏗️ Применённые паттерны
+
+```
+Паттерн           Где                     Что решает
+─────────────────────────────────────────────────────────
+Facade            useMindMap.js           Единый API из 7 модулей
+Visitor           useTreeTraversal.js     Одна рекурсия вместо трёх
+Factory           useNodeFactory.js       Создание узлов в одном месте
+Memento           useHistory.js           Undo/Redo снимки состояния
+Strategy          usePersistence.js       JSON/Markdown экспорт
+Provide/Inject    App → Canvas → Node     Нет event drilling
+Observer          triggerRef              Гарантия реактивности
+```
+
+## 🔑 Ключевые решения
+
+```
+Проблема                          Решение
+──────────────────────────────────────────────────────
+8 event-пробросов в рекурсии  →  provide/inject
+SVG и HTML рассинхрон         →  единый canvas-scene контейнер
+computed не видит мутацию     →  triggerRef(rootNode)
+God Object 200 строк          →  7 модулей по 30-50 строк
+Три одинаковых рекурсии       →  traverseTree + 3 однострочника
+```
+
+Если захочешь развивать дальше — вот приоритетные фичи по сложности:
+
+```
+Простое:
+  ✦ Горячие клавиши (Tab → добавить, Delete → удалить)
+  ✦ Двойной клик по пустому месту → новый корневой ребёнок
+  ✦ Экспорт в Markdown (уже готов в usePersistence)
+
+Среднее:
+  ✦ Анимация при сворачивании/разворачивании веток
+  ✦ Миникарта в углу для навигации
+  ✦ Мультивыделение узлов
+
+Сложное:
+  ✦ Drag & Drop с визуальной линией-превью
+  ✦ Автоматический layout (force-directed)
+  ✦ Collaborative editing через WebSocket
+```
 
 
 ## 🧩 Используемые технологии
@@ -37,22 +98,6 @@
 | **Composition API** | Логика компонентов и управления состоянием |
 | **HTML5 Drag & Drop** | Перемещение узлов без библиотек   |
 | **localStorage** | Автосохранение между сессиями       |
-
----
-
-## 🗂️ Структура проекта
-
-```
-src/
-├── composables/
-│   └── useMindMap.js     # Логика управления деревом
-├── components/
-│   ├── MindMap.vue       # Основной контейнер
-│   ├── Node.vue          # Рекурсивный узел с DnD
-│   └── Toolbar.vue       # Панель инструментов
-├── App.vue
-└── main.js
-```
 
 ---
 

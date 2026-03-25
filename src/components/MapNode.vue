@@ -6,24 +6,22 @@
       'map-node--root': isRoot,
       'map-node--leaf': isLeaf,
       'map-node--drag-over': isDraggedOver,
-      'map-node--dragging': isDragging
+      'map-node--dragging': isBeingDragged,
+      'map-node--custom': pos.hasCustomPos
     }"
     :style="nodeStyle"
-    :draggable="!isRoot"
-    @dragstart.stop="onDragStart"
-    @dragend.stop="onDragEnd"
-    @dragover.prevent.stop="$emit('dragOver')"
-    @dragleave.stop="$emit('dragLeave')"
-    @drop.prevent.stop="$emit('drop')"
     @dblclick.stop="$emit('edit')"
+    @mousedown.stop="onMouseDown"
   >
     <div class="map-node__bg" :style="bgStyle" />
 
     <div class="map-node__content">
+      <!-- Сворачивание -->
       <button
         v-if="hasChildren"
         class="map-node__toggle"
         @click.stop="$emit('toggle')"
+        @mousedown.stop
       >
         <v-icon
           :icon="pos.node.collapsed ? 'mdi-chevron-right' : 'mdi-chevron-down'"
@@ -31,19 +29,40 @@
         />
       </button>
 
+      <!-- Текст -->
       <span class="map-node__text">{{ pos.node.text }}</span>
 
+      <!-- Бейдж свёрнутых -->
       <span v-if="pos.node.collapsed && hasChildren" class="map-node__badge">
         {{ pos.node.children.length }}
       </span>
+
+      <!-- Индикатор кастомной позиции -->
+      <v-icon
+        v-if="pos.hasCustomPos"
+        icon="mdi-pin"
+        size="10"
+        class="map-node__pin"
+        color="grey"
+      />
     </div>
 
-    <div class="map-node__actions">
+    <!-- Кнопки действий -->
+    <div class="map-node__actions" @mousedown.stop>
       <button class="map-node__action map-node__action--add" @click.stop="$emit('addChild')">
         <v-icon icon="mdi-plus" size="14" />
       </button>
       <button class="map-node__action map-node__action--edit" @click.stop="$emit('edit')">
         <v-icon icon="mdi-pencil" size="14" />
+      </button>
+      <!-- Сброс позиции -->
+      <button
+        v-if="pos.hasCustomPos"
+        class="map-node__action map-node__action--reset"
+        @click.stop="$emit('resetPosition')"
+        title="Вернуть в авто-позицию"
+      >
+        <v-icon icon="mdi-pin-off" size="14" />
       </button>
       <button
         v-if="!isRoot"
@@ -61,28 +80,36 @@ import { ref, computed } from 'vue'
 
 const props = defineProps({
   pos: { type: Object, required: true },
-  isDraggedOver: { type: Boolean, default: false }
+  isDraggedOver: { type: Boolean, default: false },
+  isBeingDragged: { type: Boolean, default: false },
+  liveX: { type: Number, default: null },
+  liveY: { type: Number, default: null }
 })
 
 const emit = defineEmits([
   'edit', 'addChild', 'delete', 'toggle',
-  'dragStart', 'dragEnd', 'dragOver', 'dragLeave', 'drop'
+  'resetPosition', 'startDrag'
 ])
-
-const isDragging = ref(false)
 
 const isRoot = computed(() => props.pos.depth === 0)
 const isLeaf = computed(() => props.pos.depth >= 2)
 const hasChildren = computed(() => props.pos.node.children?.length > 0)
 
-// Позиция — абсолютная, в той же системе координат что и SVG
-const nodeStyle = computed(() => ({
-  position: 'absolute',
-  left: `${props.pos.x}px`,
-  top: `${props.pos.y}px`,
-  width: `${props.pos.w}px`,
-  height: `${props.pos.h}px`
-}))
+// ★ Позиция: live (при перетаскивании) или из layout
+const nodeStyle = computed(() => {
+  const x = props.liveX != null ? props.liveX : props.pos.x
+  const y = props.liveY != null ? props.liveY : props.pos.y
+
+  return {
+    position: 'absolute',
+    left: `${x}px`,
+    top: `${y}px`,
+    width: `${props.pos.w}px`,
+    height: `${props.pos.h}px`,
+    zIndex: props.isBeingDragged ? 100 : undefined,
+    transition: props.isBeingDragged ? 'none' : undefined
+  }
+})
 
 const bgStyle = computed(() => {
   const color = props.pos.node.color || '#5C6BC0'
@@ -103,41 +130,50 @@ const bgStyle = computed(() => {
   }
 })
 
-function onDragStart(e) {
-  if (isRoot.value) { e.preventDefault(); return }
-  isDragging.value = true
-  e.dataTransfer.effectAllowed = 'move'
-  e.dataTransfer.setData('text/plain', props.pos.id)
-  emit('dragStart', e)
-}
-
-function onDragEnd() {
-  isDragging.value = false
-  emit('dragEnd')
+function onMouseDown(e) {
+  // Только левая кнопка, не на кнопках действий
+  if (e.button !== 0) return
+  emit('startDrag', e)
 }
 </script>
 
 <style scoped>
 .map-node {
   position: absolute;
-  cursor: pointer;
+  cursor: grab;
   user-select: none;
-  transition: transform 0.15s ease, opacity 0.15s ease;
+  transition: transform 0.15s ease, opacity 0.15s ease, left 0.2s ease, top 0.2s ease;
   z-index: 2;
 }
 
 .map-node:hover {
-  transform: scale(1.04);
   z-index: 5;
 }
 
 .map-node--dragging {
-  opacity: 0.4;
-  transform: scale(0.95) !important;
+  cursor: grabbing;
+  opacity: 0.85;
+  z-index: 100 !important;
+  transition: none !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  border-radius: 25px;
 }
 
 .map-node--drag-over .map-node__bg {
   box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.6) !important;
+}
+
+/* Индикатор что позиция кастомная */
+.map-node--custom::after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #FF9800;
+  border: 1.5px solid white;
 }
 
 .map-node__bg {
@@ -189,9 +225,7 @@ function onDragEnd() {
   transition: opacity 0.2s;
 }
 
-.map-node__toggle:hover {
-  opacity: 1;
-}
+.map-node__toggle:hover { opacity: 1; }
 
 .map-node__badge {
   background: rgba(0, 0, 0, 0.15);
@@ -206,6 +240,10 @@ function onDragEnd() {
 .map-node--root .map-node__badge {
   background: rgba(255, 255, 255, 0.3);
   color: white;
+}
+
+.map-node__pin {
+  opacity: 0.4;
 }
 
 .map-node__actions {
@@ -238,11 +276,9 @@ function onDragEnd() {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
 }
 
-.map-node__action:hover {
-  transform: scale(1.15);
-}
-
+.map-node__action:hover { transform: scale(1.15); }
 .map-node__action--add { background: #4CAF50; color: white; }
 .map-node__action--edit { background: #2196F3; color: white; }
 .map-node__action--delete { background: #F44336; color: white; }
+.map-node__action--reset { background: #FF9800; color: white; }
 </style>
