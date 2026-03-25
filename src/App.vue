@@ -1,4 +1,5 @@
 <!-- src/App.vue -->
+<!-- Ключевое: provide ДОЛЖЕН быть здесь, ДО рендера детей -->
 <template>
   <v-app :theme="theme">
     <ToolbarPanel
@@ -16,21 +17,48 @@
     />
 
     <v-main>
-      <MindMap ref="mindmapRef" />
+      <MindMap />
     </v-main>
+
+    <v-snackbar
+      v-model="snackbar.show"
+      :color="snackbar.color"
+      :timeout="2000"
+      location="bottom right"
+    >
+      <v-icon :icon="snackbar.icon" class="mr-2" />
+      {{ snackbar.text }}
+    </v-snackbar>
   </v-app>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, reactive, provide } from 'vue'
 import ToolbarPanel from './components/ToolbarPanel.vue'
 import MindMap from './components/MindMap.vue'
 import { useMindMap } from './composables/useMindMap'
 
+// 1. Создаём ЕДИНСТВЕННЫЙ экземпляр
 const mindmap = useMindMap()
-const mindmapRef = ref(null)
 
-// --- Тема ---
+// 2. Проверка — раскомментируй для отладки:
+// console.log('mindmap.rootNode:', mindmap.rootNode)
+// console.log('mindmap.rootNode.value:', mindmap.rootNode.value)
+
+// 3. Provide — ДО любого рендера дочерних компонентов
+provide('mindmap', mindmap)
+
+const snackbar = reactive({
+  show: false, text: '', color: 'success', icon: 'mdi-check'
+})
+
+function notify(text, color = 'success', icon = 'mdi-check') {
+  Object.assign(snackbar, { show: true, text, color, icon })
+}
+
+provide('notify', notify)
+
+// Тема
 const theme = ref(localStorage.getItem('mindmap-theme') || 'light')
 
 function toggleTheme() {
@@ -38,29 +66,26 @@ function toggleTheme() {
   localStorage.setItem('mindmap-theme', theme.value)
 }
 
-// --- Статистика (реактивно пересчитывается) ---
+// Статистика
 const nodeCount = computed(() => mindmap.countNodes())
 const depth = computed(() => mindmap.getDepth())
 
-// --- Экспорт ---
+// Экспорт / Импорт
 function handleExport() {
   mindmap.exportTree('json')
-  mindmapRef.value?.notify('Карта экспортирована', 'success', 'mdi-download')
+  notify('Карта экспортирована', 'success', 'mdi-download')
 }
 
-// --- Импорт ---
 async function handleImport(file) {
   try {
     await mindmap.importTree(file)
-    mindmapRef.value?.notify('Карта импортирована', 'success', 'mdi-upload')
+    notify('Карта импортирована', 'success', 'mdi-upload')
   } catch (err) {
-    mindmapRef.value?.notify(err.message, 'error', 'mdi-alert')
+    notify(err.message, 'error', 'mdi-alert')
   }
 }
 </script>
 
 <style>
-html, body {
-  overflow-y: auto;
-}
+html, body { overflow-y: auto; }
 </style>

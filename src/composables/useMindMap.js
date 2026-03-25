@@ -1,5 +1,5 @@
 // src/composables/useMindMap.js
-// Паттерн: Facade — единый API для всей логики
+// Проверяем что возвращает useMindMap — rootNode должен быть ref
 
 import { ref } from 'vue'
 import { useHistory } from './useHistory'
@@ -22,28 +22,18 @@ export function useMindMap() {
     rootNode.value = createDefaultTree()
   }
 
+  // Возвращаем rootNode как ref — это важно
   return {
-    // Состояние
-    rootNode,
-
-    // Дерево
+    rootNode,       // <-- ref
     ...tree,
-
-    // Drag & Drop
     drag,
-
-    // История
     undo: history.undo,
     redo: history.redo,
     canUndo: history.canUndo,
     canRedo: history.canRedo,
-
-    // Персистентность
     exportTree: persistence.exportTree,
     importTree: persistence.importTree,
     resetToDefault,
-
-    // Статистика
     countNodes: () => countNodes(rootNode.value),
     getDepth: () => getDepth(rootNode.value)
   }

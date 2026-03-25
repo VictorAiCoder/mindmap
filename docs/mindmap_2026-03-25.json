@@ -1,0 +1,65 @@
+{
+  "id": "node_1774440951339_6_xn313",
+  "text": "Главная идея",
+  "color": "#5C6BC0",
+  "collapsed": false,
+  "children": [
+    {
+      "id": "node_1774440951339_3_v55j7",
+      "text": "Подтема 1",
+      "color": "#26A69A",
+      "collapsed": false,
+      "children": [
+        {
+          "id": "node_1774440951339_2_uqtnc",
+          "text": "Детали 1.1",
+          "color": "#66BB6A",
+          "collapsed": false,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "node_1774440951339_5_tqrrm",
+      "text": "Подтема 3",
+      "color": "#AB47BC",
+      "collapsed": false,
+      "children": []
+    },
+    {
+      "id": "node_1774445759496_3_fy1z3",
+      "text": "Новый узел2",
+      "color": "#EF5350",
+      "collapsed": false,
+      "children": []
+    },
+    {
+      "id": "node_1774445765467_4_kqlh1",
+      "text": "Новый узел",
+      "color": "#26A69A",
+      "collapsed": false,
+      "children": []
+    },
+    {
+      "id": "node_1774445769291_5_joxiv",
+      "text": "Новый узел",
+      "color": "#5C6BC0",
+      "collapsed": false,
+      "children": []
+    },
+    {
+      "id": "node_1774445772395_6_bx5jb",
+      "text": "Новый узел",
+      "color": "#66BB6A",
+      "collapsed": false,
+      "children": []
+    },
+    {
+      "id": "node_1774445776824_7_qt3cf",
+      "text": "Новый узел",
+      "color": "#5C6BC0",
+      "collapsed": false,
+      "children": []
+    }
+  ]
+}

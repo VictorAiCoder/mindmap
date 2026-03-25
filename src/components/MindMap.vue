@@ -1,68 +1,45 @@
 <!-- src/components/MindMap.vue -->
-<!-- Provide/Inject вместо Event Drilling -->
 <template>
-  <div class="mindmap-container pa-4" @keydown="handleKeydown" tabindex="0" ref="container">
-    <NodeItem :node="rootNode" :depth="0" />
-
-    <v-snackbar v-model="snackbar.show" :color="snackbar.color" :timeout="2000" location="bottom right">
-      <v-icon :icon="snackbar.icon" class="mr-2" />
-      {{ snackbar.text }}
-    </v-snackbar>
+  <div
+    class="mindmap-root"
+    tabindex="0"
+    ref="container"
+    @keydown="handleKeydown"
+  >
+    <MindMapCanvas />
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, provide, onMounted, onUnmounted } from 'vue'
-import NodeItem from './NodeItem.vue'
-import { useMindMap } from '../composables/useMindMap'
+import { ref, inject, onMounted } from 'vue'
+import MindMapCanvas from './MindMapCanvas.vue'
 
-const mindmap = useMindMap()
-const { rootNode } = mindmap
-
-// Provide — доступен на любой глубине вложенности
-provide('mindmap', mindmap)
-
+const mindmap = inject('mindmap')
+const notify = inject('notify')
 const container = ref(null)
 
-const snackbar = reactive({
-  show: false,
-  text: '',
-  color: 'success',
-  icon: 'mdi-check'
-})
-
-function notify(text, color = 'success', icon = 'mdi-check') {
-  Object.assign(snackbar, { show: true, text, color, icon })
-}
-
-provide('notify', notify)
-
 function handleKeydown(e) {
-  if (e.ctrlKey || e.metaKey) {
-    if (e.key === 'z') {
-      e.preventDefault()
-      mindmap.undo()
-    } else if (e.key === 'y') {
-      e.preventDefault()
-      mindmap.redo()
-    } else if (e.key === 's') {
-      e.preventDefault()
-      mindmap.exportTree('json')
-      notify('Карта экспортирована')
-    }
+  const mod = e.ctrlKey || e.metaKey
+
+  if (mod && e.key === 'z') {
+    e.preventDefault()
+    mindmap.undo()
+  } else if (mod && e.key === 'y') {
+    e.preventDefault()
+    mindmap.redo()
+  } else if (mod && e.key === 's') {
+    e.preventDefault()
+    mindmap.exportTree('json')
+    notify('Карта экспортирована')
   }
 }
 
-onMounted(() => {
-  container.value?.focus()
-})
-
-defineExpose({ mindmap, notify })
+onMounted(() => container.value?.focus())
 </script>
 
 <style scoped>
-.mindmap-container {
-  min-height: calc(100vh - 64px);
+.mindmap-root {
   outline: none;
+  height: calc(100vh - 64px);
 }
 </style>
