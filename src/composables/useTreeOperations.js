@@ -58,7 +58,6 @@ export function useTreeOperations(rootNode, history) {
     touch()
   }
 
-  // ★ Обновление кастомной позиции узла
   function updateNodePosition(nodeId, x, y) {
     const node = findNodeById(rootNode.value, nodeId)
     if (!node) return
@@ -67,13 +66,30 @@ export function useTreeOperations(rootNode, history) {
     touch()
   }
 
-  // ★ Сброс всех кастомных позиций (авто-раскладка)
   function resetAllPositions() {
     history.save()
     traverseTree(rootNode.value, (node) => {
       node.customX = null
       node.customY = null
     })
+    touch()
+  }
+
+  // ★ Установка картинки
+  function setNodeImage(nodeId, dataUrl) {
+    history.save()
+    const node = findNodeById(rootNode.value, nodeId)
+    if (!node) return
+    node.image = dataUrl
+    touch()
+  }
+
+  // ★ Удаление картинки
+  function removeNodeImage(nodeId) {
+    history.save()
+    const node = findNodeById(rootNode.value, nodeId)
+    if (!node) return
+    node.image = null
     touch()
   }
 
@@ -84,6 +100,8 @@ export function useTreeOperations(rootNode, history) {
     deleteNode,
     toggleCollapse,
     updateNodePosition,
-    resetAllPositions
+    resetAllPositions,
+    setNodeImage,
+    removeNodeImage
   }
 }

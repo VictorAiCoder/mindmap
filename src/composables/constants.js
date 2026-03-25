@@ -10,10 +10,15 @@ export const NODE_COLORS = [
 export const DEFAULT_COLOR = '#5C6BC0'
 export const EXPORT_FILENAME_PREFIX = 'mindmap'
 
-// Layout
+// Layout — размеры узлов НЕ зависят от картинки (она плавает сверху)
 export const NODE_W = 160
 export const NODE_H = 40
 export const ROOT_W = 200
 export const ROOT_H = 50
 export const GAP_H = 100
 export const GAP_V = 14
+
+// Image
+export const MAX_IMAGE_SIZE = 500 * 1024
+export const IMAGE_THUMB_WIDTH = 160
+export const IMAGE_THUMB_HEIGHT = 120

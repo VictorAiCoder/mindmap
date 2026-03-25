@@ -20,7 +20,6 @@
           </defs>
           <rect x="0" y="0" width="100%" height="100%" fill="url(#grid)" />
 
-          <!-- Линии пересчитываются с учётом live-позиций -->
           <path
             v-for="conn in liveConnections"
             :key="conn.id"
@@ -51,6 +50,8 @@
           @drag-over="dragOverId = pos.id"
           @drag-leave="dragOverId = null"
           @drop="onNodeDrop(pos.id)"
+          @set-image="(dataUrl) => handleSetImage(pos.id, dataUrl)"
+          @remove-image="handleRemoveImage(pos.id)"
         />
       </div>
     </template>
@@ -88,16 +89,9 @@
       <v-btn icon="mdi-minus" size="small" variant="tonal" @click="zoomOut" />
       <v-btn icon="mdi-fit-to-screen" size="small" variant="tonal" class="mt-1" @click="resetView" />
       <v-divider class="my-1" />
-      <!-- Кнопка авто-раскладки -->
       <v-tooltip text="Авто-раскладка" location="left">
         <template #activator="{ props: tip }">
-          <v-btn
-            v-bind="tip"
-            icon="mdi-auto-fix"
-            size="small"
-            variant="tonal"
-            @click="handleAutoLayout"
-          />
+          <v-btn v-bind="tip" icon="mdi-auto-fix" size="small" variant="tonal" @click="handleAutoLayout" />
         </template>
       </v-tooltip>
     </div>
@@ -113,7 +107,7 @@ import { useNodeDrag } from '../composables/useNodeDrag'
 const mindmap = inject('mindmap', null)
 const notify = inject('notify', () => {})
 
-// --- Layout ---
+// Layout
 const emptyLayout = {
   positions: [],
   connections: [],
@@ -126,7 +120,7 @@ const { layoutData: rawLayout } = mindmap
 
 const layoutData = computed(() => rawLayout?.value ?? emptyLayout)
 
-// --- Pan & Zoom ---
+// Pan & Zoom
 const zoom = ref(1)
 const panX = ref(0)
 const panY = ref(0)
@@ -163,10 +157,8 @@ function resetView() {
 }
 
 function onPanStart(e) {
-  // Не начинаем pan если перетаскиваем узел или кликнули на узел/оверлей
   if (nodeDrag.isDraggingNode.value) return
   if (e.target.closest('.map-node') || e.target.closest('.edit-overlay')) return
-
   isPanning.value = true
   lastMouse.x = e.clientX
   lastMouse.y = e.clientY
@@ -180,14 +172,11 @@ function onPanMove(e) {
   panY.value = lastPan.y + (e.clientY - lastMouse.y)
 }
 
-function onPanEnd() {
-  isPanning.value = false
-}
+function onPanEnd() { isPanning.value = false }
 
-// --- Node Drag (перемещение узлов) ---
+// Node Drag
 const nodeDrag = useNodeDrag(mindmap, zoom)
 
-// Live-позиции — при перетаскивании узел двигается в реальном времени
 function getLiveX(pos) {
   if (nodeDrag.draggingNodeId.value === pos.id) {
     return nodeDrag.getDraggedPosition(pos.id, pos.x, pos.y).x
@@ -202,12 +191,11 @@ function getLiveY(pos) {
   return null
 }
 
-// ★ Live-соединения — пересчитываем линии для перетаскиваемого узла
+// Live connections
 const liveConnections = computed(() => {
   const positions = layoutData.value.positions
   if (!positions.length) return []
 
-  // Строим карту live-позиций
   const posMap = new Map()
   for (const pos of positions) {
     const lx = getLiveX(pos)
@@ -231,21 +219,15 @@ const liveConnections = computed(() => {
       if (!cp) continue
 
       let sx, sy, ex, ey
-
-      // Определяем направление линии динамически
       const childCenterX = cp.x + cp.w / 2
       const parentCenterX = pp.x + pp.w / 2
 
       if (childCenterX >= parentCenterX) {
-        sx = pp.x + pp.w
-        sy = pp.y + pp.h / 2
-        ex = cp.x
-        ey = cp.y + cp.h / 2
+        sx = pp.x + pp.w; sy = pp.y + pp.h / 2
+        ex = cp.x;        ey = cp.y + cp.h / 2
       } else {
-        sx = pp.x
-        sy = pp.y + pp.h / 2
-        ex = cp.x + cp.w
-        ey = cp.y + cp.h / 2
+        sx = pp.x;          sy = pp.y + pp.h / 2
+        ex = cp.x + cp.w;   ey = cp.y + cp.h / 2
       }
 
       const dist = Math.abs(ex - sx)
@@ -264,14 +246,13 @@ const liveConnections = computed(() => {
     }
   }
 
-  // Проходим по дереву из rootNode
   const root = mindmap?.rootNode?.value
   if (root) buildConns(root)
 
   return connections
 })
 
-// --- DnD между узлами (перенос в другого родителя) ---
+// DnD
 const dragOverId = ref(null)
 
 function onNodeDrop(targetId) {
@@ -279,7 +260,7 @@ function onNodeDrop(targetId) {
   dragOverId.value = null
 }
 
-// --- Редактирование ---
+// Редактирование
 const editingId = ref(null)
 const editText = ref('')
 const editFieldRef = ref(null)
@@ -301,7 +282,7 @@ function finishEdit() {
 
 function cancelEdit() { editingId.value = null }
 
-// --- Добавление / Удаление ---
+// Добавление / Удаление
 function handleAddChild(parentId) {
   const newId = mindmap?.addChild(parentId)
   if (newId) nextTick(() => startEdit(newId))
@@ -313,16 +294,26 @@ function handleDelete(nodeId) {
   if (pos) notify(`Узел «${pos.node.text}» удалён`, 'error', 'mdi-delete')
 }
 
-// --- Сброс позиции одного узла ---
+// Позиции
 function handleResetNodePosition(nodeId) {
   mindmap?.updateNodePosition(nodeId, null, null)
   notify('Позиция сброшена', 'info', 'mdi-pin-off')
 }
 
-// --- Авто-раскладка (сброс всех позиций) ---
 function handleAutoLayout() {
   mindmap?.resetAllPositions()
   notify('Авто-раскладка применена', 'success', 'mdi-auto-fix')
+}
+
+// ★ Картинки
+function handleSetImage(nodeId, dataUrl) {
+  mindmap?.setNodeImage(nodeId, dataUrl)
+  notify('Картинка добавлена', 'success', 'mdi-image')
+}
+
+function handleRemoveImage(nodeId) {
+  mindmap?.removeNodeImage(nodeId)
+  notify('Картинка удалена', 'info', 'mdi-image-off')
 }
 </script>
 
@@ -336,13 +327,9 @@ function handleAutoLayout() {
   background: rgb(var(--v-theme-background));
 }
 
-.canvas-wrapper:active {
-  cursor: grabbing;
-}
+.canvas-wrapper:active { cursor: grabbing; }
 
-.canvas-scene {
-  position: absolute;
-}
+.canvas-scene { position: absolute; }
 
 .scene-svg {
   position: absolute;

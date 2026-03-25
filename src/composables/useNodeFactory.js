@@ -11,8 +11,7 @@ function pickRandomColor() {
   return NODE_COLORS[Math.floor(Math.random() * NODE_COLORS.length)]
 }
 
-// ★ Добавлены customX / customY для ручного позиционирования
-export function createNode({ text = 'Новый узел', color, children = [] } = {}) {
+export function createNode({ text = 'Новый узел', color, children = [], image = null } = {}) {
   return {
     id: generateId(),
     text,
@@ -20,6 +19,7 @@ export function createNode({ text = 'Новый узел', color, children = [] 
     collapsed: false,
     customX: null,
     customY: null,
+    image,         // ★ Data URL картинки или null
     children
   }
 }
