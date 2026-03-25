@@ -1,42 +1,79 @@
-# MindMap
+Конечно! Вот готовый файл `README.md` для твоего проекта интеллект-карт на Vue 3 и Vuetify.
 
-This template should help get you started developing with Vue 3 in Vite.
+---
 
-## Recommended IDE Setup
+# 🧠 MindMap — Простая интеллект-карта на Vue
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+> Минималистичный редактор интеллект-карт с поддержкой drag-and-drop, экспорта/импорта и автосохранения.
 
-## Recommended Browser Setup
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+## ✨ Возможности (MVP)
 
-## Type Support for `.vue` Imports in TS
+- Создание иерархической карты идей
+- Добавление, редактирование и удаление узлов
+- Перетаскивание узлов между родителями (drag & drop)
+- Экспорт в JSON / Импорт из JSON
+- Автоматическое сохранение в localStorage
+- Простой и чистый интерфейс на Vuetify
 
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
+> 💡 Визуализация выполнена в виде вложенной иерархии (как в Notion), а не графической карты — для простоты и скорости разработки.
 
-## Customize configuration
+---
 
-See [Vite Configuration Reference](https://vite.dev/config/).
+## 🚀 Быстрый запуск
 
-## Project Setup
+### Требования
+- Node.js ≥ 16.x
+- npm или yarn
 
-```sh
-npm install
+
+
+## 🧩 Используемые технологии
+
+| Технология      | Назначение                          |
+|------------------|-------------------------------------|
+| **Vue 3**        | Реактивный фреймворк                |
+| **Vuetify 3**    | Материальный дизайн UI              |
+| **Composition API** | Логика компонентов и управления состоянием |
+| **HTML5 Drag & Drop** | Перемещение узлов без библиотек   |
+| **localStorage** | Автосохранение между сессиями       |
+
+---
+
+## 🗂️ Структура проекта
+
+```
+src/
+├── composables/
+│   └── useMindMap.js     # Логика управления деревом
+├── components/
+│   ├── MindMap.vue       # Основной контейнер
+│   ├── Node.vue          # Рекурсивный узел с DnD
+│   └── Toolbar.vue       # Панель инструментов
+├── App.vue
+└── main.js
 ```
 
-### Compile and Hot-Reload for Development
+---
 
-```sh
-npm run dev
-```
+## 🔄 Как это работает?
 
-### Type-Check, Compile and Minify for Production
+- Все данные хранятся в реактивном объекте `rootNode`.
+- Узлы можно перетаскивать друг на друга — при этом они становятся дочерними.
+- При каждом изменении карта автоматически сохраняется в `localStorage`.
+- Экспорт создаёт `.json`-файл, который можно позже загрузить обратно.
 
-```sh
-npm run build
-```
+> ⚠️ **Важно**: нельзя перетащить узел внутрь самого себя или его потомков — система предотвращает циклы.
+
+---
+
+## 🛠️ Планы на будущее (опционально)
+
+- [ ] Поддержка редактирования текста через двойной клик
+- [ ] Кнопка «Добавить дочерний узел» в каждом блоке
+- [ ] Горячие клавиши (Enter → добавить ребёнка, Delete → удалить)
+- [ ] Темная тема
+- [ ] Графическая визуализация (SVG/CSS radial layout)
+- [ ] Совместное редактирование (через WebSocket или Firebase)
+
+---

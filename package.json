@@ -11,7 +11,9 @@
     "type-check": "vue-tsc --build"
   },
   "dependencies": {
-    "vue": "^3.5.30"
+    "@mdi/font": "^7.4.47",
+    "vue": "^3.5.30",
+    "vuetify": "^4.0.4"
   },
   "devDependencies": {
     "@tsconfig/node24": "^24.0.4",
