@@ -34,18 +34,63 @@
 
       <v-divider vertical class="mx-1" />
 
-      <!-- Экспорт / Импорт -->
-      <v-tooltip text="Экспорт в JSON" location="bottom">
-        <template #activator="{ props }">
-          <v-btn v-bind="props" icon="mdi-download" variant="text" @click="emit('export')" />
+      <!-- Экспорт — меню -->
+      <v-menu>
+        <template #activator="{ props: menu }">
+          <v-tooltip text="Экспорт" location="bottom">
+            <template #activator="{ props: tip }">
+              <v-btn v-bind="{ ...menu, ...tip }" icon="mdi-download" variant="text" />
+            </template>
+          </v-tooltip>
         </template>
-      </v-tooltip>
+        <v-list density="compact" min-width="220">
+          <v-list-subheader>Экспорт карты</v-list-subheader>
+          <v-list-item
+            prepend-icon="mdi-code-json"
+            title="JSON"
+            subtitle="Полные данные карты"
+            @click="emit('export', 'json')"
+          />
+          <v-list-item
+            prepend-icon="mdi-language-markdown"
+            title="Markdown"
+            subtitle="Текстовый формат"
+            @click="emit('export', 'md')"
+          />
+        </v-list>
+      </v-menu>
 
-      <v-tooltip text="Импорт из JSON" location="bottom">
-        <template #activator="{ props }">
-          <v-btn v-bind="props" icon="mdi-upload" variant="text" @click="fileInput?.click()" />
+      <!-- ★ Импорт — меню с выбором -->
+      <v-menu>
+        <template #activator="{ props: menu }">
+          <v-tooltip text="Импорт" location="bottom">
+            <template #activator="{ props: tip }">
+              <v-btn v-bind="{ ...menu, ...tip }" icon="mdi-upload" variant="text" />
+            </template>
+          </v-tooltip>
         </template>
-      </v-tooltip>
+        <v-list density="compact" min-width="220">
+          <v-list-subheader>Импорт карты</v-list-subheader>
+          <v-list-item
+            prepend-icon="mdi-code-json"
+            title="Из JSON"
+            subtitle="Файл .json"
+            @click="openFilePicker('.json')"
+          />
+          <v-list-item
+            prepend-icon="mdi-language-markdown"
+            title="Из Markdown"
+            subtitle="Файл .md"
+            @click="openFilePicker('.md,.markdown')"
+          />
+          <v-list-item
+            prepend-icon="mdi-file-question"
+            title="Авто-определение"
+            subtitle="Любой формат"
+            @click="openFilePicker('.json,.md,.markdown,.txt')"
+          />
+        </v-list>
+      </v-menu>
 
       <v-divider vertical class="mx-1" />
 
@@ -69,7 +114,14 @@
       </v-tooltip>
     </template>
 
-    <input ref="fileInput" type="file" accept=".json" hidden @change="onFileSelected" />
+    <!-- ★ Скрытый input — accept меняется динамически -->
+    <input
+      ref="fileInput"
+      type="file"
+      :accept="fileAccept"
+      hidden
+      @change="onFileSelected"
+    />
   </v-app-bar>
 
   <!-- Диалог сброса -->
@@ -79,9 +131,7 @@
         <v-icon icon="mdi-alert" color="warning" class="mr-2" />
         Сбросить карту?
       </v-card-title>
-      <v-card-text>
-        Все данные будут удалены и заменены картой по умолчанию.
-      </v-card-text>
+      <v-card-text>Все данные будут удалены и заменены картой по умолчанию.</v-card-text>
       <v-card-actions>
         <v-spacer />
         <v-btn variant="text" @click="resetDialog = false">Отмена</v-btn>
@@ -92,7 +142,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, nextTick } from 'vue'
 
 defineProps({
   nodeCount: { type: Number, default: 0 },
@@ -105,7 +155,16 @@ defineProps({
 const emit = defineEmits(['export', 'import', 'reset', 'undo', 'redo', 'toggleTheme', 'autoLayout'])
 
 const fileInput = ref(null)
+const fileAccept = ref('.json,.md,.markdown')
 const resetDialog = ref(false)
+
+function openFilePicker(accept) {
+  fileAccept.value = accept
+  // nextTick чтобы accept успел обновиться
+  nextTick(() => {
+    fileInput.value?.click()
+  })
+}
 
 function onFileSelected(e) {
   const file = e.target.files?.[0]

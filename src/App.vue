@@ -51,7 +51,6 @@ function notify(text, color = 'success', icon = 'mdi-check') {
 
 provide('notify', notify)
 
-// Тема
 const theme = ref(localStorage.getItem('mindmap-theme') || 'light')
 
 function toggleTheme() {
@@ -59,27 +58,32 @@ function toggleTheme() {
   localStorage.setItem('mindmap-theme', theme.value)
 }
 
-// Статистика
 const nodeCount = computed(() => mindmap.countNodes())
 const depth = computed(() => mindmap.getDepth())
 
-// Экспорт
-function handleExport() {
-  mindmap.exportTree('json')
-  notify('Карта экспортирована', 'success', 'mdi-download')
+function handleExport(format = 'json') {
+  mindmap.exportTree(format)
+  const labels = {
+    json: { text: 'Экспорт в JSON', icon: 'mdi-code-json' },
+    md: { text: 'Экспорт в Markdown', icon: 'mdi-language-markdown' }
+  }
+  const label = labels[format] || labels.json
+  notify(label.text, 'success', label.icon)
 }
 
-// Импорт
 async function handleImport(file) {
   try {
     await mindmap.importTree(file)
-    notify('Карта импортирована', 'success', 'mdi-upload')
+    // ★ Определяем формат по расширению для сообщения
+    const name = file.name.toLowerCase()
+    const isMd = name.endsWith('.md') || name.endsWith('.markdown')
+    const formatLabel = isMd ? 'Markdown' : 'JSON'
+    notify(`Карта импортирована из ${formatLabel}`, 'success', 'mdi-upload')
   } catch (err) {
     notify(err.message, 'error', 'mdi-alert')
   }
 }
 
-// Авто-раскладка
 function handleAutoLayout() {
   mindmap.resetAllPositions()
   notify('Авто-раскладка применена', 'success', 'mdi-auto-fix')

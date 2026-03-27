@@ -1,80 +1,187 @@
 // src/composables/usePersistence.js
-// Паттерн: Strategy (для будущих форматов) + сохранение
-
 import { watch } from 'vue'
 import { STORAGE_KEY, EXPORT_FILENAME_PREFIX } from './constants'
+import { parseMarkdownToTree } from './useMarkdownParser'
 
-// --- Strategy: форматы экспорта ---
-const exportStrategies = {
-  json: (tree) => JSON.stringify(tree, null, 2),
-
-  markdown: (tree, depth = 0) => {
-    const indent = '  '.repeat(depth)
-    const prefix = depth === 0 ? '# ' : '- '
-    let result = `${indent}${prefix}${tree.text}\n`
-    for (const child of tree.children ?? []) {
-      result += exportStrategies.markdown(child, depth + 1)
-    }
-    return result
-  }
-}
-
-// --- localStorage ---
+// --- LocalStorage ---
 export function loadFromStorage() {
   try {
-    const data = localStorage.getItem(STORAGE_KEY)
-    return data ? JSON.parse(data) : null
-  } catch {
-    return null
-  }
+    const raw = localStorage.getItem(STORAGE_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch { return null }
 }
 
 function saveToStorage(data) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
   } catch (e) {
-    console.warn('Ошибка сохранения:', e)
+    console.warn('localStorage save failed:', e)
   }
 }
 
-// --- Persistence composable ---
+// --- Скачивание файла ---
+function downloadFile(content, filename, mime = 'application/json') {
+  const blob = new Blob([content], { type: mime })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+// --- JSON экспорт ---
+
+/**
+ * ★ Исправлено: сохраняем ВСЕ данные узла включая координаты
+ */
+function cleanTreeForExport(node) {
+  const clean = {
+    id: node.id,
+    text: node.text,
+    color: node.color || undefined,
+    collapsed: node.collapsed || undefined,
+    customX: node.customX ?? undefined,    // ★ координаты
+    customY: node.customY ?? undefined,    // ★ координаты
+    notes: node.notes || undefined,
+    image: node.image || undefined,
+    children: node.children?.length
+      ? node.children.map(cleanTreeForExport)
+      : undefined
+  }
+
+  // Удаляем undefined поля для чистоты JSON
+  Object.keys(clean).forEach(key => {
+    if (clean[key] === undefined) delete clean[key]
+  })
+
+  return clean
+}
+
+// --- Markdown экспорт ---
+
+function nodeToMarkdown(node, depth = 0) {
+  const lines = []
+  const maxHeadingLevel = 6
+
+  if (depth < maxHeadingLevel) {
+    const hashes = '#'.repeat(depth + 1)
+    lines.push(`${hashes} ${node.text}`)
+  } else {
+    const indent = '> '.repeat(depth - maxHeadingLevel + 1)
+    lines.push(`${indent}**${node.text}**`)
+  }
+
+  lines.push('')
+
+  if (node.image) {
+    lines.push(`![${node.text}](${node.image})`)
+    lines.push('')
+  }
+
+  if (node.notes?.trim()) {
+    lines.push(node.notes.trim())
+    lines.push('')
+  }
+
+  if (node.children?.length) {
+    for (const child of node.children) {
+      lines.push(...nodeToMarkdown(child, depth + 1))
+    }
+  }
+
+  return lines
+}
+
+function treeToMarkdown(root) {
+  const lines = nodeToMarkdown(root, 0)
+  const cleaned = []
+  let emptyCount = 0
+
+  for (const line of lines) {
+    if (line.trim() === '') {
+      emptyCount++
+      if (emptyCount <= 2) cleaned.push(line)
+    } else {
+      emptyCount = 0
+      cleaned.push(line)
+    }
+  }
+
+  while (cleaned.length && cleaned[cleaned.length - 1].trim() === '') {
+    cleaned.pop()
+  }
+
+  return cleaned.join('\n') + '\n'
+}
+
+// --- Определение формата ---
+
+function getFileFormat(file) {
+  const name = file.name.toLowerCase()
+  if (name.endsWith('.md') || name.endsWith('.markdown')) return 'md'
+  if (name.endsWith('.json')) return 'json'
+  if (file.type === 'text/markdown' || file.type === 'text/x-markdown') return 'md'
+  if (file.type === 'application/json') return 'json'
+  return 'auto'
+}
+
+// --- Основной composable ---
+
 export function usePersistence(rootNode) {
-  // Автосохранение
-  watch(rootNode, (val) => saveToStorage(val), { deep: true })
+  watch(rootNode, (val) => {
+    if (val) saveToStorage(val)
+  }, { deep: true })
 
   function exportTree(format = 'json') {
-    const content = exportStrategies[format]?.(rootNode.value)
-    if (!content) return
+    const timestamp = new Date().toISOString().slice(0, 10)
+    const root = rootNode.value
 
-    const ext = format === 'markdown' ? 'md' : 'json'
-    const mime = format === 'markdown' ? 'text/markdown' : 'application/json'
-    const date = new Date().toISOString().slice(0, 10)
+    if (format === 'markdown' || format === 'md') {
+      const md = treeToMarkdown(root)
+      downloadFile(md, `${EXPORT_FILENAME_PREFIX}_${timestamp}.md`, 'text/markdown')
+      return md
+    }
 
-    const blob = new Blob([content], { type: mime })
-    const url = URL.createObjectURL(blob)
-
-    Object.assign(document.createElement('a'), {
-      href: url,
-      download: `${EXPORT_FILENAME_PREFIX}_${date}.${ext}`
-    }).click()
-
-    URL.revokeObjectURL(url)
+    const clean = cleanTreeForExport(root)
+    const json = JSON.stringify(clean, null, 2)
+    downloadFile(json, `${EXPORT_FILENAME_PREFIX}_${timestamp}.json`, 'application/json')
+    return json
   }
 
   function importTree(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
+      reader.onerror = () => reject(new Error('Ошибка чтения файла'))
+
       reader.onload = (e) => {
         try {
-          const data = JSON.parse(e.target.result)
-          if (!data?.id || !data?.text) throw new Error('Неверный формат')
+          const content = e.target.result
+          const format = getFileFormat(file)
+
+          let data
+
+          if (format === 'md') {
+            data = parseMarkdownToTree(content)
+          } else if (format === 'json') {
+            data = JSON.parse(content)
+            if (!data.text) throw new Error('Неверный формат JSON')
+          } else {
+            try {
+              data = JSON.parse(content)
+              if (!data.text) throw new Error()
+            } catch {
+              data = parseMarkdownToTree(content)
+            }
+          }
+
           rootNode.value = data
-          resolve(true)
+          resolve(data)
         } catch (err) {
-          reject(err)
+          reject(new Error(err.message || 'Неверный формат файла'))
         }
       }
-      reader.onerror = () => reject(new Error('Ошибка чтения файла'))
+
       reader.readAsText(file)
     })
   }

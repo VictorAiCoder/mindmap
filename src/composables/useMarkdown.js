@@ -1,10 +1,9 @@
 // src/composables/useMarkdown.js
 import { marked } from 'marked'
 
-// Настраиваем marked
 marked.setOptions({
-  breaks: true,       // переносы строк как <br>
-  gfm: true           // GitHub Flavored Markdown
+  breaks: true,
+  gfm: true
 })
 
 /**
@@ -18,10 +17,10 @@ export function renderMarkdown(text) {
 /**
  * Извлекает первые N строк текста для превью
  */
-export function getNotesPreview(text, maxLines = 3, maxChars = 120) {
+export function getNotesPreview(text, maxLines = 7, maxChars = 300) {
   if (!text) return ''
 
-  const lines = text.split('\n').filter(l => l.trim())
+  const lines = text.split('\n')
   const preview = lines.slice(0, maxLines).join('\n')
 
   if (preview.length > maxChars) {
@@ -29,7 +28,7 @@ export function getNotesPreview(text, maxLines = 3, maxChars = 120) {
   }
 
   if (lines.length > maxLines) {
-    return preview + '…'
+    return preview + '\n…'
   }
 
   return preview
