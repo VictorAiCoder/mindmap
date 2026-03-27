@@ -74,11 +74,13 @@ function nodeToMarkdown(node, depth = 0) {
 
   lines.push('')
 
+  // ★ Картинка СРАЗУ после заголовка (до заметок)
   if (node.image) {
     lines.push(`![${node.text}](${node.image})`)
     lines.push('')
   }
 
+  // Заметки после картинки
   if (node.notes?.trim()) {
     lines.push(node.notes.trim())
     lines.push('')

@@ -1,6 +1,6 @@
 // src/composables/useTreeOperations.js
 import { triggerRef } from 'vue'
-import { findNodeById, findParentOf, traverseTree } from './useTreeTraversal'
+import { findNodeById, findParentOf, traverseTree, isDescendantOf, detachNode } from './useTreeTraversal'
 import { createNode } from './useNodeFactory'
 import { applyAutoLayout, resetLayout } from './useAutoLayout'
 
@@ -35,10 +35,8 @@ export function useTreeOperations(rootNode, history) {
   function deleteNode(nodeId) {
     if (rootNode.value.id === nodeId) return
     history.save()
-    const parent = findParentOf(rootNode.value, nodeId)
-    if (!parent?.children) return
-    const idx = parent.children.findIndex((c) => c.id === nodeId)
-    if (idx !== -1) { parent.children.splice(idx, 1); touch() }
+    detachNode(rootNode.value, nodeId)
+    touch()
   }
 
   function toggleCollapse(nodeId) {
@@ -62,7 +60,6 @@ export function useTreeOperations(rootNode, history) {
     touch()
   }
 
-  // ★ Применение авто-раскладки по типу
   function autoLayout(type = 'mindmap') {
     history.save()
     applyAutoLayout(rootNode.value, type)
@@ -86,6 +83,53 @@ export function useTreeOperations(rootNode, history) {
     if (node) { node.notes = notes; touch() }
   }
 
+  /**
+   * ★ Перемещает узел в иерархии: делает nodeId дочерним для newParentId
+   *
+   * Проверки:
+   * - Нельзя переместить корень
+   * - Нельзя бросить на себя
+   * - Нельзя бросить на своего потомка (зацикливание)
+   * - Нельзя бросить на текущего родителя (бессмысленно)
+   */
+  function reparentNode(nodeId, newParentId) {
+    const root = rootNode.value
+
+    // Нельзя перемещать корень
+    if (nodeId === root.id) return false
+
+    // Нельзя на себя
+    if (nodeId === newParentId) return false
+
+    // Нельзя на своего потомка
+    if (isDescendantOf(root, nodeId, newParentId)) return false
+
+    // Нельзя на текущего родителя (уже там)
+    const currentParent = findParentOf(root, nodeId)
+    if (currentParent?.id === newParentId) return false
+
+    const newParent = findNodeById(root, newParentId)
+    if (!newParent) return false
+
+    history.save()
+
+    // Отсоединяем от текущего родителя
+    const node = detachNode(root, nodeId)
+    if (!node) return false
+
+    // Сбрасываем custom-координаты (узел будет заново размещён)
+    node.customX = null
+    node.customY = null
+
+    // Присоединяем к новому родителю
+    newParent.children = newParent.children ?? []
+    newParent.children.push(node)
+    newParent.collapsed = false
+
+    touch()
+    return true
+  }
+
   return {
     addChild,
     updateText,
@@ -97,6 +141,7 @@ export function useTreeOperations(rootNode, history) {
     autoLayout,
     setNodeImage,
     removeNodeImage,
-    updateNotes
+    updateNotes,
+    reparentNode
   }
 }

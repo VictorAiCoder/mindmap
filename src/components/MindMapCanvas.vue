@@ -5,7 +5,7 @@
     ref="wrapperRef"
     @wheel.prevent="onWheel"
     @mousedown="onPanStart"
-    @mousemove="onPanMove"
+    @mousemove="onPanAndDragMove"
     @mouseup="onPanEnd"
     @mouseleave="onPanEnd"
   >
@@ -35,7 +35,7 @@
           v-for="pos in layoutData.positions"
           :key="pos.id"
           :pos="pos"
-          :is-dragged-over="dragOverId === pos.id"
+          :is-dragged-over="nodeDrag.dropTargetId.value === pos.id"
           :is-being-dragged="nodeDrag.draggingNodeId.value === pos.id"
           :live-x="getLiveX(pos)"
           :live-y="getLiveY(pos)"
@@ -45,9 +45,6 @@
           @toggle="mindmap.toggleCollapse(pos.id)"
           @reset-position="handleResetNodePosition(pos.id)"
           @start-drag="(e) => nodeDrag.startNodeDrag(e, pos.id, pos.x, pos.y)"
-          @drag-over="dragOverId = pos.id"
-          @drag-leave="dragOverId = null"
-          @drop="onNodeDrop(pos.id)"
           @set-image="(dataUrl) => handleSetImage(pos.id, dataUrl)"
           @remove-image="handleRemoveImage(pos.id)"
           @open-notes="notesNodeId = pos.id"
@@ -59,7 +56,7 @@
       <v-progress-circular indeterminate color="primary" />
     </div>
 
-    <!-- Редактирование текста узла -->
+    <!-- Редактирование -->
     <div v-if="editingId" class="edit-overlay" @click.self="finishEdit">
       <div class="edit-popup">
         <v-text-field
@@ -80,11 +77,32 @@
       </div>
     </div>
 
-    <!-- ★ Панель заметок -->
+    <!-- Панель заметок -->
     <NotesPanel
       :node-id="notesNodeId"
       @close="notesNodeId = null"
     />
+
+    <!-- Подсказка при перетаскивании -->
+    <Transition name="fade">
+      <div
+        v-if="nodeDrag.isDraggingNode.value && !nodeDrag.dropTargetId.value"
+        class="drag-hint"
+      >
+        <v-icon icon="mdi-cursor-move" size="16" class="mr-1" />
+        Бросьте на узел чтобы вложить, или на пустое место
+      </div>
+    </Transition>
+
+    <Transition name="fade">
+      <div
+        v-if="nodeDrag.dropTargetId.value"
+        class="drag-hint drag-hint--drop"
+      >
+        <v-icon icon="mdi-subdirectory-arrow-right" size="16" class="mr-1" />
+        Отпустите чтобы сделать дочерним
+      </div>
+    </Transition>
 
     <!-- Зум -->
     <div class="zoom-controls">
@@ -92,12 +110,6 @@
       <v-chip size="small" variant="tonal" class="my-1">{{ zoomPercent }}%</v-chip>
       <v-btn icon="mdi-minus" size="small" variant="tonal" @click="zoomOut" />
       <v-btn icon="mdi-fit-to-screen" size="small" variant="tonal" class="mt-1" @click="resetView" />
-      <v-divider class="my-1" />
-      <v-tooltip text="Авто-раскладка" location="left">
-        <template #activator="{ props: tip }">
-          <v-btn v-bind="tip" icon="mdi-auto-fix" size="small" variant="tonal" @click="handleAutoLayout" />
-        </template>
-      </v-tooltip>
     </div>
   </div>
 </template>
@@ -111,6 +123,8 @@ import { useNodeDrag } from '../composables/useNodeDrag'
 
 const mindmap = inject('mindmap', null)
 const notify = inject('notify', () => {})
+
+const wrapperRef = ref(null)
 
 // Layout
 const emptyLayout = {
@@ -166,13 +180,77 @@ function onPanStart(e) {
   lastPan.y = panY.value
 }
 
-function onPanMove(e) {
-  if (!isPanning.value) return
-  panX.value = lastPan.x + (e.clientX - lastMouse.x)
-  panY.value = lastPan.y + (e.clientY - lastMouse.y)
+/**
+ * ★ Совмещённый обработчик mousemove:
+ * - Если панорамирование — двигаем канвас
+ * - Если перетаскивание узла — вычисляем drop target
+ */
+function onPanAndDragMove(e) {
+  // Панорамирование
+  if (isPanning.value) {
+    panX.value = lastPan.x + (e.clientX - lastMouse.x)
+    panY.value = lastPan.y + (e.clientY - lastMouse.y)
+    return
+  }
+
+  // ★ Определяем drop-target при перетаскивании узла
+  if (nodeDrag.isDraggingNode.value) {
+    updateDropTarget(e)
+  }
 }
 
-function onPanEnd() { isPanning.value = false }
+function onPanEnd() {
+  isPanning.value = false
+}
+
+// ★ Определяем над каким узлом курсор
+function updateDropTarget(e) {
+  const wrapper = wrapperRef.value
+  if (!wrapper) return
+
+  const rect = wrapper.getBoundingClientRect()
+  const z = zoom.value
+
+  // Координаты курсора в пространстве сцены
+  const sceneX = (e.clientX - rect.left - panX.value) / z
+  const sceneY = (e.clientY - rect.top - panY.value) / z
+
+  // Учитываем смещение bounds
+  const b = layoutData.value.bounds
+  const worldX = sceneX + b.minX
+  const worldY = sceneY + b.minY
+
+  // Ищем узел под курсором
+  let found = null
+  const draggingId = nodeDrag.draggingNodeId.value
+
+  for (const pos of layoutData.value.positions) {
+    if (pos.id === draggingId) continue
+
+    const px = pos.x
+    const py = pos.y
+    const pw = pos.w
+    const ph = pos.h
+
+    // Увеличенная зона попадания для удобства
+    const pad = 8
+    if (
+      worldX >= px - pad &&
+      worldX <= px + pw + pad &&
+      worldY >= py - pad &&
+      worldY <= py + ph + pad
+    ) {
+      found = pos.id
+      break
+    }
+  }
+
+  if (found) {
+    nodeDrag.setDropTarget(found)
+  } else {
+    nodeDrag.clearDropTarget()
+  }
+}
 
 // Node drag
 const nodeDrag = useNodeDrag(mindmap, zoom)
@@ -247,10 +325,6 @@ const liveConnections = computed(() => {
   return connections
 })
 
-// DnD
-const dragOverId = ref(null)
-function onNodeDrop(targetId) { mindmap?.drag.dropOn(targetId); dragOverId.value = null }
-
 // Edit
 const editingId = ref(null)
 const editText = ref('')
@@ -290,11 +364,6 @@ function handleResetNodePosition(nodeId) {
   notify('Позиция сброшена', 'info', 'mdi-pin-off')
 }
 
-function handleAutoLayout() {
-  mindmap?.resetAllPositions()
-  notify('Авто-раскладка применена', 'success', 'mdi-auto-fix')
-}
-
 function handleSetImage(nodeId, dataUrl) {
   mindmap?.setNodeImage(nodeId, dataUrl)
   notify('Картинка добавлена', 'success', 'mdi-image')
@@ -305,7 +374,7 @@ function handleRemoveImage(nodeId) {
   notify('Картинка удалена', 'info', 'mdi-image-off')
 }
 
-// ★ Notes panel
+// Notes panel
 const notesNodeId = ref(null)
 </script>
 
@@ -335,8 +404,6 @@ const notesNodeId = ref(null)
   transition: opacity 0.2s, d 0.15s ease;
 }
 
-.conn-line:hover { opacity: 1; stroke-width: 3.5; }
-
 .zoom-controls {
   position: absolute;
   bottom: 20px; right: 20px;
@@ -363,5 +430,43 @@ const notesNodeId = ref(null)
   padding: 16px;
   min-width: 300px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+/* Подсказка при перетаскивании */
+.drag-hint {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 18px;
+  background: rgba(var(--v-theme-surface), 0.95);
+  border: 1px solid rgba(var(--v-border-color), 0.3);
+  border-radius: 20px;
+  font-size: 13px;
+  color: rgba(var(--v-theme-on-surface), 0.7);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.drag-hint--drop {
+  background: rgba(33, 150, 243, 0.12);
+  border-color: rgba(33, 150, 243, 0.4);
+  color: rgb(33, 150, 243);
+}
+
+/* Анимация появления/скрытия подсказки */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(8px);
 }
 </style>

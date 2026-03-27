@@ -20,7 +20,14 @@
   >
     <!-- Картинка НАД узлом -->
     <div v-if="hasImage" class="map-node__image-float">
-      <img :src="pos.node.image" class="map-node__image" alt="" draggable="false" />
+      <img
+        :src="pos.node.image"
+        class="map-node__image"
+        alt=""
+        draggable="false"
+        referrerpolicy="no-referrer"
+        @error="onImageError"
+      />
       <button
         class="map-node__image-remove"
         @click.stop="$emit('removeImage')"
@@ -167,7 +174,11 @@ const isNotesHovered = ref(false)
 const isRoot = computed(() => props.pos.depth === 0)
 const isLeaf = computed(() => props.pos.depth >= 2)
 const hasChildren = computed(() => props.pos.node.children?.length > 0)
-const hasImage = computed(() => !!props.pos.node.image)
+// const hasImage = computed(() => !!props.pos.node.image)
+const hasImage = computed(() => {
+  const img = props.pos.node.image
+  return !!img && typeof img === 'string' && img.trim().length > 0
+})
 const hasNotes = computed(() => !!props.pos.node.notes?.trim())
 
 // ★ Превью — первые 7 строк, рендерим как markdown
@@ -246,6 +257,12 @@ async function onImageDrop(e) {
   } catch (err) {
     console.warn('Ошибка загрузки:', err.message)
   }
+}
+
+function onImageError(e) {
+  console.warn('Image failed to load:', props.pos.node.image?.slice(0, 100))
+  // Можно скрыть сломанную картинку
+  e.target.style.display = 'none'
 }
 </script>
 
