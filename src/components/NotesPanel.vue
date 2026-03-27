@@ -3,7 +3,7 @@
   <v-navigation-drawer
     :model-value="!!nodeId"
     location="right"
-    :width="420"
+    :width="mode === 'split' ? '50%' : 420"
     temporary
     @update:model-value="onClose"
   >
