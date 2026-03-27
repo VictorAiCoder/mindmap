@@ -2,6 +2,7 @@
 import { triggerRef } from 'vue'
 import { findNodeById, findParentOf, traverseTree } from './useTreeTraversal'
 import { createNode } from './useNodeFactory'
+import { applyAutoLayout, resetLayout } from './useAutoLayout'
 
 export function useTreeOperations(rootNode, history) {
   function touch() {
@@ -12,7 +13,6 @@ export function useTreeOperations(rootNode, history) {
     history.save()
     const parent = findNodeById(rootNode.value, parentId)
     if (!parent) return null
-
     parent.children = parent.children ?? []
     const node = createNode({ text })
     parent.children.push(node)
@@ -23,19 +23,13 @@ export function useTreeOperations(rootNode, history) {
 
   function updateText(nodeId, newText) {
     const node = findNodeById(rootNode.value, nodeId)
-    if (node) {
-      node.text = newText
-      touch()
-    }
+    if (node) { node.text = newText; touch() }
   }
 
   function updateColor(nodeId, newColor) {
     history.save()
     const node = findNodeById(rootNode.value, nodeId)
-    if (node) {
-      node.color = newColor
-      touch()
-    }
+    if (node) { node.color = newColor; touch() }
   }
 
   function deleteNode(nodeId) {
@@ -43,12 +37,8 @@ export function useTreeOperations(rootNode, history) {
     history.save()
     const parent = findParentOf(rootNode.value, nodeId)
     if (!parent?.children) return
-
     const idx = parent.children.findIndex((c) => c.id === nodeId)
-    if (idx !== -1) {
-      parent.children.splice(idx, 1)
-      touch()
-    }
+    if (idx !== -1) { parent.children.splice(idx, 1); touch() }
   }
 
   function toggleCollapse(nodeId) {
@@ -68,35 +58,32 @@ export function useTreeOperations(rootNode, history) {
 
   function resetAllPositions() {
     history.save()
-    traverseTree(rootNode.value, (node) => {
-      node.customX = null
-      node.customY = null
-    })
+    resetLayout(rootNode.value)
+    touch()
+  }
+
+  // ★ Применение авто-раскладки по типу
+  function autoLayout(type = 'mindmap') {
+    history.save()
+    applyAutoLayout(rootNode.value, type)
     touch()
   }
 
   function setNodeImage(nodeId, dataUrl) {
     history.save()
     const node = findNodeById(rootNode.value, nodeId)
-    if (!node) return
-    node.image = dataUrl
-    touch()
+    if (node) { node.image = dataUrl; touch() }
   }
 
   function removeNodeImage(nodeId) {
     history.save()
     const node = findNodeById(rootNode.value, nodeId)
-    if (!node) return
-    node.image = null
-    touch()
+    if (node) { node.image = null; touch() }
   }
 
-  // ★ Обновление заметки
   function updateNotes(nodeId, notes) {
     const node = findNodeById(rootNode.value, nodeId)
-    if (!node) return
-    node.notes = notes
-    touch()
+    if (node) { node.notes = notes; touch() }
   }
 
   return {
@@ -107,6 +94,7 @@ export function useTreeOperations(rootNode, history) {
     toggleCollapse,
     updateNodePosition,
     resetAllPositions,
+    autoLayout,
     setNodeImage,
     removeNodeImage,
     updateNotes

@@ -14,6 +14,7 @@
       @redo="mindmap.redo()"
       @toggle-theme="toggleTheme"
       @auto-layout="handleAutoLayout"
+      @reset-layout="handleResetLayout"
     />
 
     <v-main>
@@ -37,6 +38,7 @@ import { ref, computed, reactive, provide } from 'vue'
 import ToolbarPanel from './components/ToolbarPanel.vue'
 import MindMap from './components/MindMap.vue'
 import { useMindMap } from './composables/useMindMap'
+import { LAYOUT_TYPES } from './composables/useAutoLayout'
 
 const mindmap = useMindMap()
 provide('mindmap', mindmap)
@@ -74,19 +76,25 @@ function handleExport(format = 'json') {
 async function handleImport(file) {
   try {
     await mindmap.importTree(file)
-    // ★ Определяем формат по расширению для сообщения
     const name = file.name.toLowerCase()
     const isMd = name.endsWith('.md') || name.endsWith('.markdown')
-    const formatLabel = isMd ? 'Markdown' : 'JSON'
-    notify(`Карта импортирована из ${formatLabel}`, 'success', 'mdi-upload')
+    notify(`Импорт из ${isMd ? 'Markdown' : 'JSON'}`, 'success', 'mdi-upload')
   } catch (err) {
     notify(err.message, 'error', 'mdi-alert')
   }
 }
 
-function handleAutoLayout() {
+// ★ Авто-раскладка по типу
+function handleAutoLayout(type) {
+  mindmap.autoLayout(type)
+  const label = LAYOUT_TYPES[type]?.label || type
+  notify(`Раскладка: ${label}`, 'success', LAYOUT_TYPES[type]?.icon || 'mdi-auto-fix')
+}
+
+// ★ Сброс позиций
+function handleResetLayout() {
   mindmap.resetAllPositions()
-  notify('Авто-раскладка применена', 'success', 'mdi-auto-fix')
+  notify('Позиции сброшены', 'info', 'mdi-pin-off-outline')
 }
 </script>
 

@@ -25,16 +25,37 @@
 
       <v-divider vertical class="mx-1" />
 
-      <!-- Авто-раскладка -->
-      <v-tooltip text="Авто-раскладка" location="bottom">
-        <template #activator="{ props }">
-          <v-btn v-bind="props" icon="mdi-auto-fix" variant="text" @click="emit('autoLayout')" />
+      <!-- ★ Раскладка — меню с вариантами -->
+      <v-menu>
+        <template #activator="{ props: menu }">
+          <v-tooltip text="Раскладка узлов" location="bottom">
+            <template #activator="{ props: tip }">
+              <v-btn v-bind="{ ...menu, ...tip }" icon="mdi-auto-fix" variant="text" />
+            </template>
+          </v-tooltip>
         </template>
-      </v-tooltip>
+        <v-list density="compact" min-width="240">
+          <v-list-subheader>Авто-раскладка</v-list-subheader>
+          <v-list-item
+            v-for="(layout, key) in layoutTypes"
+            :key="key"
+            :prepend-icon="layout.icon"
+            :title="layout.label"
+            @click="emit('autoLayout', key)"
+          />
+          <v-divider class="my-1" />
+          <v-list-item
+            prepend-icon="mdi-pin-off-outline"
+            title="Сбросить позиции"
+            subtitle="Вернуть авто-расчёт"
+            @click="emit('resetLayout')"
+          />
+        </v-list>
+      </v-menu>
 
       <v-divider vertical class="mx-1" />
 
-      <!-- Экспорт — меню -->
+      <!-- Экспорт -->
       <v-menu>
         <template #activator="{ props: menu }">
           <v-tooltip text="Экспорт" location="bottom">
@@ -60,7 +81,7 @@
         </v-list>
       </v-menu>
 
-      <!-- ★ Импорт — меню с выбором -->
+      <!-- Импорт -->
       <v-menu>
         <template #activator="{ props: menu }">
           <v-tooltip text="Импорт" location="bottom">
@@ -74,19 +95,16 @@
           <v-list-item
             prepend-icon="mdi-code-json"
             title="Из JSON"
-            subtitle="Файл .json"
             @click="openFilePicker('.json')"
           />
           <v-list-item
             prepend-icon="mdi-language-markdown"
             title="Из Markdown"
-            subtitle="Файл .md"
             @click="openFilePicker('.md,.markdown')"
           />
           <v-list-item
             prepend-icon="mdi-file-question"
             title="Авто-определение"
-            subtitle="Любой формат"
             @click="openFilePicker('.json,.md,.markdown,.txt')"
           />
         </v-list>
@@ -114,17 +132,9 @@
       </v-tooltip>
     </template>
 
-    <!-- ★ Скрытый input — accept меняется динамически -->
-    <input
-      ref="fileInput"
-      type="file"
-      :accept="fileAccept"
-      hidden
-      @change="onFileSelected"
-    />
+    <input ref="fileInput" type="file" :accept="fileAccept" hidden @change="onFileSelected" />
   </v-app-bar>
 
-  <!-- Диалог сброса -->
   <v-dialog v-model="resetDialog" max-width="400">
     <v-card>
       <v-card-title class="text-h6">
@@ -143,6 +153,7 @@
 
 <script setup>
 import { ref, nextTick } from 'vue'
+import { LAYOUT_TYPES } from '../composables/useAutoLayout'
 
 defineProps({
   nodeCount: { type: Number, default: 0 },
@@ -152,7 +163,12 @@ defineProps({
   isDark: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['export', 'import', 'reset', 'undo', 'redo', 'toggleTheme', 'autoLayout'])
+const emit = defineEmits([
+  'export', 'import', 'reset', 'undo', 'redo',
+  'toggleTheme', 'autoLayout', 'resetLayout'
+])
+
+const layoutTypes = LAYOUT_TYPES
 
 const fileInput = ref(null)
 const fileAccept = ref('.json,.md,.markdown')
@@ -160,17 +176,11 @@ const resetDialog = ref(false)
 
 function openFilePicker(accept) {
   fileAccept.value = accept
-  // nextTick чтобы accept успел обновиться
-  nextTick(() => {
-    fileInput.value?.click()
-  })
+  nextTick(() => fileInput.value?.click())
 }
 
 function onFileSelected(e) {
   const file = e.target.files?.[0]
-  if (file) {
-    emit('import', file)
-    e.target.value = ''
-  }
+  if (file) { emit('import', file); e.target.value = '' }
 }
 </script>

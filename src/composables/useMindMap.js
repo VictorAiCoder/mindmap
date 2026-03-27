@@ -1,5 +1,5 @@
 // src/composables/useMindMap.js
-import { ref, triggerRef } from 'vue'
+import { ref } from 'vue'
 import { useHistory } from './useHistory'
 import { useTreeOperations } from './useTreeOperations'
 import { useDragDrop } from './useDragDrop'
