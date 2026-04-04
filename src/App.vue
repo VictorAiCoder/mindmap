@@ -21,12 +21,7 @@
       <MindMap />
     </v-main>
 
-    <v-snackbar
-      v-model="snackbar.show"
-      :color="snackbar.color"
-      :timeout="2000"
-      location="bottom right"
-    >
+    <v-snackbar v-model="snackbar.show" :color="snackbar.color" :timeout="2000" location="bottom right">
       <v-icon :icon="snackbar.icon" class="mr-2" />
       {{ snackbar.text }}
     </v-snackbar>
@@ -35,23 +30,25 @@
 
 <script setup>
 import { ref, computed, reactive, provide } from 'vue'
-import ToolbarPanel from './components/ToolbarPanel.vue'
+import ToolbarPanel from './components/panels/ToolbarPanel.vue'
 import MindMap from './components/MindMap.vue'
 import { useMindMap } from './composables/useMindMap'
-import { LAYOUT_TYPES } from './composables/useAutoLayout'
+import { LAYOUT_TYPES } from './composables/layout/useAutoLayout'
 
 const mindmap = useMindMap()
 provide('mindmap', mindmap)
 
-const snackbar = reactive({
-  show: false, text: '', color: 'success', icon: 'mdi-check'
-})
+// ─── Snackbar ───────────────────────────────
+
+const snackbar = reactive({ show: false, text: '', color: 'success', icon: 'mdi-check' })
 
 function notify(text, color = 'success', icon = 'mdi-check') {
   Object.assign(snackbar, { show: true, text, color, icon })
 }
 
 provide('notify', notify)
+
+// ─── Theme ──────────────────────────────────
 
 const theme = ref(localStorage.getItem('mindmap-theme') || 'light')
 
@@ -60,38 +57,44 @@ function toggleTheme() {
   localStorage.setItem('mindmap-theme', theme.value)
 }
 
+// ─── Stats ──────────────────────────────────
+
 const nodeCount = computed(() => mindmap.countNodes())
 const depth = computed(() => mindmap.getDepth())
 
+// ─── Export ─────────────────────────────────
+
+const EXPORT_LABELS = {
+  json: { text: 'Экспорт в JSON', icon: 'mdi-code-json' },
+  md: { text: 'Экспорт в Markdown', icon: 'mdi-language-markdown' }
+}
+
 function handleExport(format = 'json') {
   mindmap.exportTree(format)
-  const labels = {
-    json: { text: 'Экспорт в JSON', icon: 'mdi-code-json' },
-    md: { text: 'Экспорт в Markdown', icon: 'mdi-language-markdown' }
-  }
-  const label = labels[format] || labels.json
+  const label = EXPORT_LABELS[format] || EXPORT_LABELS.json
   notify(label.text, 'success', label.icon)
 }
+
+// ─── Import ─────────────────────────────────
 
 async function handleImport(file) {
   try {
     await mindmap.importTree(file)
-    const name = file.name.toLowerCase()
-    const isMd = name.endsWith('.md') || name.endsWith('.markdown')
+    const isMd = /\.(md|markdown)$/i.test(file.name)
     notify(`Импорт из ${isMd ? 'Markdown' : 'JSON'}`, 'success', 'mdi-upload')
   } catch (err) {
     notify(err.message, 'error', 'mdi-alert')
   }
 }
 
-// ★ Авто-раскладка по типу
+// ─── Layout ─────────────────────────────────
+
 function handleAutoLayout(type) {
   mindmap.autoLayout(type)
-  const label = LAYOUT_TYPES[type]?.label || type
-  notify(`Раскладка: ${label}`, 'success', LAYOUT_TYPES[type]?.icon || 'mdi-auto-fix')
+  const layout = LAYOUT_TYPES[type]
+  notify(`Раскладка: ${layout?.label || type}`, 'success', layout?.icon || 'mdi-auto-fix')
 }
 
-// ★ Сброс позиций
 function handleResetLayout() {
   mindmap.resetAllPositions()
   notify('Позиции сброшены', 'info', 'mdi-pin-off-outline')

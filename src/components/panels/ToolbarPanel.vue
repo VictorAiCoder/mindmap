@@ -1,4 +1,4 @@
-<!-- src/components/ToolbarPanel.vue -->
+<!-- src/components/panels/ToolbarPanel.vue -->
 <template>
   <v-app-bar elevation="2" color="primary" density="comfortable">
     <v-app-bar-title class="d-flex align-center">
@@ -10,7 +10,6 @@
     </v-app-bar-title>
 
     <template #append>
-      <!-- Undo / Redo -->
       <v-tooltip text="Отменить (Ctrl+Z)" location="bottom">
         <template #activator="{ props }">
           <v-btn v-bind="props" icon="mdi-undo" variant="text" :disabled="!canUndo" @click="emit('undo')" />
@@ -25,7 +24,7 @@
 
       <v-divider vertical class="mx-1" />
 
-      <!-- ★ Раскладка — меню с вариантами -->
+      <!-- Раскладка -->
       <v-menu>
         <template #activator="{ props: menu }">
           <v-tooltip text="Раскладка узлов" location="bottom">
@@ -92,34 +91,20 @@
         </template>
         <v-list density="compact" min-width="220">
           <v-list-subheader>Импорт карты</v-list-subheader>
-          <v-list-item
-            prepend-icon="mdi-code-json"
-            title="Из JSON"
-            @click="openFilePicker('.json')"
-          />
-          <v-list-item
-            prepend-icon="mdi-language-markdown"
-            title="Из Markdown"
-            @click="openFilePicker('.md,.markdown')"
-          />
-          <v-list-item
-            prepend-icon="mdi-file-question"
-            title="Авто-определение"
-            @click="openFilePicker('.json,.md,.markdown,.txt')"
-          />
+          <v-list-item prepend-icon="mdi-code-json" title="Из JSON" @click="openFilePicker('.json')" />
+          <v-list-item prepend-icon="mdi-language-markdown" title="Из Markdown" @click="openFilePicker('.md,.markdown')" />
+          <v-list-item prepend-icon="mdi-file-question" title="Авто-определение" @click="openFilePicker('.json,.md,.markdown,.txt')" />
         </v-list>
       </v-menu>
 
       <v-divider vertical class="mx-1" />
 
-      <!-- Сброс -->
       <v-tooltip text="Сбросить карту" location="bottom">
         <template #activator="{ props }">
           <v-btn v-bind="props" icon="mdi-refresh" variant="text" @click="resetDialog = true" />
         </template>
       </v-tooltip>
 
-      <!-- Тема -->
       <v-tooltip text="Переключить тему" location="bottom">
         <template #activator="{ props }">
           <v-btn
@@ -153,7 +138,7 @@
 
 <script setup>
 import { ref, nextTick } from 'vue'
-import { LAYOUT_TYPES } from '../composables/useAutoLayout'
+import { LAYOUT_TYPES } from '../../composables/layout/useAutoLayout'
 
 defineProps({
   nodeCount: { type: Number, default: 0 },
@@ -169,7 +154,6 @@ const emit = defineEmits([
 ])
 
 const layoutTypes = LAYOUT_TYPES
-
 const fileInput = ref(null)
 const fileAccept = ref('.json,.md,.markdown')
 const resetDialog = ref(false)

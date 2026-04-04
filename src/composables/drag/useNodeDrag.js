@@ -1,15 +1,10 @@
-// src/composables/useNodeDrag.js
+// src/composables/drag/useNodeDrag.js
 import { ref, computed } from 'vue'
 
-/**
- * Управляет перетаскиванием узлов на канвасе:
- * - Перемещение узла (смена координат)
- * - Бросание на другой узел (смена иерархии)
- */
+const MOVE_THRESHOLD = 4
+
 export function useNodeDrag(mindmap, zoom) {
   const draggingNodeId = ref(null)
-  const dragOffsetX = ref(0)
-  const dragOffsetY = ref(0)
   const dragStartX = ref(0)
   const dragStartY = ref(0)
   const dragCurrentX = ref(0)
@@ -17,13 +12,9 @@ export function useNodeDrag(mindmap, zoom) {
   const dragStartNodeX = ref(0)
   const dragStartNodeY = ref(0)
   const hasMoved = ref(false)
-
-  // ★ Узел, над которым сейчас находится перетаскиваемый
   const dropTargetId = ref(null)
 
   const isDraggingNode = computed(() => draggingNodeId.value !== null)
-
-  const MOVE_THRESHOLD = 4
 
   function startNodeDrag(e, nodeId, nodeX, nodeY) {
     draggingNodeId.value = nodeId
@@ -51,9 +42,7 @@ export function useNodeDrag(mindmap, zoom) {
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
 
-      if (hasMoved.value) {
-        finishDrag()
-      }
+      if (hasMoved.value) finishDrag()
 
       draggingNodeId.value = null
       dropTargetId.value = null
@@ -67,13 +56,11 @@ export function useNodeDrag(mindmap, zoom) {
   function finishDrag() {
     if (!mindmap || !draggingNodeId.value) return
 
-    const targetId = dropTargetId.value
+    const target = dropTargetId.value
 
-    if (targetId && targetId !== draggingNodeId.value) {
-      // ★ Бросаем на другой узел — меняем иерархию
-      mindmap.reparentNode(draggingNodeId.value, targetId)
+    if (target && target !== draggingNodeId.value) {
+      mindmap.reparentNode(draggingNodeId.value, target)
     } else {
-      // Бросаем на пустое место — меняем координаты
       const pos = getDraggedPosition(
         draggingNodeId.value,
         dragStartNodeX.value,
@@ -89,19 +76,16 @@ export function useNodeDrag(mindmap, zoom) {
     }
 
     const z = zoom.value
-    const dx = (dragCurrentX.value - dragStartX.value) / z
-    const dy = (dragCurrentY.value - dragStartY.value) / z
-
     return {
-      x: dragStartNodeX.value + dx,
-      y: dragStartNodeY.value + dy
+      x: dragStartNodeX.value + (dragCurrentX.value - dragStartX.value) / z,
+      y: dragStartNodeY.value + (dragCurrentY.value - dragStartY.value) / z
     }
   }
 
-  // ★ Устанавливает целевой узел для drop
   function setDropTarget(nodeId) {
-    if (nodeId === draggingNodeId.value) return
-    dropTargetId.value = nodeId
+    if (nodeId !== draggingNodeId.value) {
+      dropTargetId.value = nodeId
+    }
   }
 
   function clearDropTarget() {
@@ -109,12 +93,8 @@ export function useNodeDrag(mindmap, zoom) {
   }
 
   return {
-    draggingNodeId,
-    isDraggingNode,
-    dropTargetId,
-    startNodeDrag,
-    getDraggedPosition,
-    setDropTarget,
-    clearDropTarget
+    draggingNodeId, isDraggingNode, dropTargetId,
+    startNodeDrag, getDraggedPosition,
+    setDropTarget, clearDropTarget
   }
 }

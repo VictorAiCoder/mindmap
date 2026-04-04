@@ -1,5 +1,5 @@
-// src/composables/useNodeFactory.js
-import { NODE_COLORS, DEFAULT_COLOR } from './constants'
+// src/composables/tree/useNodeFactory.js
+import { NODE_COLORS, DEFAULT_COLOR } from '../../constants'
 
 let counter = 0
 
@@ -11,7 +11,13 @@ function pickRandomColor() {
   return NODE_COLORS[Math.floor(Math.random() * NODE_COLORS.length)]
 }
 
-export function createNode({ text = 'Новый узел', color, children = [], image = null, notes = '' } = {}) {
+export function createNode({
+  text = 'Новый узел',
+  color,
+  children = [],
+  image = null,
+  notes = ''
+} = {}) {
   return {
     id: generateId(),
     text,
@@ -20,7 +26,7 @@ export function createNode({ text = 'Новый узел', color, children = [],
     customX: null,
     customY: null,
     image,
-    notes,       // ★ markdown-заметка
+    notes,
     children
   }
 }

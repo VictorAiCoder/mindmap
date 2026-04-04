@@ -1,44 +1,53 @@
 // src/composables/useHistory.js
-// Паттерн: Memento — снимки состояния для undo/redo
+import { ref, shallowRef } from 'vue'
 
-import { ref, computed } from 'vue'
-import { MAX_HISTORY } from './constants'
+const MAX_HISTORY = 50
 
-export function useHistory(stateRef, { maxSize = MAX_HISTORY } = {}) {
-  const snapshots = ref([])
-  const index = ref(-1)
+export function useHistory(rootNode) {
+  const undoStack = ref([])
+  const redoStack = ref([])
 
-  const canUndo = computed(() => index.value > 0)
-  const canRedo = computed(() => index.value < snapshots.value.length - 1)
+  const canUndo = ref(false)
+  const canRedo = ref(false)
 
-  function clone(data) {
-    return JSON.parse(JSON.stringify(data))
+  function updateFlags() {
+    canUndo.value = undoStack.value.length > 0
+    canRedo.value = redoStack.value.length > 0
   }
 
   function save() {
-    snapshots.value = snapshots.value.slice(0, index.value + 1)
-    snapshots.value.push(clone(stateRef.value))
+    const snapshot = JSON.stringify(rootNode.value)
+    undoStack.value.push(snapshot)
 
-    if (snapshots.value.length > maxSize) {
-      snapshots.value.shift()
+    if (undoStack.value.length > MAX_HISTORY) {
+      undoStack.value.shift()
     }
-    index.value = snapshots.value.length - 1
+
+    redoStack.value = []
+    updateFlags()
   }
 
   function undo() {
-    if (!canUndo.value) return
-    index.value--
-    stateRef.value = clone(snapshots.value[index.value])
+    if (!undoStack.value.length) return
+
+    const current = JSON.stringify(rootNode.value)
+    redoStack.value.push(current)
+
+    const prev = undoStack.value.pop()
+    rootNode.value = JSON.parse(prev)
+    updateFlags()
   }
 
   function redo() {
-    if (!canRedo.value) return
-    index.value++
-    stateRef.value = clone(snapshots.value[index.value])
-  }
+    if (!redoStack.value.length) return
 
-  // Первый снимок
-  save()
+    const current = JSON.stringify(rootNode.value)
+    undoStack.value.push(current)
+
+    const next = redoStack.value.pop()
+    rootNode.value = JSON.parse(next)
+    updateFlags()
+  }
 
   return { save, undo, redo, canUndo, canRedo }
 }

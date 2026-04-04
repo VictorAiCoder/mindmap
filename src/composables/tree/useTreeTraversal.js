@@ -1,20 +1,15 @@
-// src/composables/useTreeTraversal.js
-/**
- * Обход дерева, поиск узлов и вспомогательные функции
- */
-
+// src/composables/tree/useTreeTraversal.js
 export function traverseTree(node, callback) {
   if (!node) return
   callback(node)
-  if (node.children) {
-    node.children.forEach(child => traverseTree(child, callback))
-  }
+  node.children?.forEach(child => traverseTree(child, callback))
 }
 
 export function findNodeById(root, id) {
   if (!root || !id) return null
   if (root.id === id) return root
   if (!root.children) return null
+
   for (const child of root.children) {
     const found = findNodeById(child, id)
     if (found) return found
@@ -24,6 +19,7 @@ export function findNodeById(root, id) {
 
 export function findParentOf(root, nodeId) {
   if (!root?.children) return null
+
   for (const child of root.children) {
     if (child.id === nodeId) return root
     const found = findParentOf(child, nodeId)
@@ -34,11 +30,7 @@ export function findParentOf(root, nodeId) {
 
 export function countNodes(node) {
   if (!node) return 0
-  let count = 1
-  if (node.children) {
-    node.children.forEach(child => { count += countNodes(child) })
-  }
-  return count
+  return 1 + (node.children?.reduce((sum, c) => sum + countNodes(c), 0) ?? 0)
 }
 
 export function getDepth(node) {
@@ -47,8 +39,7 @@ export function getDepth(node) {
 }
 
 /**
- * ★ Проверяет, является ли потенциальный потомок
- * действительно потомком ancestor
+ * Проверяет, является ли nodeId потомком ancestor
  */
 export function isDescendantOf(root, ancestorId, nodeId) {
   const ancestor = findNodeById(root, ancestorId)
@@ -56,15 +47,14 @@ export function isDescendantOf(root, ancestorId, nodeId) {
 
   function check(node) {
     if (node.id === nodeId) return true
-    if (!node.children) return false
-    return node.children.some(child => check(child))
+    return node.children?.some(check) ?? false
   }
 
   return check(ancestor)
 }
 
 /**
- * ★ Удаляет узел из родителя и возвращает его
+ * Отсоединяет узел от родителя и возвращает его
  */
 export function detachNode(root, nodeId) {
   const parent = findParentOf(root, nodeId)
@@ -73,6 +63,5 @@ export function detachNode(root, nodeId) {
   const idx = parent.children.findIndex(c => c.id === nodeId)
   if (idx === -1) return null
 
-  const [node] = parent.children.splice(idx, 1)
-  return node
+  return parent.children.splice(idx, 1)[0]
 }

@@ -1,11 +1,11 @@
 // src/composables/useMindMap.js
 import { ref } from 'vue'
 import { useHistory } from './useHistory'
-import { useTreeOperations } from './useTreeOperations'
-import { useDragDrop } from './useDragDrop'
-import { usePersistence, loadFromStorage } from './usePersistence'
-import { createDefaultTree } from './useNodeFactory'
-import { countNodes, getDepth } from './useTreeTraversal'
+import { useTreeOperations } from './tree/useTreeOperations'
+import { useDragDrop } from './drag/useDragDrop'
+import { usePersistence, loadFromStorage } from './persistence/usePersistence'
+import { createDefaultTree } from './tree/useNodeFactory'
+import { countNodes, getDepth } from './tree/useTreeTraversal'
 
 export function useMindMap() {
   const rootNode = ref(loadFromStorage() || createDefaultTree())
