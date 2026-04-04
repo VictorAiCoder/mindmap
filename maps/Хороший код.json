@@ -1,0 +1,250 @@
+{
+  "id": "node_1775331051197_94_r378n",
+  "text": "📖 Инструкция: Как писать хороший код",
+  "color": "#5C6BC0",
+  "customX": 1100,
+  "customY": 1422,
+  "children": [
+    {
+      "id": "node_1775331051197_96_c1eu6",
+      "text": "1. Читаемость — главный приоритет",
+      "color": "#FF7043",
+      "customX": 1258.8070175438595,
+      "customY": 766,
+      "notes": "> «Код читают в 10 раз чаще, чем пишут» — Роберт Мартин\r",
+      "children": [
+        {
+          "id": "node_1775331051197_97_2ncrw",
+          "text": "Размер файлов",
+          "color": "#AB47BC",
+          "customX": 815.8070175438596,
+          "customY": 443.9999999999999,
+          "notes": "- **Максимум 300 строк** на файл\r\n- **Максимум 20-30 строк** на функцию/метод\r\n- **Максимум 3 уровня** вложенности\r"
+        },
+        {
+          "id": "node_1775331051197_98_sbnp8",
+          "text": "Именование",
+          "color": "#42A5F5",
+          "customX": 903.5438596491227,
+          "customY": 699.1052631578946,
+          "notes": "```typescript\r\n// ❌ Плохо\r\nconst d = 86400\r\nconst ul = getUl()\r\nconst flag = true\r\n\r\n// ✅ Хорошо\r\nconst SECONDS_IN_DAY = 86400\r\nconst activeUsersList = getActiveUsers()\r\nconst isModalVisible = true\r\n```\r",
+          "children": [
+            {
+              "id": "node_1775331051197_99_rhn0g",
+              "text": "Конвенции именования JS/TS",
+              "color": "#66BB6A",
+              "customX": 603.5438596491227,
+              "customY": 699.1052631578946,
+              "notes": "| Что | Стиль | Пример |\r\n|---|---|---|\r\n| Переменные, функции | camelCase | `getUserData()` |\r\n| Константы | UPPER_SNAKE | `MAX_RETRY_COUNT` |\r\n| Классы, интерфейсы, типы | PascalCase | `UserService`, `IUserRepo` |\r\n| Булевы переменные | is/has/can/should | `isLoading`, `hasAccess` |\r\n| Обработчики событий | handle/on | `handleClick`, `onSubmit` |\r\n| Приватные поля | _ префикс | `_internalState` |\r"
+            }
+          ]
+        },
+        {
+          "id": "node_1775331051197_100_ayz12",
+          "text": "Функции",
+          "color": "#FFA726",
+          "customX": 1200.5438596491226,
+          "customY": 464.2105263157895,
+          "notes": "- Делают **одну вещь**\r\n- Название — **глагол**\r\n- **Не более 3 параметров**\r\n\r\n```typescript\r\n// ❌ Плохо — функция делает всё сразу\r\nfunction processUser(name: string, age: number, email: string, \r\n                     role: string, sendEmail: boolean) {\r\n  // валидация + создание + отправка письма + логирование\r\n}\r\n\r\n// ✅ Хорошо — разделяем ответственность\r\nfunction validateUserData(data: CreateUserDTO): ValidationResult { ... }\r\nfunction createUser(data: CreateUserDTO): User { ... }\r\nfunction sendWelcomeEmail(user: User): void { ... }\r\n```\r\n\r\n---\r"
+        }
+      ]
+    },
+    {
+      "id": "node_1775331051197_101_icjiq",
+      "text": "2. Специфика TypeScript",
+      "color": "#EC407A",
+      "customX": 1822.8947368421052,
+      "customY": 841,
+      "children": [
+        {
+          "id": "node_1775331051197_102_hqajg",
+          "text": "Строгая типизация — всегда",
+          "color": "#8D6E63",
+          "customX": 2122.894736842105,
+          "customY": 441,
+          "notes": "```typescript\r\n// ❌ Плохо\r\nconst getUser = (id: any): any => { ... }\r\n\r\n// ✅ Хорошо\r\ninterface User {\r\n  id: number\r\n  name: string\r\n  email: string\r\n}\r\n\r\nconst getUser = (id: number): Promise<User | null> => { ... }\r\n```\r"
+        },
+        {
+          "id": "node_1775331051197_103_3hu6b",
+          "text": "Используй утилитарные типы",
+          "color": "#78909C",
+          "customX": 2122.894736842105,
+          "customY": 657,
+          "notes": "```typescript\r\n// Вместо дублирования\r\ntype UserPreview = Pick<User, 'id' | 'name'>\r\ntype UserUpdate = Partial<User>\r\ntype RequiredUser = Required<User>\r\ntype ReadonlyUser = Readonly<User>\r\n```\r"
+        },
+        {
+          "id": "node_1775331051197_104_fsgmc",
+          "text": "Перечисления и union types",
+          "color": "#EF5350",
+          "customX": 2122.894736842105,
+          "customY": 873,
+          "notes": "```typescript\r\n// ❌ Магические строки\r\nif (status === 'active') { ... }\r\n\r\n// ✅ Типизированные значения\r\ntype UserStatus = 'active' | 'inactive' | 'banned'\r\n\r\n// или enum для сложных случаев\r\nenum OrderStatus {\r\n  Pending = 'pending',\r\n  Confirmed = 'confirmed',\r\n  Shipped = 'shipped',\r\n}\r\n```\r"
+        },
+        {
+          "id": "node_1775331051197_105_ege8o",
+          "text": "Избегай `as` — используй type guards",
+          "color": "#29B6F6",
+          "customX": 2122.894736842105,
+          "customY": 1089,
+          "notes": "```typescript\r\n// ❌ Опасное приведение\r\nconst user = data as User\r\n\r\n// ✅ Type guard\r\nfunction isUser(data: unknown): data is User {\r\n  return (\r\n    typeof data === 'object' &&\r\n    data !== null &&\r\n    'id' in data &&\r\n    'name' in data\r\n  )\r\n}\r\n\r\nif (isUser(data)) {\r\n  console.log(data.name) // TypeScript знает тип\r\n}\r\n```\r\n\r\n---\r"
+        }
+      ]
+    },
+    {
+      "id": "node_1775331051197_106_qx8z8",
+      "text": "3. Специфика Vue 3 + Composition API",
+      "color": "#5C6BC0",
+      "customX": 205.263157894737,
+      "customY": 1046.9473684210527,
+      "children": [
+        {
+          "id": "node_1775331051197_107_xodvy",
+          "text": "Структура компонента",
+          "color": "#26A69A",
+          "customX": -94.73684210526301,
+          "customY": 754.9473684210526,
+          "notes": "```vue\r\n<script setup lang=\"ts\">\r\n// 1. Импорты\r\nimport { ref, computed, onMounted } from 'vue'\r\nimport { useUserStore } from '@/stores/user'\r\nimport UserCard from '@/components/UserCard.vue'\r\n\r\n// 2. Типы/интерфейсы (если локальные)\r\ninterface Props {\r\n  userId: number\r\n  isEditable?: boolean\r\n}\r\n\r\n// 3. Props & Emits\r\nconst props = withDefaults(defineProps<Props>(), {\r\n  isEditable: false,\r\n})\r\n\r\nconst emit = defineEmits<{\r\n  save: [user: User]\r\n  cancel: []\r\n}>()\r\n\r\n// 4. Composables / Store\r\nconst userStore = useUserStore()\r\nconst { showNotification } = useNotification()\r\n\r\n// 5. Реактивное состояние\r\nconst isLoading = ref(false)\r\nconst searchQuery = ref('')\r\n\r\n// 6. Computed\r\nconst filteredUsers = computed(() =>\r\n  userStore.users.filter(u =>\r\n    u.name.toLowerCase().includes(searchQuery.value.toLowerCase())\r\n  )\r\n)\r\n\r\n// 7. Методы\r\nfunction handleSave(user: User): void {\r\n  emit('save', user)\r\n}\r\n\r\n// 8. Lifecycle\r\nonMounted(() => {\r\n  userStore.fetchUsers()\r\n})\r\n</script>\r\n\r\n<template>\r\n  <!-- Максимум 50 строк шаблона -->\r\n</template>\r\n\r\n<style scoped>\r\n  /* Только scoped стили */\r\n</style>\r\n```\r"
+        },
+        {
+          "id": "node_1775331051197_108_eautc",
+          "text": "Декомпозиция компонентов",
+          "color": "#FF7043",
+          "customX": -94.73684210526301,
+          "customY": 970.9473684210526,
+          "notes": "```\r\n# ❌ Один гигантский компонент\r\nUserDashboard.vue (800 строк)\r\n\r\n# ✅ Разделяй на мелкие\r\nUserDashboard.vue          → layout + координация\r\n├── UserSearchBar.vue      → поиск\r\n├── UserList.vue           → список\r\n│   └── UserCard.vue       → карточка\r\n├── UserDetailsPanel.vue   → детали\r\n└── UserStatsWidget.vue    → статистика\r\n```\r"
+        },
+        {
+          "id": "node_1775331051197_109_h7hlb",
+          "text": "Composables — выноси логику из компонентов",
+          "color": "#AB47BC",
+          "customX": -94.73684210526301,
+          "customY": 1186.9473684210527,
+          "notes": "```typescript\r\n// composables/useSearch.ts\r\nimport { ref, computed, type Ref } from 'vue'\r\n\r\nexport function useSearch<T>(\r\n  items: Ref<T[]>,\r\n  searchField: keyof T\r\n) {\r\n  const searchQuery = ref('')\r\n\r\n  const filteredItems = computed(() => {\r\n    if (!searchQuery.value) return items.value\r\n    \r\n    return items.value.filter(item =>\r\n      String(item[searchField])\r\n        .toLowerCase()\r\n        .includes(searchQuery.value.toLowerCase())\r\n    )\r\n  })\r\n\r\n  function resetSearch(): void {\r\n    searchQuery.value = ''\r\n  }\r\n\r\n  return {\r\n    searchQuery,\r\n    filteredItems,\r\n    resetSearch,\r\n  }\r\n}\r\n```\r\n\r\n```vue\r\n<!-- Использование в компоненте — чисто и кратко -->\r\n<script setup lang=\"ts\">\r\nconst { searchQuery, filteredItems, resetSearch } = useSearch(users, 'name')\r\n</script>\r\n```\r\n\r\n---\r"
+        }
+      ]
+    },
+    {
+      "id": "node_1775331051197_110_gg3g0",
+      "text": "4. Структура проекта",
+      "color": "#42A5F5",
+      "customX": 1713.6842105263158,
+      "customY": 1130,
+      "notes": "```\r\nsrc/\r\n├── assets/                # Статика (изображения, шрифты)\r\n├── components/\r\n│   ├── ui/                # Базовые UI-компоненты (Button, Modal, Input)\r\n│   └── features/          # Бизнес-компоненты (UserCard, OrderTable)\r\n├── composables/           # useSearch, useAuth, useNotification\r\n├── services/              # API-вызовы, бизнес-логика\r\n│   ├── api/\r\n│   │   ├── httpClient.ts  # Настроенный axios/fetch\r\n│   │   ├── userApi.ts\r\n│   │   └── orderApi.ts\r\n│   └── mappers/           # DTO → Domain модели\r\n├── stores/                # Pinia stores\r\n│   ├── userStore.ts\r\n│   └── authStore.ts\r\n├── types/                 # Глобальные типы и интерфейсы\r\n│   ├── user.ts\r\n│   └── order.ts\r\n├── utils/                 # Чистые хелпер-функции\r\n│   ├── formatDate.ts\r\n│   └── validators.ts\r\n├── router/\r\n├── views/                 # Страницы (роуты)\r\n└── App.vue\r\n```\r\n\r\n---\r"
+    },
+    {
+      "id": "node_1775331051197_111_v3mcu",
+      "text": "5. Паттерны проектирования в JS/TS/Vue",
+      "color": "#66BB6A",
+      "customX": 634.2105263157895,
+      "customY": 1521.2631578947369,
+      "children": [
+        {
+          "id": "node_1775331051197_112_zft27",
+          "text": "Strategy — переключение поведения",
+          "color": "#FFA726",
+          "customX": 334.2105263157895,
+          "customY": 1229.2631578947369,
+          "notes": "```typescript\r\n// strategies/sortStrategies.ts\r\ntype SortStrategy<T> = (a: T, b: T) => number\r\n\r\nconst sortByName: SortStrategy<User> = (a, b) =>\r\n  a.name.localeCompare(b.name)\r\n\r\nconst sortByDate: SortStrategy<User> = (a, b) =>\r\n  new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()\r\n\r\nconst sortStrategies: Record<string, SortStrategy<User>> = {\r\n  name: sortByName,\r\n  date: sortByDate,\r\n}\r\n\r\n// Использование\r\nconst sorted = users.sort(sortStrategies[currentSort])\r\n```\r"
+        },
+        {
+          "id": "node_1775331051197_113_e07e9",
+          "text": "Repository — изоляция API",
+          "color": "#EC407A",
+          "customX": 334.2105263157895,
+          "customY": 1445.2631578947369,
+          "notes": "```typescript\r\n// services/api/userApi.ts\r\nclass UserApi {\r\n  private http: HttpClient\r\n\r\n  constructor(http: HttpClient) {\r\n    this.http = http\r\n  }\r\n\r\n  async getAll(): Promise<User[]> {\r\n    const { data } = await this.http.get<UserDTO[]>('/users')\r\n    return data.map(UserMapper.toDomain)\r\n  }\r\n\r\n  async getById(id: number): Promise<User> {\r\n    const { data } = await this.http.get<UserDTO>(`/users/${id}`)\r\n    return UserMapper.toDomain(data)\r\n  }\r\n}\r\n```\r"
+        },
+        {
+          "id": "node_1775331051197_114_r4zi4",
+          "text": "Observer — через Vue event bus или mitt",
+          "color": "#8D6E63",
+          "customX": 334.2105263157895,
+          "customY": 1661.2631578947369,
+          "notes": "```typescript\r\n// eventBus.ts\r\nimport mitt from 'mitt'\r\n\r\ntype Events = {\r\n  'user:created': User\r\n  'notification:show': { message: string; type: 'success' | 'error' }\r\n}\r\n\r\nexport const eventBus = mitt<Events>()\r\n\r\n// Публикация\r\neventBus.emit('user:created', newUser)\r\n\r\n// Подписка\r\neventBus.on('user:created', (user) => { ... })\r\n```\r\n\r\n---\r"
+        }
+      ]
+    },
+    {
+      "id": "node_1775331051197_115_mk4wk",
+      "text": "6. Правила Code Review",
+      "color": "#78909C",
+      "customX": 1830.7894736842104,
+      "customY": 1631.421052631579,
+      "children": [
+        {
+          "id": "node_1775331051197_116_uegbs",
+          "text": "Чеклист для автора PR",
+          "color": "#EF5350",
+          "customX": 2130.7894736842104,
+          "customY": 1339.421052631579,
+          "notes": "```markdown\r\n- [ ] Нет файлов > 300 строк\r\n- [ ] Нет функций > 30 строк\r\n- [ ] TypeScript — без `any`\r\n- [ ] Компоненты Vue < 200 строк (template + script)\r\n- [ ] Новая логика вынесена в composable/service\r\n- [ ] Нет дублирования кода\r\n- [ ] Понятные имена переменных и функций\r\n- [ ] Нет закомментированного кода\r\n- [ ] console.log удалены\r\n```\r"
+        },
+        {
+          "id": "node_1775331051197_117_ccxco",
+          "text": "Чеклист для ревьюера",
+          "color": "#29B6F6",
+          "customX": 2130.7894736842104,
+          "customY": 1555.421052631579,
+          "notes": "```markdown\r\n- [ ] Понимаю ли я этот код без объяснений автора?\r\n- [ ] Нет ли скрытых побочных эффектов?\r\n- [ ] Правильно ли обрабатываются граничные случаи?\r\n- [ ] Не нарушает ли код существующую архитектуру?\r\n- [ ] Можно ли упростить?\r\n```\r"
+        },
+        {
+          "id": "node_1775331051197_118_vujgl",
+          "text": "Культура ревью",
+          "color": "#5C6BC0",
+          "customX": 2130.7894736842104,
+          "customY": 1771.421052631579,
+          "notes": "```\r\n❌ \"Это неправильно\"\r\n✅ \"Рассмотри вариант с computed вместо watch — \r\n    будет реактивнее и меньше побочных эффектов\"\r\n\r\n❌ \"Переделай\"\r\n✅ \"Предлагаю вынести эту логику в useSearch composable,\r\n    потому что она повторяется в 3 компонентах\"\r\n```\r\n\r\n---\r"
+        }
+      ]
+    },
+    {
+      "id": "node_1775331051197_119_82sy3",
+      "text": "7. Git Flow",
+      "color": "#26A69A",
+      "customX": 263.1578947368422,
+      "customY": 2036.3684210526317,
+      "children": [
+        {
+          "id": "node_1775331051197_120_2g1w1",
+          "text": "Ветки",
+          "color": "#FF7043",
+          "customX": -36.842105263157805,
+          "customY": 1744.3684210526317,
+          "notes": "```\r\nmain              ← продакшн, всегда стабилен\r\n├── develop       ← текущая разработка\r\n│   ├── feature/user-auth      ← новая фича\r\n│   ├── feature/order-table    ← новая фича\r\n│   └── fix/login-redirect     ← баг-фикс\r\n└── hotfix/critical-bug        ← срочный фикс в продакшн\r\n```\r"
+        },
+        {
+          "id": "node_1775331051197_121_fzb8g",
+          "text": "Коммиты — Conventional Commits",
+          "color": "#AB47BC",
+          "customX": -36.842105263157805,
+          "customY": 1960.3684210526317,
+          "notes": "```\r\nfeat(auth): добавить авторизацию через Google\r\nfix(cart): исправить расчёт скидки при пустой корзине\r\nrefactor(user): вынести валидацию в отдельный composable\r\nchore(deps): обновить Vue до 3.4\r\ndocs(readme): добавить инструкцию по запуску\r\n```\r"
+        },
+        {
+          "id": "node_1775331051197_122_not77",
+          "text": "Правила",
+          "color": "#42A5F5",
+          "customX": -36.842105263157805,
+          "customY": 2176.3684210526317,
+          "notes": "```\r\n1. Один PR = одна задача\r\n2. PR не больше 400 строк изменений\r\n3. Ветка живёт не дольше 2-3 дней\r\n4. Merge только после approve ревьюера\r\n5. Перед merge — rebase на актуальный develop\r\n```\r\n\r\n---\r"
+        }
+      ]
+    },
+    {
+      "id": "node_1775331051197_123_l4ml0",
+      "text": "📚 Рекомендуемые источники",
+      "color": "#66BB6A",
+      "customX": 1713.6842105263158,
+      "customY": 1847.9473684210527,
+      "notes": "1. **«Чистый код»** — Роберт Мартин\r\n2. **«Head First. Паттерны проектирования»** — Фриман, Робсон\r\n3. **«Рефакторинг»** — Мартин Фаулер\r\n4. **«Прагматичный программист»** — Хант, Томас\r\n5. **Vue.js официальный Style Guide** — [vuejs.org/style-guide](https://vuejs.org/style-guide/)\r\n6. **TypeScript Deep Dive** — Basarat Ali Syed\r\n\r\n---\r"
+    },
+    {
+      "id": "node_1775331051197_124_cigbm",
+      "text": "Вопросы для дальнейшего развития:",
+      "color": "#FFA726",
+      "customX": 998.076923076923,
+      "customY": 1866.1538461538466,
+      "notes": "1. **Тестирование** — Vitest, Testing Library для Vue?\r\n2. **Обработка ошибок** — глобальные обработчики, error boundaries?\r\n3. **Performance** — правила оптимизации Vue-компонентов?\r\n4. **Линтеры** — ESLint + Prettier конфиг для команды?\r\n\r\nКакой раздел раскрываем следующим? 🚀"
+    }
+  ]
+}

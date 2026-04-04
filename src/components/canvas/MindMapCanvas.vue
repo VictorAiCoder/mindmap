@@ -36,8 +36,9 @@
           :pos="pos"
           :is-dragged-over="nodeDrag.dropTargetId.value === pos.id"
           :is-being-dragged="nodeDrag.draggingNodeId.value === pos.id"
-          :live-x="getLiveCoord(pos, 'x')"
-          :live-y="getLiveCoord(pos, 'y')"
+          :is-in-drag-group="nodeDrag.isInDragGroup(pos.id)"
+          :live-x="getLiveX(pos)"
+          :live-y="getLiveY(pos)"
           @edit="startEdit(pos.id)"
           @add-child="handleAddChild(pos.id)"
           @delete="handleDelete(pos.id)"
@@ -140,10 +141,38 @@ const sceneStyle = computed(() => {
 
 const nodeDrag = useNodeDrag(mindmap, panZoom.zoom)
 
-function getLiveCoord(pos, axis) {
-  if (nodeDrag.draggingNodeId.value !== pos.id) return null
-  const dragged = nodeDrag.getDraggedPosition(pos.id, pos.x, pos.y)
-  return axis === 'x' ? dragged.x : dragged.y
+/**
+ * ★ Подменяем finishDrag чтобы передать layoutPositions
+ *   для узлов без custom-координат
+ */
+const originalMoveNodeGroup = mindmap?.moveNodeGroup
+if (mindmap) {
+  const _original = mindmap.moveNodeGroup
+  mindmap.moveNodeGroup = (nodeId, dx, dy) => {
+    const posMap = buildLayoutPositionMap()
+    _original(nodeId, dx, dy, posMap)
+  }
+}
+
+function buildLayoutPositionMap() {
+  const map = new Map()
+  for (const pos of layoutData.value.positions) {
+    map.set(pos.id, { x: pos.x, y: pos.y })
+  }
+  return map
+}
+
+/**
+ * ★ Вычисляет live-координаты для любого узла из drag-группы
+ */
+function getLiveX(pos) {
+  const live = nodeDrag.getLivePosition(pos.id, pos.x, pos.y)
+  return live ? live.x : null
+}
+
+function getLiveY(pos) {
+  const live = nodeDrag.getLivePosition(pos.id, pos.x, pos.y)
+  return live ? live.y : null
 }
 
 // ─── Drop Target Detection ──────────────────
@@ -157,12 +186,12 @@ function updateDropTarget(e) {
   const rect = wrapper.getBoundingClientRect()
   const bounds = layoutData.value.bounds
   const world = panZoom.screenToScene(e.clientX, e.clientY, rect, bounds)
-  const draggingId = nodeDrag.draggingNodeId.value
 
   let found = null
 
   for (const pos of layoutData.value.positions) {
-    if (pos.id === draggingId) continue
+    // ★ Пропускаем все узлы из drag-группы
+    if (nodeDrag.isInDragGroup(pos.id)) continue
 
     if (
       world.x >= pos.x - HIT_PADDING &&
@@ -220,8 +249,8 @@ function buildLivePositionMap(positions) {
   const map = new Map()
 
   for (const pos of positions) {
-    const lx = getLiveCoord(pos, 'x')
-    const ly = getLiveCoord(pos, 'y')
+    const lx = getLiveX(pos)
+    const ly = getLiveY(pos)
     map.set(pos.id, {
       ...pos,
       x: lx ?? pos.x,
@@ -343,20 +372,13 @@ const notesNodeId = ref(null)
   background: rgb(var(--v-theme-background));
 }
 
-.canvas-wrapper:active {
-  cursor: grabbing;
-}
-
-.canvas-scene {
-  position: absolute;
-}
+.canvas-wrapper:active { cursor: grabbing; }
+.canvas-scene { position: absolute; }
 
 .scene-svg {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
   overflow: visible;
   pointer-events: none;
 }

@@ -68,6 +68,7 @@ const props = defineProps({
   pos: { type: Object, required: true },
   isDraggedOver: { type: Boolean, default: false },
   isBeingDragged: { type: Boolean, default: false },
+  isInDragGroup: { type: Boolean, default: false },
   liveX: { type: Number, default: null },
   liveY: { type: Number, default: null }
 })
@@ -80,6 +81,8 @@ const emit = defineEmits([
 
 const imageInput = ref(null)
 const isImageDragOver = ref(false)
+
+// ─── Computed ───────────────────────────────
 
 const isRoot = computed(() => props.pos.depth === 0)
 const isLeaf = computed(() => props.pos.depth >= 2)
@@ -97,9 +100,12 @@ const nodeClasses = computed(() => ({
   'map-node--has-image': hasImage.value,
   'map-node--drag-over': props.isDraggedOver,
   'map-node--dragging': props.isBeingDragged,
+  'map-node--in-drag-group': props.isInDragGroup && !props.isBeingDragged,
   'map-node--custom': props.pos.hasCustomPos,
   'map-node--image-drop': isImageDragOver.value
 }))
+
+const isDragging = computed(() => props.isBeingDragged || props.isInDragGroup)
 
 const nodeStyle = computed(() => {
   const x = props.liveX ?? props.pos.x
@@ -111,8 +117,8 @@ const nodeStyle = computed(() => {
     top: `${y}px`,
     width: `${props.pos.w}px`,
     height: `${props.pos.h}px`,
-    zIndex: props.isBeingDragged ? 100 : undefined,
-    transition: props.isBeingDragged ? 'none' : undefined
+    zIndex: props.isBeingDragged ? 100 : props.isInDragGroup ? 99 : undefined,
+    transition: isDragging.value ? 'none' : undefined
   }
 })
 
@@ -123,10 +129,20 @@ const bgStyle = computed(() => {
     return { background: color, borderRadius: '25px' }
   }
   if (isLeaf.value) {
-    return { background: 'transparent', borderBottom: `2.5px solid ${color}`, borderRadius: '0' }
+    return {
+      background: 'transparent',
+      borderBottom: `2.5px solid ${color}`,
+      borderRadius: '0'
+    }
   }
-  return { background: color + '22', border: `2px solid ${color}`, borderRadius: '20px' }
+  return {
+    background: color + '22',
+    border: `2px solid ${color}`,
+    borderRadius: '20px'
+  }
 })
+
+// ─── Event Handlers ─────────────────────────
 
 function onMouseDown(e) {
   if (e.button === 0) emit('startDrag', e)
@@ -180,11 +196,26 @@ async function onImageDrop(e) {
 .map-node:hover :deep(.node-actions) { opacity: 1; pointer-events: auto; }
 .map-node:hover :deep(.node-image-float) { transform: translateX(-50%) scale(1.03); }
 
+/* ★ Перетаскиваемый узел (главный) */
 .map-node--dragging {
   cursor: grabbing;
-  opacity: 0.85;
+  opacity: 0.9;
   z-index: 100 !important;
   transition: none !important;
+}
+
+/* ★ Узлы из drag-группы (потомки) — двигаются вместе */
+.map-node--in-drag-group {
+  opacity: 0.75;
+  z-index: 99 !important;
+  transition: none !important;
+  pointer-events: none;
+}
+
+/* ★ Визуальная обводка группы при перетаскивании */
+.map-node--dragging .map-node__bg,
+.map-node--in-drag-group .map-node__bg {
+  filter: brightness(1.1);
 }
 
 .map-node--drag-over .map-node__bg {

@@ -1,5 +1,6 @@
 // src/composables/drag/useNodeDrag.js
 import { ref, computed } from 'vue'
+import { findNodeById, collectVisibleDescendantIds } from '../tree/useTreeTraversal'
 
 const MOVE_THRESHOLD = 4
 
@@ -13,8 +14,19 @@ export function useNodeDrag(mindmap, zoom) {
   const dragStartNodeY = ref(0)
   const hasMoved = ref(false)
   const dropTargetId = ref(null)
+  const dragGroupIds = ref(new Set())
 
   const isDraggingNode = computed(() => draggingNodeId.value !== null)
+
+  const dragDeltaX = computed(() => {
+    if (!draggingNodeId.value) return 0
+    return (dragCurrentX.value - dragStartX.value) / zoom.value
+  })
+
+  const dragDeltaY = computed(() => {
+    if (!draggingNodeId.value) return 0
+    return (dragCurrentY.value - dragStartY.value) / zoom.value
+  })
 
   function startNodeDrag(e, nodeId, nodeX, nodeY) {
     draggingNodeId.value = nodeId
@@ -26,6 +38,14 @@ export function useNodeDrag(mindmap, zoom) {
     dragStartNodeY.value = nodeY
     hasMoved.value = false
     dropTargetId.value = null
+
+    const root = mindmap?.rootNode?.value
+    if (root) {
+      const node = findNodeById(root, nodeId)
+      dragGroupIds.value = node
+        ? collectVisibleDescendantIds(node)
+        : new Set([nodeId])
+    }
 
     const onMove = (me) => {
       dragCurrentX.value = me.clientX
@@ -46,6 +66,7 @@ export function useNodeDrag(mindmap, zoom) {
 
       draggingNodeId.value = null
       dropTargetId.value = null
+      dragGroupIds.value = new Set()
       hasMoved.value = false
     }
 
@@ -61,31 +82,30 @@ export function useNodeDrag(mindmap, zoom) {
     if (target && target !== draggingNodeId.value) {
       mindmap.reparentNode(draggingNodeId.value, target)
     } else {
-      const pos = getDraggedPosition(
-        draggingNodeId.value,
-        dragStartNodeX.value,
-        dragStartNodeY.value
-      )
-      mindmap.updateNodePosition(draggingNodeId.value, pos.x, pos.y)
+      // ★ moveNodeGroup вызывается через mindmap —
+      //   обёртка в MindMapCanvas подставит layoutPositions
+      const dx = dragDeltaX.value
+      const dy = dragDeltaY.value
+      mindmap.moveNodeGroup(draggingNodeId.value, dx, dy)
     }
   }
 
-  function getDraggedPosition(nodeId, originalX, originalY) {
-    if (nodeId !== draggingNodeId.value) {
-      return { x: originalX, y: originalY }
-    }
+  function isInDragGroup(nodeId) {
+    return dragGroupIds.value.has(nodeId)
+  }
 
-    const z = zoom.value
+  function getLivePosition(nodeId, originalX, originalY) {
+    if (!isInDragGroup(nodeId)) return null
+
     return {
-      x: dragStartNodeX.value + (dragCurrentX.value - dragStartX.value) / z,
-      y: dragStartNodeY.value + (dragCurrentY.value - dragStartY.value) / z
+      x: originalX + dragDeltaX.value,
+      y: originalY + dragDeltaY.value
     }
   }
 
   function setDropTarget(nodeId) {
-    if (nodeId !== draggingNodeId.value) {
-      dropTargetId.value = nodeId
-    }
+    if (dragGroupIds.value.has(nodeId)) return
+    dropTargetId.value = nodeId
   }
 
   function clearDropTarget() {
@@ -93,8 +113,16 @@ export function useNodeDrag(mindmap, zoom) {
   }
 
   return {
-    draggingNodeId, isDraggingNode, dropTargetId,
-    startNodeDrag, getDraggedPosition,
-    setDropTarget, clearDropTarget
+    draggingNodeId,
+    isDraggingNode,
+    dropTargetId,
+    dragGroupIds,
+    dragDeltaX,
+    dragDeltaY,
+    startNodeDrag,
+    getLivePosition,
+    isInDragGroup,
+    setDropTarget,
+    clearDropTarget
   }
 }

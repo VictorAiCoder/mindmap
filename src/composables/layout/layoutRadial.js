@@ -2,9 +2,9 @@
 import { GAP_H, ROOT_W, ROOT_H, DEFAULT_CENTER_X, DEFAULT_CENTER_Y } from '../../constants'
 import { getNodeWidth, getNodeHeight } from './layoutUtils'
 
-const BASE_RADIUS = 260
+const BASE_RADIUS = 360
 const RADIUS_STEP = GAP_H + 60
-const NOTES_EXTRA_RADIUS = 60
+const NOTES_EXTRA_RADIUS = 160
 const SPAN_DECAY = 0.85
 
 export function layoutRadial(root) {

@@ -1,4 +1,6 @@
 // src/composables/tree/useTreeTraversal.js
+// ★ Добавить новую функцию — собрать все ID потомков
+
 export function traverseTree(node, callback) {
   if (!node) return
   callback(node)
@@ -38,9 +40,6 @@ export function getDepth(node) {
   return 1 + Math.max(...node.children.map(getDepth))
 }
 
-/**
- * Проверяет, является ли nodeId потомком ancestor
- */
 export function isDescendantOf(root, ancestorId, nodeId) {
   const ancestor = findNodeById(root, ancestorId)
   if (!ancestor) return false
@@ -53,9 +52,6 @@ export function isDescendantOf(root, ancestorId, nodeId) {
   return check(ancestor)
 }
 
-/**
- * Отсоединяет узел от родителя и возвращает его
- */
 export function detachNode(root, nodeId) {
   const parent = findParentOf(root, nodeId)
   if (!parent?.children) return null
@@ -64,4 +60,36 @@ export function detachNode(root, nodeId) {
   if (idx === -1) return null
 
   return parent.children.splice(idx, 1)[0]
+}
+
+/**
+ * ★ Собирает Set всех ID потомков узла (включая сам узел)
+ */
+export function collectDescendantIds(node) {
+  const ids = new Set()
+
+  function walk(n) {
+    ids.add(n.id)
+    n.children?.forEach(walk)
+  }
+
+  walk(node)
+  return ids
+}
+
+/**
+ * ★ Собирает Set ID потомков, исключая свёрнутые поддеревья
+ */
+export function collectVisibleDescendantIds(node) {
+  const ids = new Set()
+
+  function walk(n) {
+    ids.add(n.id)
+    if (!n.collapsed && n.children) {
+      n.children.forEach(walk)
+    }
+  }
+
+  walk(node)
+  return ids
 }

@@ -2,7 +2,7 @@
 import { triggerRef } from 'vue'
 import {
   findNodeById, findParentOf, traverseTree,
-  isDescendantOf, detachNode
+  isDescendantOf, detachNode, collectVisibleDescendantIds
 } from './useTreeTraversal'
 import { createNode } from './useNodeFactory'
 import { applyAutoLayout, resetLayout } from '../layout/useAutoLayout'
@@ -126,12 +126,50 @@ export function useTreeOperations(rootNode, history) {
     return true
   }
 
+  /**
+   * ★ Перемещает узел и все его видимые потомки на (dx, dy).
+   *
+   * Для каждого узла в группе:
+   *   - Если уже есть customX/Y — прибавляем дельту
+   *   - Если нет — берём текущую авто-позицию из layout и фиксируем
+   */
+  function moveNodeGroup(nodeId, dx, dy, layoutPositions) {
+    const node = findNode(nodeId)
+    if (!node) return
+
+    history.save()
+
+    const ids = collectVisibleDescendantIds(node)
+
+    ids.forEach(id => {
+      const n = findNode(id)
+      if (!n) return
+
+      // Если нет custom-позиции — нужно взять текущую computed позицию
+      // Передаём её через layoutPositions map
+      if (n.customX == null || n.customY == null) {
+        const layoutPos = layoutPositions?.get(id)
+        if (layoutPos) {
+          n.customX = layoutPos.x
+          n.customY = layoutPos.y
+        }
+      }
+
+      if (n.customX != null && n.customY != null) {
+        n.customX += dx
+        n.customY += dy
+      }
+    })
+
+    touch()
+  }
+
   return {
     addChild, deleteNode,
     updateText, updateColor, updateNotes, updateNodePosition,
     toggleCollapse,
     setNodeImage, removeNodeImage,
     resetAllPositions, autoLayout,
-    reparentNode
+    reparentNode, moveNodeGroup
   }
 }
