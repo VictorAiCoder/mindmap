@@ -6,7 +6,7 @@ export function usePanZoom() {
   const panX = ref(0)
   const panY = ref(0)
   const isPanning = ref(false)
-  const isAnimating = ref(false) // ★ для CSS transition
+  const isAnimating = ref(false)
 
   const lastMouse = { x: 0, y: 0 }
   const lastPan = { x: 0, y: 0 }
@@ -14,12 +14,11 @@ export function usePanZoom() {
   // ★ Трекинг фокуса
   const focusedNodeId = ref(null)
   const FOCUS_ZOOM = 1.25
-  const DEFAULT_ZOOM = 0.8
+  const DEFAULT_ZOOM = 1
 
   const zoomPercent = computed(() => Math.round(zoom.value * 100))
 
   function onWheel(e) {
-    // Сброс фокуса при ручном зуме
     focusedNodeId.value = null
     const delta = e.deltaY > 0 ? -0.08 : 0.08
     zoom.value = clamp(zoom.value + delta, 0.2, 3)
@@ -41,7 +40,6 @@ export function usePanZoom() {
   }
 
   function startPan(e) {
-    // Сброс фокуса при ручном пане
     focusedNodeId.value = null
     isPanning.value = true
     lastMouse.x = e.clientX
@@ -68,57 +66,75 @@ export function usePanZoom() {
     }
   }
 
-  // ── ★ Плавная анимация к целевым значениям ──
+  // ── Плавная анимация ──
   function animateTo(targetPanX, targetPanY, targetZoom) {
     isAnimating.value = true
-    // Устанавливаем значения — CSS transition сделает плавность
     panX.value = targetPanX
     panY.value = targetPanY
     zoom.value = clamp(targetZoom, 0.2, 3)
 
-    // Снимаем флаг анимации после завершения transition
     setTimeout(() => {
       isAnimating.value = false
     }, 500)
   }
 
-  // ── ★ Вычисление pan для центрирования ноды ──
-  function calcCenterPan(pos, bounds, wrapperEl, targetZoom) {
+  // ── Вычисление pan для центрирования точки ──
+  function calcCenterPan(sceneX, sceneY, wrapperEl, targetZoom) {
     const rect = wrapperEl.getBoundingClientRect()
-    const viewW = rect.width
-    const viewH = rect.height
-
-    const nodeCenterSceneX = pos.x - bounds.minX + pos.w / 2
-    const nodeCenterSceneY = pos.y - bounds.minY + pos.h / 2
-
     const z = clamp(targetZoom, 0.2, 3)
 
     return {
-      panX: viewW / 2 - nodeCenterSceneX * z,
-      panY: viewH / 2 - nodeCenterSceneY * z
+      panX: rect.width / 2 - sceneX * z,
+      panY: rect.height / 2 - sceneY * z
     }
   }
 
-  // ── ★ Toggle focus: 125% ↔ 100%, всегда центрирует ──
-  function focusOnNode(pos, bounds, wrapperEl) {
-    if (!wrapperEl) return
+  // ── ★ Центр ноды в scene-координатах ──
+  function nodeCenterScene(pos, bounds) {
+    return {
+      x: pos.x - bounds.minX + pos.w / 2,
+      y: pos.y - bounds.minY + pos.h / 2
+    }
+  }
+
+  /**
+   * ★ Toggle focus с "умным" zoom out:
+   *   - Zoom in (125%):  центрируем на ноде
+   *   - Zoom out (100%): центрируем на середине между root и нодой
+   *
+   * @param {Object} pos        — позиция целевой ноды
+   * @param {Object} rootPos    — позиция корневой ноды
+   * @param {Object} bounds     — bounds из layout
+   * @param {HTMLElement} wrapperEl
+   */
+  function focusOnNode(pos, rootPos, bounds, wrapperEl) {
+    if (!wrapperEl || !rootPos) return
 
     const isSameNode = focusedNodeId.value === pos.id
     const isZoomedIn = isSameNode && Math.abs(zoom.value - FOCUS_ZOOM) < 0.01
 
+    const nodeCenter = nodeCenterScene(pos, bounds)
+    const rootCenter = nodeCenterScene(rootPos, bounds)
+
     let targetZoom
+    let targetSceneX
+    let targetSceneY
 
     if (isZoomedIn) {
-      // Повторный клик — возвращаем 100%, но всё ещё центрируем
+      // ★ Zoom out → центр между root и нодой
       targetZoom = DEFAULT_ZOOM
+      targetSceneX = (rootCenter.x + nodeCenter.x) / 2
+      targetSceneY = (rootCenter.y + nodeCenter.y) / 2
       focusedNodeId.value = null
     } else {
-      // Первый клик или другая нода — зум 125% и центрируем
+      // ★ Zoom in → точно на ноду
       targetZoom = FOCUS_ZOOM
+      targetSceneX = nodeCenter.x
+      targetSceneY = nodeCenter.y
       focusedNodeId.value = pos.id
     }
 
-    const target = calcCenterPan(pos, bounds, wrapperEl, targetZoom)
+    const target = calcCenterPan(targetSceneX, targetSceneY, wrapperEl, targetZoom)
     animateTo(target.panX, target.panY, targetZoom)
   }
 

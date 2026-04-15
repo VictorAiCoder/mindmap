@@ -149,6 +149,22 @@ const sceneStyle = computed(() => {
       : 'none'
   }
 })
+
+// ─── Focus on Node ──────────────────────────
+
+const rootPos = computed(() =>
+  layoutData.value.positions.find(p => p.depth === 0) ?? null
+)
+
+function handleFocusNode(pos) {
+  panZoom.focusOnNode(
+    pos,
+    rootPos.value,
+    layoutData.value.bounds,
+    wrapperRef.value
+  )
+}
+
 // ─── Node Drag ──────────────────────────────
 
 const nodeDrag = useNodeDrag(mindmap, panZoom.zoom)
@@ -243,11 +259,7 @@ function onCanvasMouseMove(e) {
     updateDropTarget(e)
   }
 }
-// ─── Focus on Node ──────────────────────────
 
-function handleFocusNode(pos) {
-  panZoom.focusOnNode(pos, layoutData.value.bounds, wrapperRef.value, 1.25)
-}
 
 // ─── Live Connections ───────────────────────
 
