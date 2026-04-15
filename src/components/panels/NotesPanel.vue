@@ -8,74 +8,78 @@
     @update:model-value="onDrawerUpdate"
   >
     <template v-if="node">
-      <v-toolbar density="compact" color="transparent" flat>
-        <v-toolbar-title class="text-body-1 font-weight-bold">
-          <v-icon icon="mdi-text-box-outline" size="18" class="mr-1" />
-          {{ node.text }}
-        </v-toolbar-title>
-        <v-spacer />
-        <v-btn-toggle v-model="viewMode" density="compact" mandatory variant="outlined" divided>
-          <v-btn value="edit" size="small">
-            <v-icon icon="mdi-pencil" size="16" />
-          </v-btn>
-          <v-btn value="preview" size="small">
-            <v-icon icon="mdi-eye" size="16" />
-          </v-btn>
-          <v-btn value="split" size="small">
-            <v-icon icon="mdi-view-split-vertical" size="16" />
-          </v-btn>
-        </v-btn-toggle>
-        <v-btn icon="mdi-close" size="small" variant="text" class="ml-1" @click="close" />
-      </v-toolbar>
+      <div class="notes-container" @pointerdown.stop @mousedown.stop @wheel.stop>
+        <v-toolbar density="compact" color="transparent" flat class="notes-toolbar-header">
+          
+          <v-spacer />
+          <v-btn-toggle v-model="viewMode" density="compact" mandatory variant="outlined" divided class="flex-shrink-0">
+            <v-btn value="edit" size="small">
+              <v-icon icon="mdi-pencil" size="16" />
+            </v-btn>
+            <v-btn value="preview" size="small">
+              <v-icon icon="mdi-eye" size="16" />
+            </v-btn>
+            <v-btn value="split" size="small">
+              <v-icon icon="mdi-view-split-vertical" size="16" />
+            </v-btn>
+          </v-btn-toggle>
+          <v-btn icon="mdi-close" size="small" variant="text" class="ml-1 flex-shrink-0" @click="close" />
+        </v-toolbar>
 
-      <v-divider />
-
-      <NotesToolbar
-        v-if="viewMode !== 'preview'"
-        @action="insertMarkdown"
-      />
-
-      <div class="notes-body">
-        <!-- Только редактор -->
-        <v-textarea
-          v-if="viewMode === 'edit'"
-          ref="textareaRef"
-          v-model="localNotes"
-          variant="plain"
-          auto-grow
-          hide-details
-          placeholder="Введите заметку в формате Markdown..."
-          class="notes-textarea"
-          @update:model-value="onNotesChange"
-        />
-
-        <!-- Только превью -->
-        <div
-          v-else-if="viewMode === 'preview'"
-          class="notes-preview markdown-body"
-          v-html="renderedHtml"
-        />
-
-        <!-- Сплит: редактор + превью -->
-        <template v-else>
-          <div class="notes-split">
-            <v-textarea
-              ref="textareaRef"
-              v-model="localNotes"
-              variant="plain"
-              auto-grow
-              hide-details
-              placeholder="Markdown..."
-              class="notes-textarea notes-textarea--split"
-              @update:model-value="onNotesChange"
-            />
-            <v-divider vertical />
-            <div
-              class="notes-preview notes-preview--split markdown-body"
-              v-html="renderedHtml"
-            />
+        <div class="notes-toolbar-title">
+            <v-icon icon="mdi-text-box-outline" size="18" class="flex-shrink-0 mx-4" />
+            <span>{{ node.text }}</span>
           </div>
-        </template>
+
+        <v-divider />
+
+        <NotesToolbar
+          v-if="viewMode !== 'preview'"
+          @action="insertMarkdown"
+        />
+
+        <div class="notes-body">
+          <!-- Только редактор -->
+          <v-textarea
+            v-if="viewMode === 'edit'"
+            ref="textareaRef"
+            v-model="localNotes"
+            variant="plain"
+            auto-grow
+            hide-details
+            placeholder="Введите заметку в формате Markdown..."
+            class="notes-textarea"
+            @update:model-value="onNotesChange"
+          />
+
+          <!-- Только превью -->
+          <div
+            v-else-if="viewMode === 'preview'"
+            class="notes-preview markdown-body"
+            v-html="renderedHtml"
+          />
+
+          <!-- Сплит: редактор + превью -->
+          <template v-else>
+            <div class="notes-split">
+              <v-textarea
+                ref="textareaRef"
+                v-model="localNotes"
+                variant="plain"
+                auto-grow
+                hide-details
+                placeholder="Markdown..."
+                class="notes-textarea notes-textarea--split"
+                @update:model-value="onNotesChange"
+              />
+              <v-divider vertical />
+              <div
+                class="notes-preview notes-preview--split markdown-body"
+                v-html="renderedHtml"
+              />
+            </div>
+          </template>
+        </div>
       </div>
     </template>
   </v-navigation-drawer>
@@ -174,7 +178,6 @@ function insertMarkdown(action) {
   localNotes.value = newText
   onNotesChange(newText)
 
-  // Устанавливаем курсор
   nextTick(() => {
     const newStart = start + ins.before.length
     const newEnd = newStart + content.length
@@ -207,8 +210,40 @@ function onDrawerUpdate(val) {
 </script>
 
 <style scoped>
+.notes-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  cursor: auto;
+}
+
+.notes-toolbar-header {
+  height: auto !important;
+  min-height: 48px;
+}
+
+.notes-toolbar-header :deep(.v-toolbar__content) {
+  height: auto !important;
+  min-height: 48px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  align-items: flex-start;
+}
+
+.notes-toolbar-title {
+  display: flex;
+  align-items: flex-start;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.4;
+  word-break: break-word;
+  white-space: normal;
+  padding-right: 12px;
+  padding-bottom: 12px;
+}
+
 .notes-body {
-  height: calc(100% - 96px);
+  flex: 1;
   overflow-y: auto;
   padding: 12px 16px;
 }

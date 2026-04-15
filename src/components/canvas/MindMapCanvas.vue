@@ -3,7 +3,7 @@
   <div
     class="canvas-wrapper"
     ref="wrapperRef"
-    @wheel.prevent="panZoom.onWheel"
+    @wheel.prevent="(e) => panZoom.onWheel(e, wrapperRef)"
     @mousedown="onCanvasMouseDown"
     @mousemove="onCanvasMouseMove"
     @mouseup="panZoom.endPan"
@@ -102,7 +102,7 @@
 </template>
 
 <script setup>
-import { ref, computed, inject, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, inject, nextTick } from 'vue'
 import MapNode from '../node/MapNode.vue'
 import NotesPanel from '../panels/NotesPanel.vue'
 import DragHint from './DragHint.vue'
@@ -134,6 +134,11 @@ const layoutData = computed(() => rawLayout?.value ?? emptyLayout)
 
 const panZoom = usePanZoom()
 
+onMounted(() => {
+  panZoom.setWrapper(wrapperRef.value)
+})
+
+
 const sceneStyle = computed(() => {
   const b = layoutData.value.bounds
   return {
@@ -155,6 +160,17 @@ const sceneStyle = computed(() => {
 const rootPos = computed(() =>
   layoutData.value.positions.find(p => p.depth === 0) ?? null
 )
+
+watch(rootPos, (rp) => {
+  if (rp) {
+    const b = layoutData.value.bounds
+    panZoom.setRootSceneCenter(
+      rp.x - b.minX + rp.w / 2,
+      rp.y - b.minY + rp.h / 2
+    )
+  }
+}, { immediate: true })
+
 
 function handleFocusNode(pos) {
   panZoom.focusOnNode(

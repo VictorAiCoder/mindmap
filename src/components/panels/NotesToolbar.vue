@@ -1,7 +1,7 @@
 <!-- src/components/panels/NotesToolbar.vue -->
 <template>
   <div class="notes-toolbar">
-    <div class="notes-toolbar__group">
+    <!-- <div class="notes-toolbar__group">
       <v-tooltip v-for="btn in headingButtons" :key="btn.action" :text="btn.tooltip" location="bottom">
         <template #activator="{ props }">
           <v-btn v-bind="props" size="x-small" variant="text" @click="emit('action', btn.action)">
@@ -9,7 +9,7 @@
           </v-btn>
         </template>
       </v-tooltip>
-    </div>
+    </div> -->
 
     <v-divider vertical class="mx-1" />
 
