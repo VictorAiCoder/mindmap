@@ -1,12 +1,12 @@
 // src/constants/layout.js
 /** Размеры узлов */
-export const NODE_W = 160
+export const NODE_W = 250
 export const NODE_H = 40
-export const ROOT_W = 200
+export const ROOT_W = 270
 export const ROOT_H = 50
 
 /** Зазоры между узлами */
-export const GAP_H = 100
+export const GAP_H = 150
 export const GAP_V = 14
 
 /** Отступы канваса */

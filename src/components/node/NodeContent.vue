@@ -64,7 +64,7 @@ const textClasses = computed(() => ({
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 100px;
+  max-width: 80%;
 }
 
 .node-text--root {
