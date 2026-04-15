@@ -11,7 +11,7 @@ export function loadFromStorage() {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
     const data = JSON.parse(raw)
-    return normalizeNode(data)   // ★ нормализуем при загрузке
+    return normalizeNode(data)
   } catch { return null }
 }
 
@@ -24,22 +24,22 @@ function saveToStorage(data) {
 }
 
 // --- ★ Нормализация дерева ---
-// Гарантирует наличие всех полей после импорта/загрузки,
-// включая новые (imageWidth, notes и т.д.)
 
 function normalizeNode(node) {
   if (!node || typeof node !== 'object') return null
 
   return {
-    id: node.id || crypto.randomUUID?.() || String(Date.now()),
-    text: node.text || '',
-    color: node.color || '#5C6BC0',
-    collapsed: node.collapsed || false,
-    notes: node.notes || '',
-    image: node.image || null,
-    imageWidth: node.imageWidth ?? null,    // ★ ключевое поле
-    customX: node.customX ?? null,
-    customY: node.customY ?? null,
+    id:             node.id || crypto.randomUUID?.() || String(Date.now()),
+    text:           node.text || '',
+    color:          node.color || '#5C6BC0',
+    collapsed:      node.collapsed || false,
+    notes:          node.notes || '',
+    notesPinned:    node.notesPinned ?? false,       // ★ NEW
+    notesVisible:   node.notesVisible ?? true,       // ★ NEW
+    image:          node.image || null,
+    imageWidth:     node.imageWidth ?? null,
+    customX:        node.customX ?? null,
+    customY:        node.customY ?? null,
     children: Array.isArray(node.children)
       ? node.children.map(normalizeNode).filter(Boolean)
       : []
@@ -62,16 +62,20 @@ function downloadFile(content, filename, mime) {
 
 function cleanTreeForExport(node) {
   const clean = {
-    id: node.id,
-    text: node.text,
-    color: node.color || undefined,
-    collapsed: node.collapsed || undefined,
-    customX: node.customX ?? undefined,
-    customY: node.customY ?? undefined,
-    notes: node.notes || undefined,
-    image: node.image || undefined,
-    imageWidth: node.imageWidth ?? undefined,    // ★ добавлено
-    children: node.children?.length
+    id:             node.id,
+    text:           node.text,
+    color:          node.color || undefined,
+    collapsed:      node.collapsed || undefined,
+    customX:        node.customX ?? undefined,
+    customY:        node.customY ?? undefined,
+    notes:          node.notes || undefined,
+    notesPinned:    node.notesPinned || undefined,    // ★ NEW
+    notesVisible:   node.notesVisible === false        // ★ NEW
+                      ? false                          // сохраняем только false
+                      : undefined,                     // true = дефолт, не пишем
+    image:          node.image || undefined,
+    imageWidth:     node.imageWidth ?? undefined,
+    children:       node.children?.length
       ? node.children.map(cleanTreeForExport)
       : undefined
   }
@@ -127,7 +131,7 @@ export function usePersistence(rootNode) {
         try {
           const content = e.target.result
           const raw = parseFile(content, getFileFormat(file))
-          const data = normalizeNode(raw)    // ★ нормализуем при импорте
+          const data = normalizeNode(raw)
           if (!data) throw new Error('Пустые данные')
           rootNode.value = data
           resolve(data)

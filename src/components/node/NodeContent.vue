@@ -20,6 +20,8 @@
     </span>
 
     <v-icon v-if="pinned" icon="mdi-pin" size="10" class="node-pin" color="grey" />
+
+    <div><slot></slot></div>
   </div>
 </template>
 

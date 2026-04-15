@@ -22,6 +22,8 @@
 
     <div class="map-node__bg" :style="bgStyle" />
 
+    
+
     <NodeContent
       :text="pos.node.text"
       :color="pos.node.color"
@@ -52,12 +54,8 @@
       v-if="hasNotes"
       :notes="pos.node.notes"
       :color="pos.node.color"
-      :pinned="pos.node.notesPinned"
-      :visible="pos.node.notesVisible !== false"
       @open-notes="$emit('openNotes')"
-      @toggle-pin="$emit('toggleNotePin')"
-      @toggle-visible="$emit('toggleNotesVisible')"
-    />
+    />    
 
     <input ref="imageInput" type="file" accept="image/*" hidden @change="onImageSelected" />
   </div>
@@ -85,7 +83,7 @@ const emit = defineEmits([
   'resetPosition', 'startDrag',
   'setImage', 'removeImage',
   'resizeImage', 'resizeImageCommit',
-  'openNotes', 'toggleNotePin', 'toggleNotesVisible'   // ★
+  'openNotes'
 ])
 
 const imageInput = ref(null)
@@ -182,6 +180,13 @@ async function onImageDrop(e) {
   pointer-events: auto;
 }
 
+/* ★ Также если с изображением — двигаем кнопку ниже */
+/* .map-node--has-image :deep(.node-actions) {
+  top: 50%;
+  right: -14px;
+} */
+
+/* ★ При ховере увеличиваем картинку, НО не во время ресайза */
 .map-node:hover :deep(.node-image-float:not(.node-image-float--resizing)) {
   transform: translateX(-50%) scale(1.03);
 }

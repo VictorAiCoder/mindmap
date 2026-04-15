@@ -16,6 +16,14 @@ export function useTreeOperations(rootNode, history) {
     return findNodeById(rootNode.value, id)
   }
 
+  function toggleNotesVisible(nodeId) {
+    const node = findNode(nodeId)
+    if (node) {
+      node.notesVisible = node.notesVisible !== false ? false : true
+      touch()
+    }
+  }
+
   // --- CRUD ---
 
   function addChild(parentId, text = 'Новый узел') {
@@ -66,6 +74,13 @@ export function useTreeOperations(rootNode, history) {
   function toggleCollapse(nodeId) {
     const node = findNode(nodeId)
     if (node) { node.collapsed = !node.collapsed; touch() }
+  }
+
+  // --- Notes Pin ── ★ NEW ───
+
+  function toggleNotePin(nodeId) {
+    const node = findNode(nodeId)
+    if (node) { node.notesPinned = !node.notesPinned; touch() }
   }
 
   // --- Картинки ---
@@ -126,13 +141,6 @@ export function useTreeOperations(rootNode, history) {
     return true
   }
 
-  /**
-   * ★ Перемещает узел и все его видимые потомки на (dx, dy).
-   *
-   * Для каждого узла в группе:
-   *   - Если уже есть customX/Y — прибавляем дельту
-   *   - Если нет — берём текущую авто-позицию из layout и фиксируем
-   */
   function moveNodeGroup(nodeId, dx, dy, layoutPositions) {
     const node = findNode(nodeId)
     if (!node) return
@@ -145,8 +153,6 @@ export function useTreeOperations(rootNode, history) {
       const n = findNode(id)
       if (!n) return
 
-      // Если нет custom-позиции — нужно взять текущую computed позицию
-      // Передаём её через layoutPositions map
       if (n.customX == null || n.customY == null) {
         const layoutPos = layoutPositions?.get(id)
         if (layoutPos) {
@@ -167,8 +173,6 @@ export function useTreeOperations(rootNode, history) {
   function setImageWidth(nodeId, width) {
     const node = findNode(nodeId)
     if (!node) return
-    // Без history.save() — ресайз происходит часто,
-    // сохраняем snapshot только при commitResize
     node.imageWidth = width
     touch()
   }
@@ -181,13 +185,14 @@ export function useTreeOperations(rootNode, history) {
     touch()
   }
 
-  // В return добавить:
   return {
     addChild, deleteNode,
     updateText, updateColor, updateNotes, updateNodePosition,
     toggleCollapse,
+    toggleNotePin,
+    toggleNotesVisible,            // ★ NEW
     setNodeImage, removeNodeImage,
-    setImageWidth, commitImageResize,    // ★
+    setImageWidth, commitImageResize,
     resetAllPositions, autoLayout,
     reparentNode, moveNodeGroup
   }

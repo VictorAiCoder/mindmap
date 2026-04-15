@@ -1,62 +1,161 @@
-<!-- src/components/node/NodeNotesPreview.vue -->
 <template>
+  <!-- Свёрнутое состояние — только иконка закрытого глаза -->
+  <div v-if="!visible" class="notes-preview" style="max-width: 50px !important; height: 50px;">
+    <br>
+    <div
+      
+      class="notes-collapsed-indicator"
+      :style="{ borderColor: color }"
+      @click.stop="$emit('toggleVisible')"
+      title="Показать заметку"
+    >
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+        <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+        <line x1="1" y1="1" x2="23" y2="23"/>
+      </svg>
+    </div>
+  </div>
   <div
+    v-if="!visible"
+    class="notes-collapsed-indicator"
+    :style="{ borderColor: color }"
+    @click.stop="$emit('toggleVisible')"
+    title="Показать заметку"
+  >
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+      <line x1="1" y1="1" x2="23" y2="23"/>
+    </svg>
+  </div>
+
+  <!-- Развёрнутое состояние — полное превью -->
+  <div
+    v-else
     class="notes-preview"
-    :class="{ 'notes-preview--expanded': isHovered }"
+    :class="{
+      'notes-preview--expanded': isExpanded,
+      'notes-preview--pinned': pinned
+    }"
     :style="{ borderLeftColor: color }"
     @click.stop="$emit('openNotes')"
-    @mousedown.stop
-    @mouseenter="isHovered = true"
-    @mouseleave="isHovered = false"
+    @mouseenter="onMouseEnter"
+    @mouseleave="onMouseLeave"
   >
-    <div
-      v-if="!isHovered"
-      class="notes-md markdown-mini"
-      v-html="previewHtml"
-    />
+    <!-- Кнопка видимости (глаз) -->
+    <button
+      class="notes-eye-btn"
+      :class="{ 'notes-eye-btn--active': visible }"
+      title="Свернуть заметку"
+      @click.stop="$emit('toggleVisible')"
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+        <circle cx="12" cy="12" r="3"/>
+      </svg>
+    </button>
 
-    <div
-      v-else
-      class="notes-md notes-md--full markdown-mini"
-      v-html="fullHtml"
-    />
+    <!-- Кнопка Pin -->
+    <button
+      class="notes-pin-btn"
+      :class="{ 'notes-pin-btn--active': pinned }"
+      :title="pinned ? 'Открепить' : 'Закрепить'"
+      @click.stop="$emit('togglePin')"
+    >
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M16,12V4H17V2H7V4H8V12L6,14V16H11.2V22H12.8V16H18V14L16,12Z" />
+      </svg>
+    </button>
 
-    <div v-if="hasMore && !isHovered" class="notes-fade">
-      <span class="notes-more">наведите чтобы развернуть…</span>
+    <!-- Контент -->
+    <div class="markdown-mini" v-html="renderedHtml" />
+
+    <!-- Fade если контент обрезан -->
+    <div v-if="!isExpanded && isLong" class="notes-fade">
+      <span class="notes-more">...</span>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
-import { renderMarkdown, getNotesPreview } from '../../composables/useMarkdown'
+import { marked } from 'marked'
 
 const props = defineProps({
-  notes: { type: String, default: '' },
-  color: { type: String, default: '#5C6BC0' }
+  notes:   { type: String, default: '' },
+  color:   { type: String, default: '#5C6BC0' },
+  pinned:  { type: Boolean, default: false },
+  visible: { type: Boolean, default: true }
 })
 
-defineEmits(['openNotes'])
+defineEmits(['openNotes', 'togglePin', 'toggleVisible'])
 
-const isHovered = ref(false)
+const isExpanded = ref(false)
+const isLong = computed(() => props.notes.length > 200 || props.notes.split('\n').length > 5)
 
-const previewText = computed(() => getNotesPreview(props.notes))
-const previewHtml = computed(() => renderMarkdown(previewText.value))
-const fullHtml = computed(() => renderMarkdown(props.notes))
-
-const hasMore = computed(() => {
-  const n = props.notes || ''
-  return n.split('\n').length > 7 || n.length > 400
+const renderedHtml = computed(() => {
+  try {
+    return marked.parse(props.notes, { breaks: true, gfm: true })
+  } catch {
+    return `<p>${props.notes}</p>`
+  }
 })
+
+let hoverTimer = null
+
+function onMouseEnter() {
+  if (props.pinned) return
+  hoverTimer = setTimeout(() => { isExpanded.value = true }, 300)
+}
+
+function onMouseLeave() {
+  clearTimeout(hoverTimer)
+  if (!props.pinned) isExpanded.value = false
+}
 </script>
 
 <style scoped>
+/* ── Свёрнутый индикатор (закрытый глаз) ── */
+.notes-collapsed-indicator {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 4px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgb(var(--v-theme-surface));
+  border: 2px solid;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  z-index: 1;
+  color: rgba(var(--v-theme-on-surface), 0.35);
+  transition: all 0.2s ease;
+}
+
+.notes-collapsed-indicator:hover {
+  color: rgba(var(--v-theme-on-surface), 0.7);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.15);
+  transform: translateX(-50%) scale(1.1);
+}
+
+/* ── Развёрнутое превью ── */
 .notes-preview {
   position: absolute;
   top: 100%;
-  left: 0;
+  left: 50%;
+  transform: translateX(-50%);
   margin-top: 6px;
   padding: 10px 14px;
+  padding-right: 52px;           /* место под 2 кнопки */
   width: max-content;
   min-width: 180px;
   max-width: 280px;
@@ -80,7 +179,12 @@ const hasMore = computed(() => {
   overflow-y: auto;
   z-index: 50;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
-  transform: translateY(2px);
+  transform: translateX(-50%) translateY(2px);
+}
+
+.notes-preview--pinned {
+  border-left-width: 4px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.14);
 }
 
 .notes-preview--expanded::-webkit-scrollbar { width: 4px; }
@@ -89,6 +193,68 @@ const hasMore = computed(() => {
   border-radius: 4px;
 }
 
+/* ── Eye button ── */
+.notes-eye-btn {
+  position: absolute;
+  top: 6px;
+  right: 28px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 4px;
+  background: rgba(var(--v-theme-on-surface), 0.06);
+  color: rgba(var(--v-theme-on-surface), 0.4);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  z-index: 10;
+  padding: 0;
+}
+
+.notes-eye-btn:hover {
+  background: rgba(var(--v-theme-on-surface), 0.12);
+  color: rgba(var(--v-theme-on-surface), 0.7);
+}
+
+/* ── Pin button ── */
+.notes-pin-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 4px;
+  background: rgba(var(--v-theme-on-surface), 0.06);
+  color: rgba(var(--v-theme-on-surface), 0.4);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  z-index: 10;
+  padding: 0;
+}
+
+.notes-pin-btn:hover {
+  background: rgba(var(--v-theme-on-surface), 0.12);
+  color: rgba(var(--v-theme-on-surface), 0.7);
+}
+
+.notes-pin-btn--active {
+  color: rgb(var(--v-theme-primary));
+  background: rgba(var(--v-theme-primary), 0.12);
+  transform: rotate(45deg);
+}
+
+.notes-pin-btn--active:hover {
+  background: rgba(var(--v-theme-primary), 0.2);
+  color: rgb(var(--v-theme-primary));
+}
+
+/* ── Fade & more ── */
 .notes-fade {
   position: relative;
   margin-top: -24px;
@@ -103,7 +269,7 @@ const hasMore = computed(() => {
   font-style: italic;
 }
 
-/* Markdown мини-стили */
+/* ── Markdown мини-стили ── */
 .markdown-mini {
   font-size: 12px;
   line-height: 1.5;

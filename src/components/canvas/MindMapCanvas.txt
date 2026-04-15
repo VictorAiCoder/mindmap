@@ -51,7 +51,6 @@
           @resize-image-commit="(w) => mindmap.commitImageResize(pos.id, w)"
           @open-notes="notesNodeId = pos.id"
           @toggle-note-pin="handleToggleNotePin(pos.node.id)"
-          @toggle-notes-visible="handleToggleNotesVisible(pos.node.id)"
         />
         <NodeActionsMenu />
       </div>
@@ -368,12 +367,11 @@ function handleRemoveImage(nodeId) {
 
 // ─── Notes Panel ────────────────────────────
 function handleToggleNotePin(nodeId) {
-  mindmap.toggleNotePin(nodeId);
+  const node = findNodeById(nodeId) // твоя функция поиска ноды
+  if (node) {
+    node.notesPinned = !node.notesPinned
+  }
 }
-function handleToggleNotesVisible(nodeId) {
-  mindmap.toggleNotesVisible(nodeId)
-}
-
 const notesNodeId = ref(null)
 </script>
 
