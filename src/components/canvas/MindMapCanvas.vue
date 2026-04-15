@@ -47,6 +47,8 @@
           @start-drag="(e) => nodeDrag.startNodeDrag(e, pos.id, pos.x, pos.y)"
           @set-image="(url) => handleSetImage(pos.id, url)"
           @remove-image="handleRemoveImage(pos.id)"
+          @resize-image="(w) => mindmap.setImageWidth(pos.id, w)"
+          @resize-image-commit="(w) => mindmap.commitImageResize(pos.id, w)"
           @open-notes="notesNodeId = pos.id"
         />
       </div>
@@ -215,6 +217,8 @@ function updateDropTarget(e) {
 
 function onCanvasMouseDown(e) {
   if (nodeDrag.isDraggingNode.value) return
+  // ★ Не начинаем pan если кликнули на resize handle
+  if (e.target.closest('.node-image-resize')) return
   if (e.target.closest('.map-node') || e.target.closest('.edit-overlay')) return
   panZoom.startPan(e)
 }

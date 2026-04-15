@@ -11,23 +11,18 @@ function pickRandomColor() {
   return NODE_COLORS[Math.floor(Math.random() * NODE_COLORS.length)]
 }
 
-export function createNode({
-  text = 'Новый узел',
-  color,
-  children = [],
-  image = null,
-  notes = ''
-} = {}) {
+export function createNode(opts = {}) {
   return {
-    id: generateId(),
-    text,
-    color: color ?? pickRandomColor(),
-    collapsed: false,
-    customX: null,
-    customY: null,
-    image,
-    notes,
-    children
+    id: opts.id || generateId(),
+    text: opts.text || 'Новый узел',
+    color: opts.color || '#5C6BC0',
+    children: opts.children || [],
+    collapsed: opts.collapsed || false,
+    notes: opts.notes || '',
+    image: opts.image || null,
+    imageWidth: opts.imageWidth ?? null,   // ★ null = авто (дефолт 160px)
+    customX: opts.customX ?? null,
+    customY: opts.customY ?? null
   }
 }
 

@@ -164,11 +164,30 @@ export function useTreeOperations(rootNode, history) {
     touch()
   }
 
+  function setImageWidth(nodeId, width) {
+    const node = findNode(nodeId)
+    if (!node) return
+    // Без history.save() — ресайз происходит часто,
+    // сохраняем snapshot только при commitResize
+    node.imageWidth = width
+    touch()
+  }
+
+  function commitImageResize(nodeId, width) {
+    history.save()
+    const node = findNode(nodeId)
+    if (!node) return
+    node.imageWidth = width
+    touch()
+  }
+
+  // В return добавить:
   return {
     addChild, deleteNode,
     updateText, updateColor, updateNotes, updateNodePosition,
     toggleCollapse,
     setNodeImage, removeNodeImage,
+    setImageWidth, commitImageResize,    // ★
     resetAllPositions, autoLayout,
     reparentNode, moveNodeGroup
   }

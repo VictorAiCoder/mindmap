@@ -14,7 +14,10 @@
       v-if="hasImage"
       :src="pos.node.image"
       :is-root="isRoot"
+      :image-width="pos.node.imageWidth"
       @remove="$emit('removeImage')"
+      @resize="(w) => $emit('resizeImage', w)"
+      @resize-commit="(w) => $emit('resizeImageCommit', w)"
     />
 
     <div class="map-node__bg" :style="bgStyle" />
@@ -76,13 +79,13 @@ const props = defineProps({
 const emit = defineEmits([
   'edit', 'addChild', 'delete', 'toggle',
   'resetPosition', 'startDrag',
-  'setImage', 'removeImage', 'openNotes'
+  'setImage', 'removeImage',
+  'resizeImage', 'resizeImageCommit',
+  'openNotes'
 ])
 
 const imageInput = ref(null)
 const isImageDragOver = ref(false)
-
-// ─── Computed ───────────────────────────────
 
 const isRoot = computed(() => props.pos.depth === 0)
 const isLeaf = computed(() => props.pos.depth >= 2)
@@ -94,6 +97,8 @@ const hasImage = computed(() => {
   return !!img && typeof img === 'string' && img.trim().length > 0
 })
 
+const isDragging = computed(() => props.isBeingDragged || props.isInDragGroup)
+
 const nodeClasses = computed(() => ({
   'map-node--root': isRoot.value,
   'map-node--leaf': isLeaf.value,
@@ -104,8 +109,6 @@ const nodeClasses = computed(() => ({
   'map-node--custom': props.pos.hasCustomPos,
   'map-node--image-drop': isImageDragOver.value
 }))
-
-const isDragging = computed(() => props.isBeingDragged || props.isInDragGroup)
 
 const nodeStyle = computed(() => {
   const x = props.liveX ?? props.pos.x
@@ -124,43 +127,23 @@ const nodeStyle = computed(() => {
 
 const bgStyle = computed(() => {
   const color = props.pos.node.color || '#5C6BC0'
-
-  if (isRoot.value) {
-    return { background: color, borderRadius: '25px' }
-  }
-  if (isLeaf.value) {
-    return {
-      background: 'transparent',
-      borderBottom: `2.5px solid ${color}`,
-      borderRadius: '0'
-    }
-  }
-  return {
-    background: color + '22',
-    border: `2px solid ${color}`,
-    borderRadius: '20px'
-  }
+  if (isRoot.value) return { background: color, borderRadius: '25px' }
+  if (isLeaf.value) return { background: 'transparent', borderBottom: `2.5px solid ${color}`, borderRadius: '0' }
+  return { background: color + '22', border: `2px solid ${color}`, borderRadius: '20px' }
 })
-
-// ─── Event Handlers ─────────────────────────
 
 function onMouseDown(e) {
   if (e.button === 0) emit('startDrag', e)
 }
 
-function triggerImageUpload() {
-  imageInput.value?.click()
-}
+function triggerImageUpload() { imageInput.value?.click() }
 
 async function onImageSelected(e) {
   const file = e.target?.files?.[0]
   if (!file) return
   e.target.value = ''
-  try {
-    emit('setImage', await processImageFile(file))
-  } catch (err) {
-    console.warn('Image upload error:', err.message)
-  }
+  try { emit('setImage', await processImageFile(file)) }
+  catch (err) { console.warn('Image upload error:', err.message) }
 }
 
 function onImageDragOver(e) {
@@ -174,11 +157,8 @@ async function onImageDrop(e) {
   isImageDragOver.value = false
   const file = getImageFromDrop(e)
   if (!file) return
-  try {
-    emit('setImage', await processImageFile(file))
-  } catch (err) {
-    console.warn('Image drop error:', err.message)
-  }
+  try { emit('setImage', await processImageFile(file)) }
+  catch (err) { console.warn('Image drop error:', err.message) }
 }
 </script>
 
@@ -194,9 +174,12 @@ async function onImageDrop(e) {
 
 .map-node:hover { z-index: 5; }
 .map-node:hover :deep(.node-actions) { opacity: 1; pointer-events: auto; }
-.map-node:hover :deep(.node-image-float) { transform: translateX(-50%) scale(1.03); }
 
-/* ★ Перетаскиваемый узел (главный) */
+/* ★ При ховере увеличиваем картинку, НО не во время ресайза */
+.map-node:hover :deep(.node-image-float:not(.node-image-float--resizing)) {
+  transform: translateX(-50%) scale(1.03);
+}
+
 .map-node--dragging {
   cursor: grabbing;
   opacity: 0.9;
@@ -204,7 +187,6 @@ async function onImageDrop(e) {
   transition: none !important;
 }
 
-/* ★ Узлы из drag-группы (потомки) — двигаются вместе */
 .map-node--in-drag-group {
   opacity: 0.75;
   z-index: 99 !important;
@@ -212,7 +194,6 @@ async function onImageDrop(e) {
   pointer-events: none;
 }
 
-/* ★ Визуальная обводка группы при перетаскивании */
 .map-node--dragging .map-node__bg,
 .map-node--in-drag-group .map-node__bg {
   filter: brightness(1.1);

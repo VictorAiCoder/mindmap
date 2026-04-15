@@ -9,7 +9,9 @@ import { parseMarkdownToTree } from './importMarkdown'
 export function loadFromStorage() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : null
+    if (!raw) return null
+    const data = JSON.parse(raw)
+    return normalizeNode(data)   // ★ нормализуем при загрузке
   } catch { return null }
 }
 
@@ -18,6 +20,29 @@ function saveToStorage(data) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
   } catch (e) {
     console.warn('localStorage save failed:', e)
+  }
+}
+
+// --- ★ Нормализация дерева ---
+// Гарантирует наличие всех полей после импорта/загрузки,
+// включая новые (imageWidth, notes и т.д.)
+
+function normalizeNode(node) {
+  if (!node || typeof node !== 'object') return null
+
+  return {
+    id: node.id || crypto.randomUUID?.() || String(Date.now()),
+    text: node.text || '',
+    color: node.color || '#5C6BC0',
+    collapsed: node.collapsed || false,
+    notes: node.notes || '',
+    image: node.image || null,
+    imageWidth: node.imageWidth ?? null,    // ★ ключевое поле
+    customX: node.customX ?? null,
+    customY: node.customY ?? null,
+    children: Array.isArray(node.children)
+      ? node.children.map(normalizeNode).filter(Boolean)
+      : []
   }
 }
 
@@ -33,7 +58,7 @@ function downloadFile(content, filename, mime) {
   URL.revokeObjectURL(url)
 }
 
-// --- JSON ---
+// --- JSON Export ---
 
 function cleanTreeForExport(node) {
   const clean = {
@@ -45,6 +70,7 @@ function cleanTreeForExport(node) {
     customY: node.customY ?? undefined,
     notes: node.notes || undefined,
     image: node.image || undefined,
+    imageWidth: node.imageWidth ?? undefined,    // ★ добавлено
     children: node.children?.length
       ? node.children.map(cleanTreeForExport)
       : undefined
@@ -100,7 +126,9 @@ export function usePersistence(rootNode) {
       reader.onload = (e) => {
         try {
           const content = e.target.result
-          const data = parseFile(content, getFileFormat(file))
+          const raw = parseFile(content, getFileFormat(file))
+          const data = normalizeNode(raw)    // ★ нормализуем при импорте
+          if (!data) throw new Error('Пустые данные')
           rootNode.value = data
           resolve(data)
         } catch (err) {
@@ -124,7 +152,6 @@ function parseFile(content, format) {
     return data
   }
 
-  // auto — пробуем JSON, fallback на MD
   try {
     const data = JSON.parse(content)
     if (data.text) return data
