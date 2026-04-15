@@ -1,88 +1,74 @@
 <template>
-  <!-- Свёрнутое состояние — только иконка закрытого глаза -->
-  <div v-if="!visible" class="notes-preview" style="max-width: 50px !important; height: 50px;">
-    <br>
+  <div
+    class="notes-preview"
+    :class="{
+      'notes-preview--collapsed': !visible,
+      'notes-preview--expanded': visible && isExpanded,
+      'notes-preview--pinned': visible && pinned
+    }"
+    :style="previewStyle"
+    @mouseenter="onMouseEnter"
+    @mouseleave="onMouseLeave"
+  >
+    <!-- ═══ Свёрнутое состояние ═══ -->
     <div
-      
+      v-if="!visible"
       class="notes-collapsed-indicator"
       :style="{ borderColor: color }"
       @click.stop="$emit('toggleVisible')"
       title="Показать заметку"
     >
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
         <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
         <line x1="1" y1="1" x2="23" y2="23"/>
       </svg>
     </div>
-  </div>
-  <div
-    v-if="!visible"
-    class="notes-collapsed-indicator"
-    :style="{ borderColor: color }"
-    @click.stop="$emit('toggleVisible')"
-    title="Показать заметку"
-  >
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
-      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
-      <line x1="1" y1="1" x2="23" y2="23"/>
-    </svg>
-  </div>
 
-  <!-- Развёрнутое состояние — полное превью -->
-  <div
-    v-else
-    class="notes-preview"
-    :class="{
-      'notes-preview--expanded': isExpanded,
-      'notes-preview--pinned': pinned
-    }"
-    :style="{ borderLeftColor: color }"
-    @click.stop="$emit('openNotes')"
-    @mouseenter="onMouseEnter"
-    @mouseleave="onMouseLeave"
-  >
-    <!-- Кнопка видимости (глаз) -->
-    <button
-      class="notes-eye-btn"
-      :class="{ 'notes-eye-btn--active': visible }"
-      title="Свернуть заметку"
-      @click.stop="$emit('toggleVisible')"
-    >
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-        <circle cx="12" cy="12" r="3"/>
-      </svg>
-    </button>
+    <!-- ═══ Развёрнутое состояние ═══ -->
+    <template v-else>
+      <!-- Toolbar: eye + pin -->
+      <div class="notes-toolbar" @click.stop>
+        <button
+          class="notes-btn notes-eye-btn"
+          :class="{ 'notes-btn--active': visible }"
+          title="Свернуть заметку"
+          @click.stop="$emit('toggleVisible')"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
 
-    <!-- Кнопка Pin -->
-    <button
-      class="notes-pin-btn"
-      :class="{ 'notes-pin-btn--active': pinned }"
-      :title="pinned ? 'Открепить' : 'Закрепить'"
-      @click.stop="$emit('togglePin')"
-    >
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M16,12V4H17V2H7V4H8V12L6,14V16H11.2V22H12.8V16H18V14L16,12Z" />
-      </svg>
-    </button>
+        <button
+          class="notes-btn notes-pin-btn"
+          :class="{ 'notes-btn--active-pin': pinned }"
+          :title="pinned ? 'Открепить' : 'Закрепить'"
+          @click.stop="onTogglePin"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M16,12V4H17V2H7V4H8V12L6,14V16H11.2V22H12.8V16H18V14L16,12Z"/>
+          </svg>
+        </button>
+      </div>
 
-    <!-- Контент -->
-    <div class="markdown-mini" v-html="renderedHtml" />
+      <!-- Content area — кликабельно для открытия -->
+      <div class="notes-content" @click.stop="$emit('openNotes')">
+        <div class="markdown-mini" v-html="renderedHtml" />
 
-    <!-- Fade если контент обрезан -->
-    <div v-if="!isExpanded && isLong" class="notes-fade">
-      <span class="notes-more">...</span>
-    </div>
+        <div v-if="!isExpanded && isLong" class="notes-fade">
+          <span class="notes-more">...</span>
+        </div>
+      </div>
+    </template>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { marked } from 'marked'
 
 const props = defineProps({
@@ -92,10 +78,30 @@ const props = defineProps({
   visible: { type: Boolean, default: true }
 })
 
-defineEmits(['openNotes', 'togglePin', 'toggleVisible'])
+const emit = defineEmits(['openNotes', 'togglePin', 'toggleVisible'])
 
-const isExpanded = ref(false)
-const isLong = computed(() => props.notes.length > 200 || props.notes.split('\n').length > 5)
+// ── isExpanded синхронизируется с pinned ──
+const isExpanded = ref(props.pinned)
+
+watch(() => props.pinned, (val) => {
+  if (val) isExpanded.value = true
+})
+
+// Когда visible включается обратно — восстанавливаем expanded если pinned
+watch(() => props.visible, (val) => {
+  if (val && props.pinned) {
+    isExpanded.value = true
+  }
+})
+
+const isLong = computed(() =>
+  props.notes.length > 200 || props.notes.split('\n').length > 5
+)
+
+const previewStyle = computed(() => {
+  if (!props.visible) return {}
+  return { borderLeftColor: props.color }
+})
 
 const renderedHtml = computed(() => {
   try {
@@ -105,10 +111,21 @@ const renderedHtml = computed(() => {
   }
 })
 
+// ── Pin toggle с синхронизацией expanded ──
+function onTogglePin() {
+  // Если сейчас pinned=true и мы открепляем → оставляем expanded как есть (mouseLeave разберётся)
+  // Если pinned=false и мы закрепляем → ставим expanded=true
+  if (!props.pinned) {
+    isExpanded.value = true
+  }
+  emit('togglePin')
+}
+
+// ── Hover logic ──
 let hoverTimer = null
 
 function onMouseEnter() {
-  if (props.pinned) return
+  if (!props.visible || props.pinned) return
   hoverTimer = setTimeout(() => { isExpanded.value = true }, 300)
 }
 
@@ -119,13 +136,27 @@ function onMouseLeave() {
 </script>
 
 <style scoped>
-/* ── Свёрнутый индикатор (закрытый глаз) ── */
-.notes-collapsed-indicator {
+/* ── Корневой контейнер ── */
+.notes-preview {
   position: absolute;
   top: 100%;
   left: 50%;
   transform: translateX(-50%);
-  margin-top: 4px;
+  margin-top: 6px;
+  z-index: 1;
+  transition: all 0.25s ease;
+}
+
+/* ── Свёрнутый режим ── */
+.notes-preview--collapsed {
+  padding: 0;
+  background: none;
+  border: none;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.notes-collapsed-indicator {
   width: 36px;
   height: 36px;
   display: flex;
@@ -136,7 +167,6 @@ function onMouseLeave() {
   border: 2px solid;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   cursor: pointer;
-  z-index: 1;
   color: rgba(var(--v-theme-on-surface), 0.35);
   transition: all 0.2s ease;
 }
@@ -144,41 +174,29 @@ function onMouseLeave() {
 .notes-collapsed-indicator:hover {
   color: rgba(var(--v-theme-on-surface), 0.7);
   box-shadow: 0 3px 12px rgba(0, 0, 0, 0.15);
-  transform: translateX(-50%) scale(1.1);
+  transform: scale(1.1);
 }
 
-/* ── Развёрнутое превью ── */
-.notes-preview {
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  margin-top: 6px;
+/* ── Развёрнутый режим (не collapsed) ── */
+.notes-preview:not(.notes-preview--collapsed) {
   padding: 10px 14px;
-  padding-right: 52px;           /* место под 2 кнопки */
+  padding-right: 52px;
   width: max-content;
-  min-width: 180px;
   max-width: 280px;
   background: rgb(var(--v-theme-surface));
   border-left: 3px solid;
   border-radius: 0 8px 8px 0;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-  cursor: pointer;
-  z-index: 1;
-  transition: all 0.25s ease;
   overflow: hidden;
-}
-
-.notes-preview:not(.notes-preview--expanded) {
   max-height: 160px;
 }
 
 .notes-preview--expanded {
-  max-width: 380px;
-  max-height: 500px;
-  overflow-y: auto;
-  z-index: 50;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  max-width: 380px !important;
+  max-height: 500px !important;
+  overflow-y: auto !important;
+  z-index: 50 !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18) !important;
   transform: translateX(-50%) translateY(2px);
 }
 
@@ -193,11 +211,18 @@ function onMouseLeave() {
   border-radius: 4px;
 }
 
-/* ── Eye button ── */
-.notes-eye-btn {
-  position: absolute;
-  top: 6px;
-  right: 28px;
+/* ── Toolbar (eye + pin) ── */
+.notes-toolbar {
+  /* position: absolute; */
+  /* top: 6px; */
+  /* right: 6px; */
+  margin-bottom: 8px;
+  display: flex;
+  gap: 2px;
+  z-index: 10;
+}
+
+.notes-btn {
   width: 22px;
   height: 22px;
   display: flex;
@@ -209,49 +234,29 @@ function onMouseLeave() {
   color: rgba(var(--v-theme-on-surface), 0.4);
   cursor: pointer;
   transition: all 0.15s ease;
-  z-index: 10;
   padding: 0;
 }
 
-.notes-eye-btn:hover {
+.notes-btn:hover {
   background: rgba(var(--v-theme-on-surface), 0.12);
   color: rgba(var(--v-theme-on-surface), 0.7);
 }
 
-/* ── Pin button ── */
-.notes-pin-btn {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 22px;
-  height: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  border-radius: 4px;
-  background: rgba(var(--v-theme-on-surface), 0.06);
-  color: rgba(var(--v-theme-on-surface), 0.4);
-  cursor: pointer;
-  transition: all 0.15s ease;
-  z-index: 10;
-  padding: 0;
-}
-
-.notes-pin-btn:hover {
-  background: rgba(var(--v-theme-on-surface), 0.12);
-  color: rgba(var(--v-theme-on-surface), 0.7);
-}
-
-.notes-pin-btn--active {
+/* Pin active */
+.notes-btn--active-pin {
   color: rgb(var(--v-theme-primary));
   background: rgba(var(--v-theme-primary), 0.12);
   transform: rotate(45deg);
 }
 
-.notes-pin-btn--active:hover {
+.notes-btn--active-pin:hover {
   background: rgba(var(--v-theme-primary), 0.2);
   color: rgb(var(--v-theme-primary));
+}
+
+/* ── Content area ── */
+.notes-content {
+  cursor: pointer;
 }
 
 /* ── Fade & more ── */

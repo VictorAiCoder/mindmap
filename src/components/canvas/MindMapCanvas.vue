@@ -37,6 +37,7 @@
           :is-dragged-over="nodeDrag.dropTargetId.value === pos.id"
           :is-being-dragged="nodeDrag.draggingNodeId.value === pos.id"
           :is-in-drag-group="nodeDrag.isInDragGroup(pos.id)"
+          :is-focused="panZoom.focusedNodeId.value === pos.id"
           :live-x="getLiveX(pos)"
           :live-y="getLiveY(pos)"
           @edit="startEdit(pos.id)"
@@ -52,6 +53,7 @@
           @open-notes="notesNodeId = pos.id"
           @toggle-note-pin="handleToggleNotePin(pos.node.id)"
           @toggle-notes-visible="handleToggleNotesVisible(pos.node.id)"
+          @focus-node="handleFocusNode(pos)"
         />
         <NodeActionsMenu />
       </div>
@@ -140,10 +142,13 @@ const sceneStyle = computed(() => {
     transform: `translate(${panZoom.panX.value}px, ${panZoom.panY.value}px) scale(${panZoom.zoom.value})`,
     transformOrigin: '0 0',
     left: `${-b.minX}px`,
-    top: `${-b.minY}px`
+    top: `${-b.minY}px`,
+    // ★ Плавная анимация только при focusOnNode
+    transition: panZoom.isAnimating.value
+      ? 'transform 0.45s cubic-bezier(0.4, 0, 0.2, 1)'
+      : 'none'
   }
 })
-
 // ─── Node Drag ──────────────────────────────
 
 const nodeDrag = useNodeDrag(mindmap, panZoom.zoom)
@@ -237,6 +242,11 @@ function onCanvasMouseMove(e) {
   if (nodeDrag.isDraggingNode.value) {
     updateDropTarget(e)
   }
+}
+// ─── Focus on Node ──────────────────────────
+
+function handleFocusNode(pos) {
+  panZoom.focusOnNode(pos, layoutData.value.bounds, wrapperRef.value, 1.25)
 }
 
 // ─── Live Connections ───────────────────────

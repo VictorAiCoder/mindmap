@@ -56,10 +56,6 @@ function onTriggerClick() {
 
 <style scoped>
 .node-actions {
-  position: absolute;
-  top: 50%;
-  right: -14px;
-  transform: translateY(-50%);
   z-index: 10;
   opacity: 0;
   transition: opacity 0.15s ease;

@@ -6,6 +6,8 @@
     :style="nodeStyle"
     @dblclick.stop="$emit('edit')"
     @mousedown.stop="onMouseDown"
+    @mouseenter="isHovered = true"
+    @mouseleave="isHovered = false"
     @dragover.prevent.stop="onImageDragOver"
     @dragleave.stop="isImageDragOver = false"
     @drop.prevent.stop="onImageDrop"
@@ -21,6 +23,33 @@
     />
 
     <div class="map-node__bg" :style="bgStyle" />
+
+   <!-- ★ Кнопка фокуса (лупа) с toggle-состоянием -->
+    <Transition name="zoom-btn-fade">
+      <button
+        v-if="(isHovered || isFocused) && !isDragging"
+        class="map-node__focus-btn"
+        :class="{ 'map-node__focus-btn--active': isFocused }"
+        :title="isFocused ? 'Вернуть масштаб 100%' : 'Фокус на узле (125%)'"
+        @click.stop="$emit('focusNode')"
+        @mousedown.stop
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="7" />
+          <!-- Плюс / Минус внутри лупы -->
+          <g v-if="!isFocused">
+            <line x1="8" y1="11" x2="14" y2="11" />
+            <line x1="11" y1="8" x2="11" y2="14" />
+          </g>
+          <g v-else>
+            <line x1="8" y1="11" x2="14" y2="11" />
+          </g>
+          <line x1="16.5" y1="16.5" x2="21" y2="21" />
+        </svg>
+      </button>
+    </Transition>
 
     <NodeContent
       :text="pos.node.text"
@@ -77,7 +106,8 @@ const props = defineProps({
   isBeingDragged: { type: Boolean, default: false },
   isInDragGroup: { type: Boolean, default: false },
   liveX: { type: Number, default: null },
-  liveY: { type: Number, default: null }
+  liveY: { type: Number, default: null },
+  isFocused: { type: Boolean, default: false }  // ★
 })
 
 const emit = defineEmits([
@@ -85,11 +115,13 @@ const emit = defineEmits([
   'resetPosition', 'startDrag',
   'setImage', 'removeImage',
   'resizeImage', 'resizeImageCommit',
-  'openNotes', 'toggleNotePin', 'toggleNotesVisible'   // ★
+  'openNotes', 'toggleNotePin', 'toggleNotesVisible',
+  'focusNode'   // ★
 ])
 
 const imageInput = ref(null)
 const isImageDragOver = ref(false)
+const isHovered = ref(false)   // ★
 
 const isRoot = computed(() => props.pos.depth === 0)
 const isLeaf = computed(() => props.pos.depth >= 2)
@@ -235,5 +267,69 @@ async function onImageDrop(e) {
   position: absolute;
   inset: 0;
   transition: all 0.2s ease;
+}
+
+/* ── ★ Focus button (лупа) ── */
+.map-node__focus-btn {
+  position: absolute;
+  top: -12px;
+  left: -12px;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(var(--v-theme-on-surface), 0.15);
+  border-radius: 50%;
+  background: rgb(var(--v-theme-surface));
+  color: rgba(var(--v-theme-on-surface), 0.5);
+  cursor: pointer;
+  z-index: 20;
+  padding: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.map-node__focus-btn:hover {
+  background: rgb(var(--v-theme-primary));
+  color: white;
+  border-color: rgb(var(--v-theme-primary));
+  transform: scale(1.15);
+  box-shadow: 0 3px 12px rgba(var(--v-theme-primary), 0.35);
+}
+
+.map-node__focus-btn:active {
+  transform: scale(0.92);
+  transition-duration: 0.1s;
+}
+
+/* ★ Активное состояние — нода в фокусе */
+.map-node__focus-btn--active {
+  background: rgb(var(--v-theme-primary));
+  color: white;
+  border-color: rgb(var(--v-theme-primary));
+  box-shadow: 0 0 0 3px rgba(var(--v-theme-primary), 0.2),
+              0 2px 8px rgba(var(--v-theme-primary), 0.3);
+}
+
+.map-node__focus-btn--active:hover {
+  background: rgba(var(--v-theme-primary), 0.85);
+  transform: scale(1.1);
+}
+
+/* ── Transition ── */
+.zoom-btn-fade-enter-active {
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.zoom-btn-fade-leave-active {
+  transition: all 0.15s ease-in;
+}
+.zoom-btn-fade-enter-from {
+  opacity: 0;
+  transform: scale(0.3) rotate(-90deg);
+}
+.zoom-btn-fade-leave-to {
+  opacity: 0;
+  transform: scale(0.5);
 }
 </style>
