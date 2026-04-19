@@ -89,6 +89,7 @@
 import { ref, computed, watch, nextTick, inject } from 'vue'
 import { renderMarkdown } from '../../composables/useMarkdown'
 import { findNodeById } from '../../composables/tree/useTreeTraversal'
+import { mindMapKey } from '../../types/injection-keys'
 import NotesToolbar from './NotesToolbar.vue'
 
 const props = defineProps({
@@ -97,7 +98,7 @@ const props = defineProps({
 
 const emit = defineEmits(['close'])
 
-const mindmap = inject('mindmap', null)
+const mindmap = inject(mindMapKey, null)
 
 const viewMode = ref('split')
 const localNotes = ref('')

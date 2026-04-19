@@ -102,7 +102,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, inject, nextTick } from 'vue'
+// import { ref, computed, watch, onMounted, inject, nextTick } from 'vue'
 import MapNode from '../node/MapNode.vue'
 import NotesPanel from '../panels/NotesPanel.vue'
 import DragHint from './DragHint.vue'
@@ -112,8 +112,16 @@ import { useNodeDrag } from '../../composables/drag/useNodeDrag'
 import { usePanZoom } from '../../composables/canvas/usePanZoom'
 import NodeActionsMenu from '../node/NodeActionsMenu.vue'
 
-const mindmap = inject('mindmap', null)
-const notify = inject('notify', () => {})
+
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
+import { injectStrict } from '../../utils/injectStrict'
+import { mindMapKey, notifyKey } from '../../types/injection-keys'
+// ...
+const mindmap = injectStrict(mindMapKey)
+const notify = injectStrict(notifyKey)
+
+// const mindmap = inject('mindmap', null)
+// const notify = inject('notify', () => {})
 
 const wrapperRef = ref(null)
 
@@ -137,6 +145,8 @@ const panZoom = usePanZoom()
 onMounted(() => {
   panZoom.setWrapper(wrapperRef.value)
 })
+
+
 
 
 const sceneStyle = computed(() => {
@@ -411,6 +421,15 @@ function handleToggleNotePin(nodeId) {
 function handleToggleNotesVisible(nodeId) {
   mindmap.toggleNotesVisible(nodeId)
 }
+
+import { watchEffect } from 'vue'
+
+watchEffect(() => {
+  console.log('[diag] mindmap:', mindmap)
+  console.log('[diag] rootNode:', mindmap?.rootNode?.value)
+  console.log('[diag] layoutData:', layoutData.value)
+  console.log('[diag] positions.length:', layoutData.value?.positions?.length)
+})
 
 const notesNodeId = ref(null)
 </script>

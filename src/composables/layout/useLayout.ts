@@ -1,19 +1,23 @@
-// src/composables/layout/useLayout.js
-import { computed } from 'vue'
+// src/composables/layout/useLayout.ts
+import { computed, type ComputedRef, type Ref } from 'vue'
 import {
   NODE_W, NODE_H, ROOT_W, ROOT_H,
   GAP_H, GAP_V, CANVAS_PADDING
 } from '../../constants'
 import { traverseTree } from '../tree/useTreeTraversal'
+import type { MindMapNode } from '../../types/mindmap'
+import type { LayoutData, LayoutPosition, LayoutBounds } from '../../types/layout'
 
 /**
  * Вычисляет позиции узлов на канвасе.
  *
  * Если у узла есть customX/customY — использует их.
- * Иначе — автоматический расчёт (mind map layout).
+ * Иначе — автоматический расчёт (mind map layout: children справа/слева от корня).
  */
-export function useLayout(rootNode) {
-  const layoutData = computed(() => {
+export function useLayout(
+  rootNode: Ref<MindMapNode>
+): { layoutData: ComputedRef<LayoutData> } {
+  const layoutData = computed<LayoutData>(() => {
     const root = rootNode.value
     if (!root) return emptyLayout()
 
@@ -28,7 +32,7 @@ export function useLayout(rootNode) {
 
 // ─── Пустая раскладка ───────────────────────
 
-function emptyLayout() {
+function emptyLayout(): LayoutData {
   return {
     positions: [],
     bounds: {
@@ -41,14 +45,19 @@ function emptyLayout() {
 
 // ─── Расчёт позиций ────────────────────────
 
-function calcPositions(root) {
-  // Сначала считаем автоматические позиции
+interface AutoPos {
+  x: number
+  y: number
+  w: number
+  h: number
+  depth: number
+}
+
+function calcPositions(root: MindMapNode): LayoutPosition[] {
   const autoPositions = calcAutoPositions(root)
+  const positions: LayoutPosition[] = []
 
-  // Собираем финальные позиции с учётом custom
-  const positions = []
-
-  traverseTree(root, (node) => {
+  traverseTree(root, (node: MindMapNode) => {
     if (root.collapsed && node !== root) return
 
     const auto = autoPositions.get(node.id)
@@ -59,8 +68,8 @@ function calcPositions(root) {
     positions.push({
       id: node.id,
       node,
-      x: hasCustom ? node.customX : auto.x,
-      y: hasCustom ? node.customY : auto.y,
+      x: hasCustom ? (node.customX as number) : auto.x,
+      y: hasCustom ? (node.customY as number) : auto.y,
       w: auto.w,
       h: auto.h,
       depth: auto.depth,
@@ -73,11 +82,10 @@ function calcPositions(root) {
 
 // ─── Автоматический Mind Map Layout ─────────
 
-function calcAutoPositions(root) {
-  const map = new Map()
+function calcAutoPositions(root: MindMapNode): Map<string, AutoPos> {
+  const map = new Map<string, AutoPos>()
 
-  // Шаг 1: вычислить высоту каждого поддерева
-  function subtreeHeight(node, depth) {
+  function subtreeHeight(node: MindMapNode, depth: number): number {
     const h = nodeHeight(depth)
 
     if (node.collapsed || !node.children?.length) return h
@@ -91,8 +99,13 @@ function calcAutoPositions(root) {
     return Math.max(h, childrenH + gaps)
   }
 
-  // Шаг 2: расположить ветку (рекурсивно)
-  function placeBranch(node, x, yCenter, side, depth) {
+  function placeBranch(
+    node: MindMapNode,
+    x: number,
+    yCenter: number,
+    side: 'left' | 'right',
+    depth: number
+  ): void {
     const w = nodeWidth(depth)
     const h = nodeHeight(depth)
 
@@ -117,7 +130,6 @@ function calcAutoPositions(root) {
     })
   }
 
-  // Шаг 3: разделить детей корня на правую/левую стороны
   const children = root.children || []
   const right = children.filter((_, i) => i % 2 === 0)
   const left = children.filter((_, i) => i % 2 !== 0)
@@ -129,7 +141,6 @@ function calcAutoPositions(root) {
   const cx = 800
   const cy = maxH / 2 + CANVAS_PADDING
 
-  // Корень
   map.set(root.id, {
     x: cx - ROOT_W / 2,
     y: cy - ROOT_H / 2,
@@ -141,7 +152,6 @@ function calcAutoPositions(root) {
   if (!root.collapsed && children.length) {
     const baseX = cx - ROOT_W / 2
 
-    // Правая сторона
     let ry = cy - rightH / 2
     right.forEach(child => {
       const h = subtreeHeight(child, 1)
@@ -149,7 +159,6 @@ function calcAutoPositions(root) {
       ry += h + GAP_V
     })
 
-    // Левая сторона
     let ly = cy - leftH / 2
     left.forEach(child => {
       const h = subtreeHeight(child, 1)
@@ -163,7 +172,7 @@ function calcAutoPositions(root) {
 
 // ─── Расчёт границ ─────────────────────────
 
-function calcBounds(positions) {
+function calcBounds(positions: LayoutPosition[]): LayoutBounds {
   if (!positions.length) {
     return { minX: 0, minY: 0, maxX: 1600, maxY: 900, width: 1600, height: 900 }
   }
@@ -194,15 +203,19 @@ function calcBounds(positions) {
 
 // ─── Утилиты размеров ──────────────────────
 
-function nodeWidth(depth) {
+function nodeWidth(depth: number): number {
   return depth === 0 ? ROOT_W : NODE_W
 }
 
-function nodeHeight(depth) {
+function nodeHeight(depth: number): number {
   return depth === 0 ? ROOT_H : NODE_H
 }
 
-function groupHeight(nodes, depth, subtreeHeightFn) {
+function groupHeight(
+  nodes: MindMapNode[],
+  depth: number,
+  subtreeHeightFn: (node: MindMapNode, depth: number) => number
+): number {
   if (!nodes.length) return 0
 
   const total = nodes.reduce(

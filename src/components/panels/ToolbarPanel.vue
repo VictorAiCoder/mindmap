@@ -40,7 +40,7 @@
             :key="key"
             :prepend-icon="layout.icon"
             :title="layout.label"
-            @click="emit('autoLayout', key)"
+            @click="emit('autoLayout', key as LayoutType)"
           />
           <v-divider class="my-1" />
           <v-list-item
@@ -117,7 +117,13 @@
       </v-tooltip>
     </template>
 
-    <input ref="fileInput" type="file" :accept="fileAccept" hidden @change="onFileSelected" />
+    <input
+      ref="fileInput"
+      type="file"
+      :accept="fileAccept"
+      hidden
+      @change="onFileSelected"
+    />
   </v-app-bar>
 
   <v-dialog v-model="resetDialog" max-width="400">
@@ -130,41 +136,68 @@
       <v-card-actions>
         <v-spacer />
         <v-btn variant="text" @click="resetDialog = false">Отмена</v-btn>
-        <v-btn color="error" variant="flat" @click="resetDialog = false; emit('reset')">Сбросить</v-btn>
+        <v-btn color="error" variant="flat" @click="resetDialog = false; emit('reset')">
+          Сбросить
+        </v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, nextTick } from 'vue'
 import { LAYOUT_TYPES } from '../../composables/layout/useAutoLayout'
+import type { LayoutType, ExportFormat } from '../../types/mindmap-api'
 
-defineProps({
-  nodeCount: { type: Number, default: 0 },
-  depth: { type: Number, default: 0 },
-  canUndo: { type: Boolean, default: false },
-  canRedo: { type: Boolean, default: false },
-  isDark: { type: Boolean, default: false }
+// ─── Props ───────────────────────────────────────────
+
+interface Props {
+  nodeCount?: number
+  depth?: number
+  canUndo?: boolean
+  canRedo?: boolean
+  isDark?: boolean
+}
+
+withDefaults(defineProps<Props>(), {
+  nodeCount: 0,
+  depth: 0,
+  canUndo: false,
+  canRedo: false,
+  isDark: false
 })
 
-const emit = defineEmits([
-  'export', 'import', 'reset', 'undo', 'redo',
-  'toggleTheme', 'autoLayout', 'resetLayout'
-])
+// ─── Emits ───────────────────────────────────────────
+
+const emit = defineEmits<{
+  export: [format: ExportFormat]
+  import: [file: File]
+  reset: []
+  undo: []
+  redo: []
+  toggleTheme: []
+  autoLayout: [type: LayoutType]
+  resetLayout: []
+}>()
+
+// ─── Internal state ──────────────────────────────────
 
 const layoutTypes = LAYOUT_TYPES
-const fileInput = ref(null)
-const fileAccept = ref('.json,.md,.markdown')
-const resetDialog = ref(false)
+const fileInput = ref<HTMLInputElement | null>(null)
+const fileAccept = ref<string>('.json,.md,.markdown')
+const resetDialog = ref<boolean>(false)
 
-function openFilePicker(accept) {
+function openFilePicker(accept: string): void {
   fileAccept.value = accept
   nextTick(() => fileInput.value?.click())
 }
 
-function onFileSelected(e) {
-  const file = e.target.files?.[0]
-  if (file) { emit('import', file); e.target.value = '' }
+function onFileSelected(e: Event): void {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (file) {
+    emit('import', file)
+    input.value = ''
+  }
 }
 </script>

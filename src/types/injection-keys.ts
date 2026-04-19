@@ -2,13 +2,13 @@
 import type { InjectionKey } from 'vue'
 import type { MindMapApi } from './mindmap-api'
 
-export const MindMapKey: InjectionKey<MindMapApi> = Symbol('mindmap')
+export type NotifyColor = 'success' | 'error' | 'info' | 'warning'
 
-/** Функция уведомлений */
-export type NotificationType = 'success' | 'error' | 'info' | 'warning'
+export type NotifyFn = (
+  text: string,
+  color?: NotifyColor,
+  icon?: string
+) => void
 
-export interface NotifyFn {
-  (message: string, type?: NotificationType, icon?: string): void
-}
-
-export const NotifyKey: InjectionKey<NotifyFn> = Symbol('notify')
+export const mindMapKey: InjectionKey<MindMapApi> = Symbol('mindmap')
+export const notifyKey: InjectionKey<NotifyFn> = Symbol('notify')

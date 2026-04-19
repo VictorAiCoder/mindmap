@@ -21,81 +21,118 @@
       <MindMap />
     </v-main>
 
-    <v-snackbar v-model="snackbar.show" :color="snackbar.color" :timeout="2000" location="bottom right">
+    <v-snackbar
+      v-model="snackbar.show"
+      :color="snackbar.color"
+      :timeout="2000"
+      location="bottom right"
+    >
       <v-icon :icon="snackbar.icon" class="mr-2" />
       {{ snackbar.text }}
     </v-snackbar>
   </v-app>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, reactive, provide } from 'vue'
 import ToolbarPanel from './components/panels/ToolbarPanel.vue'
 import MindMap from './components/MindMap.vue'
 import { useMindMap } from './composables/useMindMap'
 import { LAYOUT_TYPES } from './composables/layout/useAutoLayout'
+import {
+  mindMapKey,
+  notifyKey,
+  type NotifyColor,
+  type NotifyFn
+} from './types/injection-keys'
+import type { LayoutType, ExportFormat } from './types/mindmap-api'
+
+// ─── Core ────────────────────────────────────────────
 
 const mindmap = useMindMap()
-provide('mindmap', mindmap)
+provide(mindMapKey, mindmap)
 
-// ─── Snackbar ───────────────────────────────
+// ─── Snackbar ────────────────────────────────────────
 
-const snackbar = reactive({ show: false, text: '', color: 'success', icon: 'mdi-check' })
+interface SnackbarState {
+  show: boolean
+  text: string
+  color: NotifyColor
+  icon: string
+}
 
-function notify(text, color = 'success', icon = 'mdi-check') {
+const snackbar = reactive<SnackbarState>({
+  show: false,
+  text: '',
+  color: 'success',
+  icon: 'mdi-check'
+})
+
+const notify: NotifyFn = (text, color = 'success', icon = 'mdi-check') => {
   Object.assign(snackbar, { show: true, text, color, icon })
 }
 
-provide('notify', notify)
+provide(notifyKey, notify)
 
-// ─── Theme ──────────────────────────────────
+// ─── Theme ───────────────────────────────────────────
 
-const theme = ref(localStorage.getItem('mindmap-theme') || 'light')
+type Theme = 'light' | 'dark'
 
-function toggleTheme() {
-  theme.value = theme.value === 'light' ? 'dark' : 'light'
-  localStorage.setItem('mindmap-theme', theme.value)
+const THEME_STORAGE_KEY = 'mindmap-theme'
+
+function readTheme(): Theme {
+  const saved = localStorage.getItem(THEME_STORAGE_KEY)
+  return saved === 'dark' ? 'dark' : 'light'
 }
 
-// ─── Stats ──────────────────────────────────
+const theme = ref<Theme>(readTheme())
+
+function toggleTheme(): void {
+  theme.value = theme.value === 'light' ? 'dark' : 'light'
+  localStorage.setItem(THEME_STORAGE_KEY, theme.value)
+}
+
+// ─── Stats ───────────────────────────────────────────
 
 const nodeCount = computed(() => mindmap.countNodes())
 const depth = computed(() => mindmap.getDepth())
 
-// ─── Export ─────────────────────────────────
+// ─── Export ──────────────────────────────────────────
 
-const EXPORT_LABELS = {
+const EXPORT_LABELS: Record<ExportFormat, { text: string; icon: string }> = {
   json: { text: 'Экспорт в JSON', icon: 'mdi-code-json' },
-  md: { text: 'Экспорт в Markdown', icon: 'mdi-language-markdown' }
+  md: { text: 'Экспорт в Markdown', icon: 'mdi-language-markdown' },
+  markdown: { text: 'Экспорт в Markdown', icon: 'mdi-language-markdown' }
 }
 
-function handleExport(format = 'json') {
+function handleExport(format: ExportFormat = 'json'): void {
   mindmap.exportTree(format)
-  const label = EXPORT_LABELS[format] || EXPORT_LABELS.json
+  const label = EXPORT_LABELS[format]
   notify(label.text, 'success', label.icon)
 }
 
-// ─── Import ─────────────────────────────────
+// ─── Import ──────────────────────────────────────────
 
-async function handleImport(file) {
+async function handleImport(file: File): Promise<void> {
   try {
     await mindmap.importTree(file)
     const isMd = /\.(md|markdown)$/i.test(file.name)
     notify(`Импорт из ${isMd ? 'Markdown' : 'JSON'}`, 'success', 'mdi-upload')
   } catch (err) {
-    notify(err.message, 'error', 'mdi-alert')
+    const message = err instanceof Error ? err.message : 'Ошибка импорта'
+    notify(message, 'error', 'mdi-alert')
   }
 }
 
-// ─── Layout ─────────────────────────────────
+// ─── Layout ──────────────────────────────────────────
 
-function handleAutoLayout(type) {
+function handleAutoLayout(type: LayoutType): void {
   mindmap.autoLayout(type)
   const layout = LAYOUT_TYPES[type]
-  notify(`Раскладка: ${layout?.label || type}`, 'success', layout?.icon || 'mdi-auto-fix')
+  notify(`Раскладка: ${layout.label}`, 'success', layout.icon)
 }
 
-function handleResetLayout() {
+function handleResetLayout(): void {
   mindmap.resetAllPositions()
   notify('Позиции сброшены', 'info', 'mdi-pin-off-outline')
 }
