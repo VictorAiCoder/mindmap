@@ -1,5 +1,5 @@
-// src/composables/layout/layoutRadial.js
-import { GAP_H, ROOT_W, ROOT_H, DEFAULT_CENTER_X, DEFAULT_CENTER_Y } from '../../constants'
+import { GAP_H, ROOT_W, ROOT_H, DEFAULT_CENTER_X, DEFAULT_CENTER_Y } from '@/constants'
+import type { MindMapNode, ScenePosition } from '@/types/mindmap'
 import { getNodeWidth, getNodeHeight } from './layoutUtils'
 
 const BASE_RADIUS = 360
@@ -7,8 +7,8 @@ const RADIUS_STEP = GAP_H + 60
 const NOTES_EXTRA_RADIUS = 160
 const SPAN_DECAY = 0.85
 
-export function layoutRadial(root) {
-  const positions = new Map()
+export function layoutRadial(root: MindMapNode): Map<string, ScenePosition> {
+  const positions = new Map<string, ScenePosition>()
   const cx = DEFAULT_CENTER_X
   const cy = DEFAULT_CENTER_Y
 
@@ -30,13 +30,22 @@ export function layoutRadial(root) {
   return positions
 }
 
-function placeRadial(positions, cx, cy, node, angle, radius, angleSpan, depth) {
+function placeRadial(
+  positions: Map<string, ScenePosition>,
+  cx: number,
+  cy: number,
+  node: MindMapNode,
+  angle: number,
+  radius: number,
+  angleSpan: number,
+  depth: number,
+): void {
   const w = getNodeWidth(depth)
   const h = getNodeHeight(node, depth)
 
   positions.set(node.id, {
     x: cx + Math.cos(angle) * radius - w / 2,
-    y: cy + Math.sin(angle) * radius - h / 2
+    y: cy + Math.sin(angle) * radius - h / 2,
   })
 
   if (node.collapsed || !node.children?.length) return

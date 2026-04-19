@@ -1,14 +1,23 @@
-// src/composables/layout/layoutMindMap.js
-import { ROOT_W, GAP_H, GAP_V, DEFAULT_CENTER_X } from '../../constants'
+import { ROOT_W, ROOT_H, GAP_H, GAP_V, DEFAULT_CENTER_X } from '@/constants'
+import type { MindMapNode, ScenePosition } from '@/types/mindmap'
 import {
   getNodeWidth, getNodeHeight,
-  calcSubtreeHeight, splitChildrenLeftRight, calcGroupHeight
+  calcSubtreeHeight, splitChildrenLeftRight, calcGroupHeight,
 } from './layoutUtils'
 
 const H_GAP = GAP_H + 40
 const V_GAP = GAP_V + 10
 
-function placeBranch(positions, node, x, yCenter, side, depth) {
+type Side = 'left' | 'right'
+
+function placeBranch(
+  positions: Map<string, ScenePosition>,
+  node: MindMapNode,
+  x: number,
+  yCenter: number,
+  side: Side,
+  depth: number,
+): void {
   const w = getNodeWidth(depth)
 
   positions.set(node.id, { x, y: yCenter - getNodeHeight(node, depth) / 2 })
@@ -29,14 +38,14 @@ function placeBranch(positions, node, x, yCenter, side, depth) {
   })
 }
 
-export function layoutMindMap(root) {
-  const positions = new Map()
+export function layoutMindMap(root: MindMapNode): Map<string, ScenePosition> {
+  const positions = new Map<string, ScenePosition>()
   const children = root.children || []
   const { right, left } = splitChildrenLeftRight(children)
 
   const rightH = calcGroupHeight(right, 1, V_GAP)
   const leftH = calcGroupHeight(left, 1, V_GAP)
-  const maxH = Math.max(rightH, leftH, ROOT_W)
+  const maxH = Math.max(rightH, leftH, ROOT_H) // ← БЫЛО ROOT_W, исправлена опечатка
 
   const cx = DEFAULT_CENTER_X
   const cy = maxH / 2 + 100

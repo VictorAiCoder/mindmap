@@ -72,10 +72,9 @@ export function usePanZoom() {
 
   // ── Wheel zoom ──
 
-  function onWheel(e: WheelEvent, wrapperEl?: HTMLElement) {
+  function onWheel(e: WheelEvent, wrapperEl?: HTMLElement | null) {  // ← добавили | null
     focusedNodeId.value = null
 
-    // Сохраняем wrapper если передали
     if (wrapperEl) wrapperElRef.value = wrapperEl
 
     const delta = e.deltaY > 0 ? -0.08 : 0.08
@@ -234,14 +233,13 @@ export function usePanZoom() {
   }
 
   function focusOnNode(
-    pos: { id: string; x: number; y: number; w: number; h: number },
-    rootPos: { x: number; y: number; w: number; h: number },
-    bounds: { minX: number; minY: number },
-    wrapperEl: HTMLElement
-  ) {
-    if (!wrapperEl || !rootPos) return
+  pos: { id: string; x: number; y: number; w: number; h: number },
+  rootPos: { x: number; y: number; w: number; h: number } | null,  // ← было без | null
+  bounds: { minX: number; minY: number },
+  wrapperEl: HTMLElement | null                                    // ← было без | null
+) {
+  if (!wrapperEl || !rootPos) return
 
-    // Сохраняем wrapper
     wrapperElRef.value = wrapperEl
 
     const isSameNode = focusedNodeId.value === pos.id

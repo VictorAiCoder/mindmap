@@ -1,14 +1,23 @@
-// src/composables/layout/layoutSpacious.js
-import { GAP_H, GAP_V, ROOT_W, DEFAULT_CENTER_X } from '../../constants'
+import { ROOT_W, ROOT_H, GAP_H, GAP_V, DEFAULT_CENTER_X } from '@/constants'
+import type { MindMapNode, ScenePosition } from '@/types/mindmap'
 import {
   getNodeWidth, getNodeHeight,
-  calcSubtreeHeight, splitChildrenLeftRight, calcGroupHeight
+  calcSubtreeHeight, splitChildrenLeftRight, calcGroupHeight,
 } from './layoutUtils'
 
 const H_GAP = GAP_H + 80
 const V_GAP = GAP_V + 30
 
-function placeBranch(positions, node, x, yCenter, side, depth) {
+type Side = 'left' | 'right'
+
+function placeBranch(
+  positions: Map<string, ScenePosition>,
+  node: MindMapNode,
+  x: number,
+  yCenter: number,
+  side: Side,
+  depth: number,
+): void {
   positions.set(node.id, { x, y: yCenter - getNodeHeight(node, depth) / 2 })
 
   if (node.collapsed || !node.children?.length) return
@@ -27,14 +36,14 @@ function placeBranch(positions, node, x, yCenter, side, depth) {
   })
 }
 
-export function layoutSpacious(root) {
-  const positions = new Map()
+export function layoutSpacious(root: MindMapNode): Map<string, ScenePosition> {
+  const positions = new Map<string, ScenePosition>()
   const children = root.children || []
   const { right, left } = splitChildrenLeftRight(children)
 
   const rightH = calcGroupHeight(right, 1, V_GAP)
   const leftH = calcGroupHeight(left, 1, V_GAP)
-  const maxH = Math.max(rightH, leftH, ROOT_W)
+  const maxH = Math.max(rightH, leftH, ROOT_H) // ← БЫЛО ROOT_W, исправлена опечатка
 
   const cx = DEFAULT_CENTER_X
   const cy = maxH / 2 + 120

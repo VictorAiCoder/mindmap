@@ -93,7 +93,7 @@ import { mindMapKey } from '../../types/injection-keys'
 import NotesToolbar from './NotesToolbar.vue'
 
 const props = defineProps({
-  nodeId: { type: String, default: null }
+  nodeId: String | null
 })
 
 const emit = defineEmits(['close'])

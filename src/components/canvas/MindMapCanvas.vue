@@ -3,13 +3,13 @@
   <div
     class="canvas-wrapper"
     ref="wrapperRef"
-    @wheel.prevent="(e) => panZoom.onWheel(e, wrapperRef)"
+    @wheel.prevent="(e: WheelEvent) => panZoom.onWheel(e, wrapperRef)"
     @mousedown="onCanvasMouseDown"
     @mousemove="onCanvasMouseMove"
     @mouseup="panZoom.endPan"
     @mouseleave="panZoom.endPan"
   >
-    <template v-if="mindmap && layoutData.positions.length">
+    <template v-if="layoutData.positions.length">
       <div class="canvas-scene" :style="sceneStyle">
         <svg class="scene-svg">
           <defs>
@@ -45,11 +45,11 @@
           @delete="handleDelete(pos.id)"
           @toggle="mindmap.toggleCollapse(pos.id)"
           @reset-position="handleResetPosition(pos.id)"
-          @start-drag="(e) => nodeDrag.startNodeDrag(e, pos.id, pos.x, pos.y)"
-          @set-image="(url) => handleSetImage(pos.id, url)"
+          @start-drag="(e: MouseEvent) => nodeDrag.startNodeDrag(e, pos.id, pos.x, pos.y)"
+          @set-image="(url: string) => handleSetImage(pos.id, url)"
           @remove-image="handleRemoveImage(pos.id)"
-          @resize-image="(w) => mindmap.setImageWidth(pos.id, w)"
-          @resize-image-commit="(w) => mindmap.commitImageResize(pos.id, w)"
+          @resize-image="(w: number) => mindmap.setImageWidth(pos.id, w)"
+          @resize-image-commit="(w: number) => mindmap.commitImageResize(pos.id, w)"
           @open-notes="notesNodeId = pos.id"
           @toggle-note-pin="handleToggleNotePin(pos.node.id)"
           @toggle-notes-visible="handleToggleNotesVisible(pos.node.id)"
@@ -97,57 +97,45 @@
       @zoom-out="panZoom.zoomOut"
       @reset-view="panZoom.resetView"
     />
-    
   </div>
 </template>
 
-<script setup>
-// import { ref, computed, watch, onMounted, inject, nextTick } from 'vue'
+<script setup lang="ts">
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
+
 import MapNode from '../node/MapNode.vue'
 import NotesPanel from '../panels/NotesPanel.vue'
 import DragHint from './DragHint.vue'
 import CanvasControls from './CanvasControls.vue'
+import NodeActionsMenu from '../node/NodeActionsMenu.vue'
+
 import { useLayout } from '../../composables/layout/useLayout'
 import { useNodeDrag } from '../../composables/drag/useNodeDrag'
 import { usePanZoom } from '../../composables/canvas/usePanZoom'
-import NodeActionsMenu from '../node/NodeActionsMenu.vue'
+import { useConnections } from '../../composables/canvas/useConnections'
 
-
-import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { injectStrict } from '../../utils/injectStrict'
 import { mindMapKey, notifyKey } from '../../types/injection-keys'
-// ...
+
+import type { LayoutPosition, PositionMap } from '../../types/layout'
+
+// ─── Инжекции ───────────────────────────────
 const mindmap = injectStrict(mindMapKey)
 const notify = injectStrict(notifyKey)
 
-// const mindmap = inject('mindmap', null)
-// const notify = inject('notify', () => {})
-
-const wrapperRef = ref(null)
+// ─── DOM refs ───────────────────────────────
+const wrapperRef = ref<HTMLElement | null>(null)
+const editFieldRef = ref<{ focus: () => void } | null>(null)
 
 // ─── Layout ─────────────────────────────────
-
-const emptyLayout = {
-  positions: [],
-  bounds: { minX: 0, minY: 0, maxX: 1600, maxY: 900, width: 1600, height: 900 }
-}
-
-const { layoutData: rawLayout } = mindmap
-  ? useLayout(mindmap.rootNode)
-  : { layoutData: computed(() => emptyLayout) }
-
-const layoutData = computed(() => rawLayout?.value ?? emptyLayout)
+const { layoutData } = useLayout(mindmap.rootNode)
 
 // ─── Pan & Zoom ─────────────────────────────
-
 const panZoom = usePanZoom()
 
 onMounted(() => {
   panZoom.setWrapper(wrapperRef.value)
 })
-
-
-
 
 const sceneStyle = computed(() => {
   const b = layoutData.value.bounds
@@ -158,7 +146,6 @@ const sceneStyle = computed(() => {
     transformOrigin: '0 0',
     left: `${-b.minX}px`,
     top: `${-b.minY}px`,
-    // ★ Плавная анимация только при focusOnNode
     transition: panZoom.isAnimating.value
       ? 'transform 0.45s cubic-bezier(0.4, 0, 0.2, 1)'
       : 'none'
@@ -166,23 +153,20 @@ const sceneStyle = computed(() => {
 })
 
 // ─── Focus on Node ──────────────────────────
-
-const rootPos = computed(() =>
+const rootPos = computed<LayoutPosition | null>(() =>
   layoutData.value.positions.find(p => p.depth === 0) ?? null
 )
 
 watch(rootPos, (rp) => {
-  if (rp) {
-    const b = layoutData.value.bounds
-    panZoom.setRootSceneCenter(
-      rp.x - b.minX + rp.w / 2,
-      rp.y - b.minY + rp.h / 2
-    )
-  }
+  if (!rp) return
+  const b = layoutData.value.bounds
+  panZoom.setRootSceneCenter(
+    rp.x - b.minX + rp.w / 2,
+    rp.y - b.minY + rp.h / 2
+  )
 }, { immediate: true })
 
-
-function handleFocusNode(pos) {
+function handleFocusNode(pos: LayoutPosition) {
   panZoom.focusOnNode(
     pos,
     rootPos.value,
@@ -192,48 +176,45 @@ function handleFocusNode(pos) {
 }
 
 // ─── Node Drag ──────────────────────────────
-
-const nodeDrag = useNodeDrag(mindmap, panZoom.zoom)
-
-/**
- * ★ Подменяем finishDrag чтобы передать layoutPositions
- *   для узлов без custom-координат
- */
-const originalMoveNodeGroup = mindmap?.moveNodeGroup
-if (mindmap) {
-  const _original = mindmap.moveNodeGroup
-  mindmap.moveNodeGroup = (nodeId, dx, dy) => {
-    const posMap = buildLayoutPositionMap()
-    _original(nodeId, dx, dy, posMap)
-  }
-}
-
-function buildLayoutPositionMap() {
-  const map = new Map()
+// Сбор live-позиций для узлов без customX/Y.
+// Передаётся в useNodeDrag — он вызовет функцию при finishDrag
+// и передаст результат в mindmap.moveNodeGroup.
+function buildLayoutPositionMap(): PositionMap {
+  const map: PositionMap = new Map()
   for (const pos of layoutData.value.positions) {
     map.set(pos.id, { x: pos.x, y: pos.y })
   }
   return map
 }
 
-/**
- * ★ Вычисляет live-координаты для любого узла из drag-группы
- */
-function getLiveX(pos) {
+const nodeDrag = useNodeDrag(
+  mindmap,
+  panZoom.zoom,
+  buildLayoutPositionMap
+)
+
+// ─── Live-координаты для узлов из drag-группы ─
+function getLiveX(pos: LayoutPosition): number | undefined {
   const live = nodeDrag.getLivePosition(pos.id, pos.x, pos.y)
-  return live ? live.x : null
+  return live ? live.x : undefined
 }
 
-function getLiveY(pos) {
+function getLiveY(pos: LayoutPosition): number | undefined {
   const live = nodeDrag.getLivePosition(pos.id, pos.x, pos.y)
-  return live ? live.y : null
+  return live ? live.y : undefined
 }
+
+// ─── Live Connections ───────────────────────
+const liveConnections = useConnections(
+  mindmap.rootNode,
+  layoutData,
+  nodeDrag.getLivePosition
+)
 
 // ─── Drop Target Detection ──────────────────
-
 const HIT_PADDING = 8
 
-function updateDropTarget(e) {
+function updateDropTarget(e: MouseEvent) {
   const wrapper = wrapperRef.value
   if (!wrapper) return
 
@@ -241,10 +222,9 @@ function updateDropTarget(e) {
   const bounds = layoutData.value.bounds
   const world = panZoom.screenToScene(e.clientX, e.clientY, rect, bounds)
 
-  let found = null
+  let found: string | null = null
 
   for (const pos of layoutData.value.positions) {
-    // ★ Пропускаем все узлы из drag-группы
     if (nodeDrag.isInDragGroup(pos.id)) continue
 
     if (
@@ -258,116 +238,36 @@ function updateDropTarget(e) {
     }
   }
 
-  if (found) {
-    nodeDrag.setDropTarget(found)
-  } else {
-    nodeDrag.clearDropTarget()
-  }
+  if (found) nodeDrag.setDropTarget(found)
+  else nodeDrag.clearDropTarget()
 }
 
 // ─── Canvas Mouse Events ────────────────────
-
-function onCanvasMouseDown(e) {
+function onCanvasMouseDown(e: MouseEvent) {
   if (nodeDrag.isDraggingNode.value) return
-  // ★ Не начинаем pan если кликнули на resize handle
-  if (e.target.closest('.node-image-resize')) return
-  if (e.target.closest('.map-node') || e.target.closest('.edit-overlay')) return
+
+  const target = e.target as HTMLElement | null
+  if (target?.closest('.node-image-resize')) return
+  if (target?.closest('.map-node') || target?.closest('.edit-overlay')) return
+
   panZoom.startPan(e)
 }
 
-function onCanvasMouseMove(e) {
+function onCanvasMouseMove(e: MouseEvent) {
   if (panZoom.isPanning.value) {
     panZoom.movePan(e)
     return
   }
-
   if (nodeDrag.isDraggingNode.value) {
     updateDropTarget(e)
   }
 }
 
-
-// ─── Live Connections ───────────────────────
-
-const liveConnections = computed(() => {
-  const positions = layoutData.value.positions
-  if (!positions.length) return []
-
-  const posMap = buildLivePositionMap(positions)
-  const root = mindmap?.rootNode?.value
-  if (!root) return []
-
-  const result = []
-  buildConnectionsRecursive(root, posMap, result)
-  return result
-})
-
-function buildLivePositionMap(positions) {
-  const map = new Map()
-
-  for (const pos of positions) {
-    const lx = getLiveX(pos)
-    const ly = getLiveY(pos)
-    map.set(pos.id, {
-      ...pos,
-      x: lx ?? pos.x,
-      y: ly ?? pos.y
-    })
-  }
-
-  return map
-}
-
-function buildConnectionsRecursive(node, posMap, result) {
-  if (node.collapsed || !node.children?.length) return
-
-  const parentPos = posMap.get(node.id)
-  if (!parentPos) return
-
-  for (const child of node.children) {
-    const childPos = posMap.get(child.id)
-    if (!childPos) continue
-
-    result.push({
-      id: `${node.id}__${child.id}`,
-      path: calcBezierPath(parentPos, childPos),
-      color: child.color || '#999'
-    })
-
-    buildConnectionsRecursive(child, posMap, result)
-  }
-}
-
-function calcBezierPath(parent, child) {
-  const pCx = parent.x + parent.w / 2
-  const cCx = child.x + child.w / 2
-
-  let sx, sy, ex, ey
-
-  if (cCx >= pCx) {
-    sx = parent.x + parent.w; sy = parent.y + parent.h / 2
-    ex = child.x;             ey = child.y + child.h / 2
-  } else {
-    sx = parent.x;            sy = parent.y + parent.h / 2
-    ex = child.x + child.w;   ey = child.y + child.h / 2
-  }
-
-  const dist = Math.abs(ex - sx)
-  const dx = Math.min(dist * 0.45, 80)
-  const isRight = ex > sx
-  const cp1x = isRight ? sx + dx : sx - dx
-  const cp2x = isRight ? ex - dx : ex + dx
-
-  return `M ${sx} ${sy} C ${cp1x} ${sy}, ${cp2x} ${ey}, ${ex} ${ey}`
-}
-
 // ─── Edit ───────────────────────────────────
+const editingId = ref<string | null>(null)
+const editText = ref<string>('')
 
-const editingId = ref(null)
-const editText = ref('')
-const editFieldRef = ref(null)
-
-function startEdit(nodeId) {
+function startEdit(nodeId: string) {
   const pos = layoutData.value.positions.find(p => p.id === nodeId)
   if (!pos) return
   editingId.value = nodeId
@@ -378,7 +278,7 @@ function startEdit(nodeId) {
 function finishEdit() {
   if (!editingId.value) return
   const trimmed = editText.value.trim()
-  if (trimmed) mindmap?.updateText(editingId.value, trimmed)
+  if (trimmed) mindmap.updateText(editingId.value, trimmed)
   editingId.value = null
 }
 
@@ -387,51 +287,42 @@ function cancelEdit() {
 }
 
 // ─── CRUD Handlers ──────────────────────────
-
-function handleAddChild(parentId) {
-  const newId = mindmap?.addChild(parentId)
+function handleAddChild(parentId: string) {
+  const newId = mindmap.addChild(parentId)
   if (newId) nextTick(() => startEdit(newId))
 }
 
-function handleDelete(nodeId) {
+function handleDelete(nodeId: string) {
   const pos = layoutData.value.positions.find(p => p.id === nodeId)
-  mindmap?.deleteNode(nodeId)
+  mindmap.deleteNode(nodeId)
   if (pos) notify(`Узел «${pos.node.text}» удалён`, 'error', 'mdi-delete')
 }
 
-function handleResetPosition(nodeId) {
-  mindmap?.updateNodePosition(nodeId, null, null)
+function handleResetPosition(nodeId: string) {
+  mindmap.updateNodePosition(nodeId, null, null)
   notify('Позиция сброшена', 'info', 'mdi-pin-off')
 }
 
-function handleSetImage(nodeId, dataUrl) {
-  mindmap?.setNodeImage(nodeId, dataUrl)
+function handleSetImage(nodeId: string, dataUrl: string) {
+  mindmap.setNodeImage(nodeId, dataUrl)
   notify('Картинка добавлена', 'success', 'mdi-image')
 }
 
-function handleRemoveImage(nodeId) {
-  mindmap?.removeNodeImage(nodeId)
+function handleRemoveImage(nodeId: string) {
+  mindmap.removeNodeImage(nodeId)
   notify('Картинка удалена', 'info', 'mdi-image-off')
 }
 
 // ─── Notes Panel ────────────────────────────
-function handleToggleNotePin(nodeId) {
-  mindmap.toggleNotePin(nodeId);
+const notesNodeId = ref<string | null>(null)
+
+function handleToggleNotePin(nodeId: string) {
+  mindmap.toggleNotePin(nodeId)
 }
-function handleToggleNotesVisible(nodeId) {
+
+function handleToggleNotesVisible(nodeId: string) {
   mindmap.toggleNotesVisible(nodeId)
 }
-
-import { watchEffect } from 'vue'
-
-watchEffect(() => {
-  console.log('[diag] mindmap:', mindmap)
-  console.log('[diag] rootNode:', mindmap?.rootNode?.value)
-  console.log('[diag] layoutData:', layoutData.value)
-  console.log('[diag] positions.length:', layoutData.value?.positions?.length)
-})
-
-const notesNodeId = ref(null)
 </script>
 
 <style scoped>

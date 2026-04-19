@@ -1,14 +1,14 @@
-// src/composables/layout/layoutCompact.js
-import { GAP_H, GAP_V } from '../../constants'
+import { GAP_H } from '@/constants'
+import type { MindMapNode, ScenePosition } from '@/types/mindmap'
 import { getNodeWidth, getNodeHeight, calcSubtreeHeight } from './layoutUtils'
 
 const V_GAP = 12
 const H_GAP = GAP_H * 0.65
 
-export function layoutCompact(root) {
-  const positions = new Map()
+export function layoutCompact(root: MindMapNode): Map<string, ScenePosition> {
+  const positions = new Map<string, ScenePosition>()
 
-  function place(node, x, yCenter, depth) {
+  function place(node: MindMapNode, x: number, yCenter: number, depth: number): void {
     positions.set(node.id, { x, y: yCenter - getNodeHeight(node, depth) / 2 })
 
     if (node.collapsed || !node.children?.length) return
