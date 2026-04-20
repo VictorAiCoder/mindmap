@@ -1,26 +1,40 @@
-// src/composables/layout/layoutTreeRight.js
-import { GAP_H, GAP_V } from '../../constants'
+import type { MindMapNode } from '@/types/mindmap'
+import { GAP_H, GAP_V } from '../../constants/layout'
 import { getNodeWidth, getNodeHeight, calcSubtreeHeight } from './layoutUtils'
+import type { PositionsMap } from './layoutTreeDown'
 
 const H_GAP = GAP_H + 60
 const V_GAP = GAP_V + 10
 
-export function layoutTreeRight(root) {
-  const positions = new Map()
+export function layoutTreeRight(root: MindMapNode): PositionsMap {
+  const positions: PositionsMap = new Map()
 
-  function place(node, x, yCenter, depth) {
-    positions.set(node.id, { x, y: yCenter - getNodeHeight(node, depth) / 2 })
+  function place(
+    node: MindMapNode,
+    x: number,
+    yCenter: number,
+    depth: number
+  ): void {
+    positions.set(node.id, {
+      x,
+      y: yCenter - getNodeHeight(node, depth) / 2,
+    })
 
-    if (node.collapsed || !node.children?.length) return
+    if (node.collapsed || node.children.length === 0) return
 
-    const childHeights = node.children.map(c => calcSubtreeHeight(c, depth + 1, V_GAP))
-    const totalH = childHeights.reduce((s, h) => s + h, 0) + (childHeights.length - 1) * V_GAP
+    const childHeights = node.children.map((c: MindMapNode) =>
+      calcSubtreeHeight(c, depth + 1, V_GAP)
+    )
+    const totalH =
+      childHeights.reduce((s: number, ch: number) => s + ch, 0) +
+      (childHeights.length - 1) * V_GAP
 
     let cy = yCenter - totalH / 2
 
-    node.children.forEach((child, i) => {
-      place(child, x + getNodeWidth(depth) + H_GAP, cy + childHeights[i] / 2, depth + 1)
-      cy += childHeights[i] + V_GAP
+    node.children.forEach((child: MindMapNode, i: number) => {
+      const ch = childHeights[i] ?? 0
+      place(child, x + getNodeWidth(depth) + H_GAP, cy + ch / 2, depth + 1)
+      cy += ch + V_GAP
     })
   }
 

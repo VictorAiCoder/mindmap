@@ -3,15 +3,15 @@
   <v-app :theme="theme">
     <ToolbarPanel
       :node-count="nodeCount"
-      :depth="depth"
-      :can-undo="mindmap.canUndo.value"
-      :can-redo="mindmap.canRedo.value"
-      :is-dark="theme === 'dark'"
+      :depth="treeDepth"
+      :can-undo="canUndo"
+      :can-redo="canRedo"
+      :is-dark="isDark"
       @export="handleExport"
       @import="handleImport"
-      @reset="mindmap.resetToDefault()"
-      @undo="mindmap.undo()"
-      @redo="mindmap.redo()"
+      @reset="resetToDefault"
+      @undo="undo"
+      @redo="redo"
       @toggle-theme="toggleTheme"
       @auto-layout="handleAutoLayout"
       @reset-layout="handleResetLayout"
@@ -34,10 +34,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, provide } from 'vue'
+import { reactive, provide } from 'vue'
 import ToolbarPanel from './components/panels/ToolbarPanel.vue'
 import MindMap from './components/MindMap.vue'
 import { useMindMap } from './composables/useMindMap'
+import { useTheme } from './composables/useTheme'
 import { LAYOUT_TYPES } from './composables/layout/useAutoLayout'
 import {
   mindMapKey,
@@ -51,6 +52,25 @@ import type { LayoutType, ExportFormat } from './types/mindmap-api'
 
 const mindmap = useMindMap()
 provide(mindMapKey, mindmap)
+
+// Деструктуризация refs — чтобы в шаблоне работала авто-распаковка
+const {
+  nodeCount,
+  treeDepth,
+  canUndo,
+  canRedo,
+  undo,
+  redo,
+  resetToDefault,
+  autoLayout,
+  resetAllPositions,
+  exportTree,
+  importTree
+} = mindmap
+
+// ─── Theme ───────────────────────────────────────────
+
+const { theme, isDark, toggle: toggleTheme } = useTheme()
 
 // ─── Snackbar ────────────────────────────────────────
 
@@ -74,29 +94,6 @@ const notify: NotifyFn = (text, color = 'success', icon = 'mdi-check') => {
 
 provide(notifyKey, notify)
 
-// ─── Theme ───────────────────────────────────────────
-
-type Theme = 'light' | 'dark'
-
-const THEME_STORAGE_KEY = 'mindmap-theme'
-
-function readTheme(): Theme {
-  const saved = localStorage.getItem(THEME_STORAGE_KEY)
-  return saved === 'dark' ? 'dark' : 'light'
-}
-
-const theme = ref<Theme>(readTheme())
-
-function toggleTheme(): void {
-  theme.value = theme.value === 'light' ? 'dark' : 'light'
-  localStorage.setItem(THEME_STORAGE_KEY, theme.value)
-}
-
-// ─── Stats ───────────────────────────────────────────
-
-const nodeCount = computed(() => mindmap.countNodes())
-const depth = computed(() => mindmap.getDepth())
-
 // ─── Export ──────────────────────────────────────────
 
 const EXPORT_LABELS: Record<ExportFormat, { text: string; icon: string }> = {
@@ -106,7 +103,7 @@ const EXPORT_LABELS: Record<ExportFormat, { text: string; icon: string }> = {
 }
 
 function handleExport(format: ExportFormat = 'json'): void {
-  mindmap.exportTree(format)
+  exportTree(format)
   const label = EXPORT_LABELS[format]
   notify(label.text, 'success', label.icon)
 }
@@ -115,7 +112,7 @@ function handleExport(format: ExportFormat = 'json'): void {
 
 async function handleImport(file: File): Promise<void> {
   try {
-    await mindmap.importTree(file)
+    await importTree(file)
     const isMd = /\.(md|markdown)$/i.test(file.name)
     notify(`Импорт из ${isMd ? 'Markdown' : 'JSON'}`, 'success', 'mdi-upload')
   } catch (err) {
@@ -127,13 +124,13 @@ async function handleImport(file: File): Promise<void> {
 // ─── Layout ──────────────────────────────────────────
 
 function handleAutoLayout(type: LayoutType): void {
-  mindmap.autoLayout(type)
+  autoLayout(type)
   const layout = LAYOUT_TYPES[type]
   notify(`Раскладка: ${layout.label}`, 'success', layout.icon)
 }
 
 function handleResetLayout(): void {
-  mindmap.resetAllPositions()
+  resetAllPositions()
   notify('Позиции сброшены', 'info', 'mdi-pin-off-outline')
 }
 </script>

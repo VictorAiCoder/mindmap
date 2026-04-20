@@ -1,5 +1,5 @@
 // src/types/mindmap-api.ts
-import type { Ref } from 'vue'
+import type { Ref, ComputedRef } from 'vue'
 import type { MindMapNode, ScenePosition } from './mindmap'
 import type { PositionMap } from './layout'
 
@@ -109,6 +109,9 @@ export interface MindMapApi extends TreeOperationsApi, PersistenceApi {
   canRedo: Ref<boolean>
 
   resetToDefault: () => void
-  countNodes: () => number
-  getDepth: () => number
+
+  /** Количество узлов в дереве (реактивное) */
+  nodeCount: ComputedRef<number>
+  /** Глубина дерева (реактивное) */
+  treeDepth: ComputedRef<number>
 }

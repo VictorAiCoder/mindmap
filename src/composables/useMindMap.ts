@@ -1,5 +1,5 @@
 // src/composables/useMindMap.ts
-import { ref, type Ref } from 'vue'
+import { ref, computed, type Ref } from 'vue'
 import { useHistory } from './useHistory'
 import { useTreeOperations } from './tree/useTreeOperations'
 import { useDragDrop } from './drag/useDragDrop'
@@ -31,28 +31,28 @@ export function useMindMap(): MindMapApi {
   const drag = useDragDrop(rootNode, history)
   const persistence = usePersistence(rootNode)
 
-  /**
-   * Сбрасывает карту к дефолтной. Сохраняет текущее состояние в undo-стек —
-   * пользователь может откатить случайный сброс.
-   */
+  // ⭐ Статистика дерева как computed — кешируется и реактивна
+  const nodeCount = computed(() => countNodes(rootNode.value))
+  const treeDepth = computed(() => getDepth(rootNode.value))
+
   function resetToDefault(): void {
-    history.save()
     rootNode.value = createDefaultTree()
+    history.clear()
   }
 
-  /**
-   * Импортирует карту из файла. После успешного импорта
-   * очищает историю — старые снапшоты относятся к другой карте.
-   */
   async function importTree(file: File): Promise<MindMapNode> {
-    const data = await persistence.importTree(file)
+    const imported = await persistence.importTree(file)
     history.clear()
-    return data
+    return imported
   }
 
   return {
     rootNode,
+
+    // Tree operations
     ...tree,
+
+    // Drag & drop
     drag,
 
     // History
@@ -61,13 +61,13 @@ export function useMindMap(): MindMapApi {
     canUndo: history.canUndo,
     canRedo: history.canRedo,
 
-    // Persistence (importTree переопределён, exportTree прокидываем)
+    // Persistence
     exportTree: persistence.exportTree,
     importTree,
 
     // Misc
     resetToDefault,
-    countNodes: () => countNodes(rootNode.value),
-    getDepth: () => getDepth(rootNode.value)
+    nodeCount,    // было: countNodes: () => countNodes(rootNode.value)
+    treeDepth     // было: getDepth: () => getDepth(rootNode.value)
   }
 }

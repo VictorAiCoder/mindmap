@@ -1,7 +1,7 @@
 // src/composables/persistence/usePersistence.ts
 import { watch, type Ref } from 'vue'
 import { STORAGE_KEY, EXPORT_FILENAME_PREFIX } from '../constants'
-import { treeToMarkdown } from './exportMarkdown'
+import { exportToMarkdown } from './exportMarkdown'
 import { parseMarkdownToTree } from './importMarkdown'
 
 import type { MindMapNode } from '@/types/mindmap'
@@ -203,7 +203,7 @@ export function usePersistence(rootNode: Ref<MindMapNode>): PersistenceApi {
     const root = rootNode.value
 
     if (format === 'markdown' || format === 'md') {
-      const md = treeToMarkdown(root)
+      const md = exportToMarkdown(root)
       downloadFile(md, `${EXPORT_FILENAME_PREFIX}_${ts}.md`, 'text/markdown')
       return md
     }

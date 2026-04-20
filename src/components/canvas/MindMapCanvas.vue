@@ -38,8 +38,8 @@
           :is-being-dragged="nodeDrag.draggingNodeId.value === pos.id"
           :is-in-drag-group="nodeDrag.isInDragGroup(pos.id)"
           :is-focused="panZoom.focusedNodeId.value === pos.id"
-          :live-x="getLiveX(pos)"
-          :live-y="getLiveY(pos)"
+          :live-x="livePositions.get(pos.id)?.x"
+          :live-y="livePositions.get(pos.id)?.y"
           @edit="startEdit(pos.id)"
           @add-child="handleAddChild(pos.id)"
           @delete="handleDelete(pos.id)"
@@ -194,15 +194,14 @@ const nodeDrag = useNodeDrag(
 )
 
 // ─── Live-координаты для узлов из drag-группы ─
-function getLiveX(pos: LayoutPosition): number | undefined {
-  const live = nodeDrag.getLivePosition(pos.id, pos.x, pos.y)
-  return live ? live.x : undefined
-}
-
-function getLiveY(pos: LayoutPosition): number | undefined {
-  const live = nodeDrag.getLivePosition(pos.id, pos.x, pos.y)
-  return live ? live.y : undefined
-}
+const livePositions = computed(() => {
+  const map = new Map<string, { x: number; y: number }>()
+  for (const pos of layoutData.value.positions) {
+    const live = nodeDrag.getLivePosition(pos.id, pos.x, pos.y)
+    if (live) map.set(pos.id, live)
+  }
+  return map
+})
 
 // ─── Live Connections ───────────────────────
 const liveConnections = useConnections(
