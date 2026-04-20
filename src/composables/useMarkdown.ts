@@ -1,35 +1,78 @@
 import { marked } from 'marked'
+import { markedHighlight } from 'marked-highlight'
+import DOMPurify from 'dompurify'
+import { hljs } from './notes/hljsSetup'
 
 // ============================================================================
-// Настройка marked
+// Настройка marked + подсветка через marked-highlight
 // ============================================================================
 
-// Глобальная конфигурация: синхронный парсинг, GFM (таблицы, чеклисты, ~~зачёркивание~~)
+marked.use(
+  markedHighlight({
+    langPrefix: 'hljs language-',
+    highlight(code, lang) {
+      const language = lang && hljs.getLanguage(lang) ? lang : 'plaintext'
+      try {
+        return hljs.highlight(code, { language, ignoreIllegals: true }).value
+      } catch {
+        return hljs.highlight(code, { language: 'plaintext' }).value
+      }
+    },
+  })
+)
+
 marked.setOptions({
   async: false,
   gfm: true,
-  breaks: true, // перенос строки = <br> (привычное поведение для заметок)
+  breaks: true,
 })
+
+// ============================================================================
+// Настройка DOMPurify
+// ============================================================================
+
+// Разрешаем классы hljs (language-*, hljs-*) и target="_blank" на ссылках
+DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+  if (node.tagName === 'A') {
+    node.setAttribute('target', '_blank')
+    node.setAttribute('rel', 'noopener noreferrer')
+  }
+})
+
+const SANITIZE_CONFIG: DOMPurify.Config = {
+  // Разрешённые теги — стандартный markdown + code/pre
+  ALLOWED_TAGS: [
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'p', 'br', 'hr',
+    'strong', 'em', 'del', 's', 'u',
+    'ul', 'ol', 'li',
+    'blockquote',
+    'code', 'pre', 'span',
+    'a', 'img',
+    'table', 'thead', 'tbody', 'tr', 'th', 'td',
+    'input', // для чекбоксов GFM (task lists)
+  ],
+  ALLOWED_ATTR: [
+    'href', 'src', 'alt', 'title',
+    'class',              // для hljs-классов
+    'target', 'rel',
+    'type', 'checked', 'disabled', // для чекбоксов
+  ],
+  // Запрещаем javascript: в ссылках/картинках
+  ALLOWED_URI_REGEXP:
+    /^(?:(?:https?|mailto|tel|data:image\/[a-z]+;base64):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
+}
 
 // ============================================================================
 // Публичный API
 // ============================================================================
 
-/**
- * Рендерит markdown-текст в HTML.
- * Возвращает пустую строку для falsy-входа.
- */
 export function renderMarkdown(text: string | null | undefined): string {
   if (!text) return ''
-  // marked.parse с async:false гарантированно возвращает string,
-  // но в типах union — поэтому каст.
-  return marked.parse(text) as string
+  const rawHtml = marked.parse(text) as string
+  return DOMPurify.sanitize(rawHtml, SANITIZE_CONFIG) as unknown as string
 }
 
-/**
- * Превью заметки: обрезает по количеству строк и символов.
- * Возвращает plain text (без markdown-разметки не парсим — это превью).
- */
 export function getNotesPreview(
   text: string | null | undefined,
   maxLines = 3,
@@ -40,7 +83,6 @@ export function getNotesPreview(
   const trimmed = text.trim()
   if (!trimmed) return ''
 
-  // Берём первые N непустых строк
   const lines = trimmed
     .split(/\r?\n/)
     .filter((line) => line.trim().length > 0)

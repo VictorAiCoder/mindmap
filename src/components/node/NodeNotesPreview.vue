@@ -67,18 +67,29 @@
   </div>
 </template>
 
-<script setup>
-import { ref, computed, watch } from 'vue'
-import { marked } from 'marked'
+<script setup lang="ts">
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
+import { renderMarkdown } from '@/composables/useMarkdown'
 
-const props = defineProps({
-  notes:   { type: String, default: '' },
-  color:   { type: String, default: '#5C6BC0' },
-  pinned:  { type: Boolean, default: false },
-  visible: { type: Boolean, default: true }
+interface Props {
+  notes?: string
+  color?: string
+  pinned?: boolean
+  visible?: boolean
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  notes: '',
+  color: '#5C6BC0',
+  pinned: false,
+  visible: true,
 })
 
-const emit = defineEmits(['openNotes', 'togglePin', 'toggleVisible'])
+const emit = defineEmits<{
+  openNotes: []
+  togglePin: []
+  toggleVisible: []
+}>()
 
 // ── isExpanded синхронизируется с pinned ──
 const isExpanded = ref(props.pinned)
@@ -87,7 +98,6 @@ watch(() => props.pinned, (val) => {
   if (val) isExpanded.value = true
 })
 
-// Когда visible включается обратно — восстанавливаем expanded если pinned
 watch(() => props.visible, (val) => {
   if (val && props.pinned) {
     isExpanded.value = true
@@ -103,18 +113,10 @@ const previewStyle = computed(() => {
   return { borderLeftColor: props.color }
 })
 
-const renderedHtml = computed(() => {
-  try {
-    return marked.parse(props.notes, { breaks: true, gfm: true })
-  } catch {
-    return `<p>${props.notes}</p>`
-  }
-})
+// ✅ Единый рендерер markdown с hljs + DOMPurify
+const renderedHtml = computed(() => renderMarkdown(props.notes))
 
-// ── Pin toggle с синхронизацией expanded ──
 function onTogglePin() {
-  // Если сейчас pinned=true и мы открепляем → оставляем expanded как есть (mouseLeave разберётся)
-  // Если pinned=false и мы закрепляем → ставим expanded=true
   if (!props.pinned) {
     isExpanded.value = true
   }
@@ -122,7 +124,7 @@ function onTogglePin() {
 }
 
 // ── Hover logic ──
-let hoverTimer = null
+let hoverTimer: ReturnType<typeof setTimeout> | null = null
 
 function onMouseEnter() {
   if (!props.visible || props.pinned) return
@@ -130,9 +132,13 @@ function onMouseEnter() {
 }
 
 function onMouseLeave() {
-  clearTimeout(hoverTimer)
+  if (hoverTimer) clearTimeout(hoverTimer)
   if (!props.pinned) isExpanded.value = false
 }
+
+onBeforeUnmount(() => {
+  if (hoverTimer) clearTimeout(hoverTimer)
+})
 </script>
 
 <style scoped>
@@ -213,9 +219,6 @@ function onMouseLeave() {
 
 /* ── Toolbar (eye + pin) ── */
 .notes-toolbar {
-  /* position: absolute; */
-  /* top: 6px; */
-  /* right: 6px; */
   margin-bottom: 8px;
   display: flex;
   gap: 2px;
@@ -242,7 +245,6 @@ function onMouseLeave() {
   color: rgba(var(--v-theme-on-surface), 0.7);
 }
 
-/* Pin active */
 .notes-btn--active-pin {
   color: rgb(var(--v-theme-primary));
   background: rgba(var(--v-theme-primary), 0.12);
@@ -302,25 +304,50 @@ function onMouseLeave() {
   font-size: 0.95em;
 }
 
-.markdown-mini :deep(code) {
-  background: rgba(var(--v-theme-on-surface), 0.07);
-  padding: 0.1em 0.3em;
+/* ── Инлайн-код (одиночные бэктики) ── */
+.markdown-mini :deep(:not(pre) > code) {
+  background: rgba(var(--v-theme-on-surface), 0.08);
+  padding: 0.1em 0.35em;
   border-radius: 3px;
   font-size: 0.9em;
-  font-family: 'Fira Code', monospace;
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
+  color: #e06c75;
 }
 
+/* ── Блок кода с подсветкой (atom-one-dark) ── */
 .markdown-mini :deep(pre) {
-  background: rgba(var(--v-theme-on-surface), 0.05);
-  padding: 8px 10px;
+  background: #6ce07927;
+  padding: 10px 12px;
   border-radius: 6px;
   overflow-x: auto;
-  margin: 0.3em 0;
-  font-size: 0.85em;
+  margin: 0.5em 0;
+  font-size: 12px;
+  line-height: 1.45;
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.markdown-mini :deep(pre code) { background: transparent; padding: 0; }
+.markdown-mini :deep(pre code),
+.markdown-mini :deep(pre code.hljs) {
+  background: transparent;
+  padding: 0;
+  color: #abb2bf;
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
+  font-feature-settings: 'liga' 1, 'calt' 1;
+  font-size: inherit;
+}
+
+/* Тонкий скроллбар у pre */
+.markdown-mini :deep(pre)::-webkit-scrollbar { height: 5px; }
+.markdown-mini :deep(pre)::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+.markdown-mini :deep(pre)::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
 .markdown-mini :deep(a) { color: rgb(var(--v-theme-primary)); text-decoration: none; }
+.markdown-mini :deep(a:hover) { text-decoration: underline; }
 .markdown-mini :deep(strong) { font-weight: 700; }
 .markdown-mini :deep(em) { font-style: italic; }
 
