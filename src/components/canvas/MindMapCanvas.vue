@@ -101,7 +101,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, nextTick, provide } from 'vue'
 
 import MapNode from '../node/MapNode.vue'
 import NotesPanel from '../panels/NotesPanel.vue'
@@ -132,6 +132,8 @@ const { layoutData } = useLayout(mindmap.rootNode)
 
 // ─── Pan & Zoom ─────────────────────────────
 const panZoom = usePanZoom()
+
+provide('globalZoom', panZoom.zoom)
 
 onMounted(() => {
   panZoom.setWrapper(wrapperRef.value)

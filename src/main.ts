@@ -7,8 +7,8 @@ import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
 import '@mdi/font/css/materialdesignicons.css'
 // import 'highlight.js/styles/atom-one-dark.css'
-import 'highlight.js/styles/github.css'
-// import 'highlight.js/styles/github-dark.css'
+// import 'highlight.js/styles/github.css'
+import 'highlight.js/styles/github-dark.css'
 
 const vuetify = createVuetify({
   components,

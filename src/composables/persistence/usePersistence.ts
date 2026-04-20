@@ -6,6 +6,8 @@ import { parseMarkdownToTree } from './importMarkdown'
 
 import type { MindMapNode } from '@/types/mindmap'
 import type { PersistenceApi, ExportFormat } from '@/types/mindmap-api'
+import { normalizeScale } from '@/composables/node/useNodeScale'
+import { NODE_SCALE } from '@/types/mindmap-constants'
 
 // ─── LocalStorage ────────────────────────────────────
 
@@ -83,7 +85,10 @@ function normalizeNode(raw: unknown): MindMapNode | null {
     imageWidth:   readNumber(raw, 'imageWidth') ?? null,
     customX:      readNumber(raw, 'customX') ?? null,
     customY:      readNumber(raw, 'customY') ?? null,
-    children
+    children,
+    scale: typeof raw.scale === 'number' && Number.isFinite(raw.scale)
+      ? normalizeScale(raw.scale)
+      : undefined
   }
 }
 
@@ -125,6 +130,7 @@ interface SerializedNode {
   image?: string
   imageWidth?: number
   children?: SerializedNode[]
+  scale?: number
 }
 
 function cleanTreeForExport(node: MindMapNode): SerializedNode {
@@ -144,6 +150,9 @@ function cleanTreeForExport(node: MindMapNode): SerializedNode {
   if (node.imageWidth !== null)    clean.imageWidth = node.imageWidth
   if (node.children.length) {
     clean.children = node.children.map(cleanTreeForExport)
+  }
+  if (node.scale !== undefined && node.scale !== NODE_SCALE.DEFAULT) {
+    clean.scale = node.scale
   }
 
   return clean

@@ -2,7 +2,7 @@
 <template>
   <div class="node-content">
     <button v-if="hasChildren" class="node-toggle" @click.stop="$emit('toggle')" @mousedown.stop>
-      <v-icon :icon="collapsed ? 'mdi-chevron-right' : 'mdi-chevron-down'" size="16" />
+      <v-icon :icon="collapsed ? 'mdi-chevron-right' : 'mdi-chevron-down'" class="node-toggle__icon" />
     </button>
 
     <span class="node-text" :class="textClasses">{{ text }}</span>
@@ -10,7 +10,6 @@
     <v-icon
       v-if="hasNotes"
       icon="mdi-text-box-outline"
-      size="12"
       class="node-notes-icon"
       :color="isRoot ? 'white' : color"
     />
@@ -19,7 +18,7 @@
       {{ childCount }}
     </span>
 
-    <v-icon v-if="pinned" icon="mdi-pin" size="10" class="node-pin" color="grey" />
+    <v-icon v-if="pinned" icon="mdi-pin" class="node-pin" color="grey" />
 
     <div><slot></slot></div>
   </div>
@@ -49,6 +48,8 @@ const textClasses = computed(() => ({
 </script>
 
 <style scoped>
+/* Все размеры в em — автоматически масштабируются через font-size на .map-node.
+   База: 1em = 14px × var(--node-scale). */
 .node-content {
   position: relative;
   z-index: 1;
@@ -56,12 +57,13 @@ const textClasses = computed(() => ({
   align-items: center;
   justify-content: center;
   height: 100%;
-  padding: 4px 12px;
-  gap: 6px;
+  /* 4px / 12px → em */
+  padding: 0.286em 0.857em;
+  gap: 0.429em;  /* 6px */
 }
 
 .node-text {
-  font-size: 13px;
+  font-size: 0.929em;  /* 13px */
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
@@ -70,20 +72,22 @@ const textClasses = computed(() => ({
 }
 
 .node-text--root {
-  font-size: 16px;
+  font-size: 1.143em;  /* 16px */
   font-weight: 700;
   color: white;
-  max-width: 140px;
+  max-width: 10em;     /* 140px */
 }
 
 .node-text--leaf {
-  font-size: 12px;
+  font-size: 0.857em;  /* 12px */
   font-weight: 400;
 }
 
 .node-notes-icon {
   opacity: 0.6;
   flex-shrink: 0;
+  /* ★ v-icon принимает size в px, но можно через CSS */
+  font-size: 0.857em !important;  /* 12px */
 }
 
 .node-toggle {
@@ -99,13 +103,17 @@ const textClasses = computed(() => ({
 
 .node-toggle:hover { opacity: 1; }
 
+.node-toggle__icon {
+  font-size: 1.143em !important;  /* 16px */
+}
+
 .node-badge {
   background: rgba(0, 0, 0, 0.15);
-  border-radius: 10px;
-  padding: 0 6px;
-  font-size: 10px;
+  border-radius: 0.714em;  /* 10px */
+  padding: 0 0.429em;      /* 6px */
+  font-size: 0.714em;      /* 10px */
   font-weight: 600;
-  min-width: 18px;
+  min-width: 1.286em;      /* 18px */
   text-align: center;
 }
 
@@ -116,5 +124,6 @@ const textClasses = computed(() => ({
 
 .node-pin {
   opacity: 0.4;
+  font-size: 0.714em !important;  /* 10px */
 }
 </style>

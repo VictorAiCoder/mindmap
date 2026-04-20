@@ -35,6 +35,44 @@
           <span>Переименовать</span>
         </button>
 
+        <!-- ★ Секция масштаба узла -->
+        <div class="menu-divider" />
+
+        <div class="menu-scale" @mousedown.stop>
+          <div class="menu-scale__header">
+            <v-icon icon="mdi-resize" size="16" class="menu-scale__icon" />
+            <span class="menu-scale__label">Масштаб</span>
+            <span class="menu-scale__value" :class="{ 'menu-scale__value--modified': !isDefaultScale }">
+              {{ scalePercent }}%
+            </span>
+            <button
+              v-if="!isDefaultScale"
+              class="menu-scale__reset"
+              title="Сбросить на 100%"
+              @click.stop="resetScale"
+            >
+              <v-icon icon="mdi-refresh" size="12" />
+            </button>
+          </div>
+          <input
+            type="range"
+            class="menu-scale__slider"
+            :min="SCALE_MIN"
+            :max="SCALE_MAX"
+            :step="SCALE_STEP"
+            :value="liveScale"
+            @pointerdown="onSliderStart"
+            @input="onSliderInput"
+            @pointerup="onSliderCommit"
+            @pointercancel="onSliderCommit"
+          />
+          <div class="menu-scale__ticks">
+            <span>75%</span>
+            <span class="menu-scale__tick-center">100%</span>
+            <span>250%</span>
+          </div>
+        </div>
+
         <template v-if="p.pinned || !p.isRoot">
           <div class="menu-divider" />
 
@@ -54,14 +92,24 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { useNodeMenu } from '@/composables/useNodeMenu'
+import { injectStrict } from '@/utils/injectStrict'
+import { mindMapKey } from '@/types/injection-keys'
+import { NODE_SCALE } from '@/types/mindmap-constants'
 
-const { isOpen, activeNodeProps: p, menuPosition, emitAction, registerMenuEl } = useNodeMenu()
+const { 
+  isOpen, 
+  activeMenuId,
+  activeNodeProps: p, 
+  menuPosition, 
+  emitAction, 
+  registerMenuEl 
+} = useNodeMenu()
+const mindmap = injectStrict(mindMapKey)
 
 const menuRef = ref<HTMLElement | null>(null)
 
-// ★ Каждый раз когда menuRef появляется/исчезает — регистрируем
 watch(menuRef, (el) => {
   registerMenuEl(el)
 }, { flush: 'post' })
@@ -72,12 +120,156 @@ function act(action: string) {
 
 function onAfterLeave() {
   registerMenuEl(null)
+  // Сбрасываем локальный state слайдера при закрытии меню
+  dragSession.value = null
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ★ Управление масштабом узла
+// ═══════════════════════════════════════════════════════════════
+
+const SCALE_MIN = NODE_SCALE.MIN
+const SCALE_MAX = NODE_SCALE.MAX
+const SCALE_STEP = NODE_SCALE.STEP
+
+/**
+ * Сессия drag'а слайдера. Запоминаем "центр" узла в момент начала,
+ * чтобы при изменении scale узел визуально оставался на месте.
+ *
+ * null → слайдер не используется, liveScale читает из node.scale.
+ * объект → идёт live-preview, liveScale читает отсюда.
+ */
+interface DragSession {
+  nodeId: string
+  liveValue: number
+  /** Центр узла на момент старта (только для закреплённых узлов). */
+  savedCenter: { cx: number; cy: number } | null
+}
+
+const dragSession = ref<DragSession | null>(null)
+
+/**
+ * Текущий scale активного узла.
+ * Если идёт drag — показываем liveValue.
+ * Иначе — читаем из дерева.
+ */
+const liveScale = computed<number>(() => {
+  if (dragSession.value) return dragSession.value.liveValue
+
+  const nodeId = activeMenuId.value
+  if (!nodeId) return NODE_SCALE.DEFAULT
+
+  const node = mindmap.findNode(nodeId)  // ⚠️ адаптируй имя метода
+  return node?.scale ?? NODE_SCALE.DEFAULT
+})
+
+const scalePercent = computed(() => Math.round(liveScale.value * 100))
+const isDefaultScale = computed(() =>
+  Math.abs(liveScale.value - NODE_SCALE.DEFAULT) < 0.001
+)
+
+/**
+ * Старт drag'а слайдера (pointerdown).
+ * Запоминаем центр узла — от него будем корректировать позицию.
+ */
+function onSliderStart(_e: PointerEvent) {
+  const nodeId = activeMenuId.value
+  console.log('[slider] start, nodeId=', nodeId)
+  
+  const node = mindmap.findNode(nodeId)
+  console.log('[slider] node=', node, 'findNode is', typeof mindmap.findNode)
+  console.log('[slider] updateScale is', typeof mindmap.updateScale)
+  console.log('[slider] commitScale is', typeof mindmap.commitScale)
+  console.log('[slider] findPosition is', typeof mindmap.findPosition)
+  
+  if (!node) return
+
+  const currentScale = node.scale ?? NODE_SCALE.DEFAULT
+
+  // Если узел закреплён — вычисляем текущий центр
+  let savedCenter: { cx: number; cy: number } | null = null
+  if (node.customX != null && node.customY != null) {
+    // Нужны текущие размеры узла. Берём из LayoutPosition через mindmap.
+    const pos = mindmap.findPosition?.(nodeId)  // ⚠️ см. примечание ниже
+    if (pos) {
+      savedCenter = {
+        cx: node.customX + pos.w / 2,
+        cy: node.customY + pos.h / 2
+      }
+    }
+  }
+
+  dragSession.value = {
+    nodeId,
+    liveValue: currentScale,
+    savedCenter
+  }
+}
+
+/**
+ * Live-изменение слайдера (input event).
+ * Обновляем scale БЕЗ записи в историю.
+ */
+function onSliderInput(e: Event) {
+  const session = dragSession.value
+  console.log('[slider] input, session=', session, 'value=', (e.target as HTMLInputElement).value)
+  if (!session) return
+
+  const target = e.target as HTMLInputElement
+  const value = parseFloat(target.value)
+
+  if (!Number.isFinite(value)) return
+
+  session.liveValue = value
+  mindmap.updateScale(session.nodeId, value, session.savedCenter ?? undefined)
+}
+
+/**
+ * Окончание drag'а (pointerup).
+ * Применяем snap-to-1 и записываем в историю.
+ */
+function onSliderCommit() {
+  const session = dragSession.value
+  if (!session) return
+
+  mindmap.commitScale(
+    session.nodeId,
+    session.liveValue,
+    session.savedCenter ?? undefined
+  )
+
+  dragSession.value = null
+}
+
+/**
+ * Сброс масштаба на 100% (кнопка-refresh).
+ */
+function resetScale() {
+  const nodeId = activeMenuId.value
+  if (!nodeId) return
+
+  const node = mindmap.findNode(nodeId)
+  if (!node) return
+
+  // Если узел закреплён — центрируем при сбросе
+  let savedCenter: { cx: number; cy: number } | null = null
+  if (node.customX != null && node.customY != null) {
+    const pos = mindmap.findPosition?.(nodeId)
+    if (pos) {
+      savedCenter = {
+        cx: node.customX + pos.w / 2,
+        cy: node.customY + pos.h / 2
+      }
+    }
+  }
+
+  mindmap.commitScale(nodeId, NODE_SCALE.DEFAULT, savedCenter ?? undefined)
 }
 </script>
 
 <style scoped>
 .node-actions-menu {
-  min-width: 200px;
+  min-width: 240px;
   background: rgb(var(--v-theme-surface));
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 12px;
@@ -123,6 +315,165 @@ function onAfterLeave() {
   background: rgba(0, 0, 0, 0.06);
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   Секция масштаба
+   ═══════════════════════════════════════════════════════════════ */
+.menu-scale {
+  padding: 8px 12px 10px;
+}
+
+.menu-scale__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: rgba(var(--v-theme-on-surface), 0.85);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.menu-scale__icon {
+  opacity: 0.7;
+}
+
+.menu-scale__label {
+  flex: 1;
+}
+
+.menu-scale__value {
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+  min-width: 38px;
+  text-align: right;
+  transition: color 0.15s ease;
+}
+
+.menu-scale__value--modified {
+  color: rgb(var(--v-theme-primary));
+  font-weight: 600;
+}
+
+.menu-scale__reset {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(var(--v-theme-primary), 0.1);
+  color: rgb(var(--v-theme-primary));
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.menu-scale__reset:hover {
+  background: rgb(var(--v-theme-primary));
+  color: white;
+  transform: rotate(90deg);
+}
+
+/* ── Slider ── */
+.menu-scale__slider {
+  width: 100%;
+  height: 20px;
+  background: transparent;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Track — WebKit */
+.menu-scale__slider::-webkit-slider-runnable-track {
+  height: 4px;
+  background: linear-gradient(
+    to right,
+    rgba(var(--v-theme-primary), 0.15) 0%,
+    rgba(var(--v-theme-primary), 0.15) 50%,
+    rgba(var(--v-theme-primary), 0.15) 100%
+  );
+  border-radius: 2px;
+}
+
+/* Thumb — WebKit */
+.menu-scale__slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  background: rgb(var(--v-theme-primary));
+  border: 2px solid white;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  cursor: grab;
+  transition: transform 0.1s ease, box-shadow 0.15s ease;
+}
+
+.menu-scale__slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 2px 8px rgba(var(--v-theme-primary), 0.4);
+}
+
+.menu-scale__slider:active::-webkit-slider-thumb {
+  cursor: grabbing;
+  transform: scale(1.3);
+}
+
+/* Track — Firefox */
+.menu-scale__slider::-moz-range-track {
+  height: 4px;
+  background: rgba(var(--v-theme-primary), 0.15);
+  border-radius: 2px;
+}
+
+.menu-scale__slider::-moz-range-progress {
+  height: 4px;
+  background: rgb(var(--v-theme-primary));
+  border-radius: 2px;
+}
+
+.menu-scale__slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  background: rgb(var(--v-theme-primary));
+  border: 2px solid white;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  cursor: grab;
+  transition: transform 0.1s ease;
+}
+
+.menu-scale__slider::-moz-range-thumb:hover {
+  transform: scale(1.2);
+}
+
+.menu-scale__slider:focus {
+  outline: none;
+}
+
+/* ── Tick marks ── */
+.menu-scale__ticks {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 10px;
+  color: rgba(var(--v-theme-on-surface), 0.4);
+  font-variant-numeric: tabular-nums;
+}
+
+.menu-scale__tick-center {
+  /* Маркер для 100% в центре шкалы */
+  position: relative;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Анимации
+   ═══════════════════════════════════════════════════════════════ */
 .menu-pop-enter-active {
   transition: opacity 0.15s ease, transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -131,10 +482,10 @@ function onAfterLeave() {
 }
 .menu-pop-enter-from {
   opacity: 0;
-  transform: scale(0.9) translateX(-8px);
+  transform: scale(0.92) translateY(-4px);
 }
 .menu-pop-leave-to {
   opacity: 0;
-  transform: scale(0.95);
+  transform: scale(0.96);
 }
 </style>

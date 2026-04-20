@@ -29,6 +29,8 @@ export interface MindMapNode {
 
   customX: number | null
   customY: number | null
+
+  scale?: number
 }
 
 /** Позиция узла в сцене (абсолютные координаты в world-space) */

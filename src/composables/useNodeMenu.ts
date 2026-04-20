@@ -13,7 +13,16 @@ const menuPosition = reactive({
   visibility: 'hidden' as 'hidden' | 'visible'  // ★ прячем до позиционирования
 })
 
-const activeNodeProps = reactive({
+interface ActiveNodeProps {
+  nodeId: string
+  isRoot: boolean
+  hasImage: boolean
+  hasNotes: boolean
+  pinned: boolean
+}
+
+const activeNodeProps = reactive<ActiveNodeProps>({
+  nodeId: '',
   isRoot: false,
   hasImage: false,
   hasNotes: false,
@@ -30,6 +39,7 @@ const menuElRef = ref<HTMLElement | null>(null)
 let activeTriggerEl: HTMLElement | null = null
 
 function closeMenu() {
+  // console.log('[menu] closeMenu called', new Error().stack?.split('\n').slice(1, 4))
   isOpen.value = false
   activeMenuId.value = null
   activeEmit = null
@@ -48,31 +58,29 @@ async function openMenu(
   props: { isRoot: boolean; hasImage: boolean; hasNotes: boolean; pinned: boolean },
   emitAction: (action: string) => void
 ) {
-  // Если уже открыто то же меню — toggle
   if (activeMenuId.value === nodeId && isOpen.value) {
     closeMenu()
     return
   }
 
-  // Закрываем предыдущее
   if (cleanupFn) {
     cleanupFn()
     cleanupFn = null
   }
 
-  // Устанавливаем данные
   activeMenuId.value = nodeId
   activeEmit = emitAction
   activeTriggerEl = triggerEl
-  Object.assign(activeNodeProps, props)
+  Object.assign(activeNodeProps, { ...props, nodeId })  // ★ добавили nodeId
   isOpen.value = true
 
-  // Ждём рендер меню → позиционируем
   await nextTick()
-  await nextTick() // ★ двойной nextTick — гарантия что DOM обновился
+  // await nextTick()
+
   positionMenu()
   menuPosition.visibility = 'visible'
   setupOutsideListeners()
+
 }
 
 function positionMenu() {

@@ -60,6 +60,18 @@ export interface TreeOperationsApi {
     dy: number,
     layoutPositions?: PositionMap
   ) => void
+
+  updateScale(
+    nodeId: string,
+    scale: number,
+    savedCenter?: { cx: number; cy: number }
+  ): void
+  commitScale(
+    nodeId: string,
+    scale: number,
+    savedCenter?: { cx: number; cy: number }
+  ): void
+  findNode(id: string): MindMapNode | null
 }
 
 // ─── History ───────────────────────────────────────

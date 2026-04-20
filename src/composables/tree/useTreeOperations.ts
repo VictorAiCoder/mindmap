@@ -17,6 +17,11 @@ import type {
   LayoutType
 } from '@/types/mindmap-api'
 
+import { NODE_SCALE } from '@/types/mindmap-constants'
+import { clampScale, normalizeScale } from '@/composables/node/useNodeScale'
+import { ROOT_W, ROOT_H, NODE_W, NODE_H } from '@/composables/constants'
+
+
 export function useTreeOperations(
   rootNode: Ref<MindMapNode>,
   history: HistoryApi
@@ -228,6 +233,70 @@ export function useTreeOperations(
     touch()
   }
 
+  function baseSize(isRoot: boolean): { w: number; h: number } {
+    return isRoot
+      ? { w: ROOT_W, h: ROOT_H }
+      : { w: NODE_W, h: NODE_H }
+  }
+
+  function updateScale(
+    nodeId: string,
+    scale: number,
+    savedCenter?: { cx: number; cy: number }
+  ): void {
+    const node = findNode(nodeId)
+    if (!node) return
+
+    const clamped = clampScale(scale)
+    node.scale = clamped
+
+    // Центрирование для закреплённых узлов
+    if (node.customX != null && node.customY != null && savedCenter) {
+      const isRoot = nodeId === rootNode.value.id
+      const { w: baseW, h: baseH } = baseSize(isRoot)
+      const newW = baseW * clamped
+      const newH = baseH * clamped
+      node.customX = savedCenter.cx - newW / 2
+      node.customY = savedCenter.cy - newH / 2
+    }
+
+    touch()
+  }
+
+  /**
+   * ★ Финальный commit scale С записью в историю.
+   * Применяет snap-to-1.
+   */
+  function commitScale(
+    nodeId: string,
+    scale: number,
+    savedCenter?: { cx: number; cy: number }
+  ): void {
+    const node = findNode(nodeId)
+    if (!node) return
+
+    // 1. История: snapshot ДО мутации
+    history.save()
+
+    // 2. Snap + clamp
+    const final = normalizeScale(scale)
+    // Не храним дефолтное значение — чище JSON при экспорте
+    node.scale = final === NODE_SCALE.DEFAULT ? undefined : final
+
+    // 3. Центрирование (если закреплён)
+    if (node.customX != null && node.customY != null && savedCenter) {
+      const isRoot = nodeId === rootNode.value.id
+      const { w: baseW, h: baseH } = baseSize(isRoot)
+      const newW = baseW * final
+      const newH = baseH * final
+      node.customX = savedCenter.cx - newW / 2
+      node.customY = savedCenter.cy - newH / 2
+    }
+
+    touch()
+  }
+
+
   return {
     addChild,
     deleteNode,
@@ -245,6 +314,9 @@ export function useTreeOperations(
     resetAllPositions,
     autoLayout,
     reparentNode,
-    moveNodeGroup
+    moveNodeGroup,
+    updateScale,
+    commitScale,
+    findNode
   }
 }

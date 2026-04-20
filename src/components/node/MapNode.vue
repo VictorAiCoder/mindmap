@@ -17,6 +17,7 @@
       :src="pos.node.image"
       :is-root="isRoot"
       :image-width="pos.node.imageWidth"
+      :scale="effectiveScale"       
       @remove="$emit('removeImage')"
       @resize="(w) => $emit('resizeImage', w)"
       @resize-commit="(w) => $emit('resizeImageCommit', w)"
@@ -24,7 +25,7 @@
 
     <div class="map-node__bg" :style="bgStyle" />
 
-   <!-- ★ Кнопка фокуса (лупа) с toggle-состоянием -->
+    <!-- Кнопка фокуса (лупа) -->
     <Transition name="zoom-btn-fade">
       <button
         v-if="(isHovered || isFocused) && !isDragging"
@@ -34,11 +35,15 @@
         @click.stop="$emit('focusNode')"
         @mousedown.stop
       >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" stroke-width="2.5"
-            stroke-linecap="round" stroke-linejoin="round">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <circle cx="11" cy="11" r="7" />
-          <!-- Плюс / Минус внутри лупы -->
           <g v-if="!isFocused">
             <line x1="8" y1="11" x2="14" y2="11" />
             <line x1="11" y1="8" x2="11" y2="14" />
@@ -64,6 +69,7 @@
       @toggle="$emit('toggle')"
     >
       <NodeActions
+        :node-id="pos.node.id"
         :is-root="isRoot"
         :has-image="hasImage"
         :has-notes="hasNotes"
@@ -93,8 +99,10 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, inject } from 'vue'
 import { processImageFile, getImageFromDrop } from '../../composables/useImageHandler'
+import { computeEffectiveScale } from '../../composables/node/useNodeScale'
+import { NODE_SCALE } from '../../types/mindmap-constants'
 import NodeImage from './NodeImage.vue'
 import NodeContent from './NodeContent.vue'
 import NodeNotesPreview from './NodeNotesPreview.vue'
@@ -107,7 +115,7 @@ const props = defineProps({
   isInDragGroup: { type: Boolean, default: false },
   liveX: { type: Number, default: null },
   liveY: { type: Number, default: null },
-  isFocused: { type: Boolean, default: false }  // ★
+  isFocused: { type: Boolean, default: false }
 })
 
 const emit = defineEmits([
@@ -116,12 +124,17 @@ const emit = defineEmits([
   'setImage', 'removeImage',
   'resizeImage', 'resizeImageCommit',
   'openNotes', 'toggleNotePin', 'toggleNotesVisible',
-  'focusNode'   // ★
+  'focusNode'
 ])
 
 const imageInput = ref(null)
 const isImageDragOver = ref(false)
-const isHovered = ref(false)   // ★
+const isHovered = ref(false)
+
+// ★ Global zoom инжектится из canvas — используем для сопротивления.
+// Фоллбек на ref(1) — если provide не найден, scale работает без сопротивления.
+// const globalZoom = inject('globalZoom', { value: 1 })
+const globalZoom = inject('globalZoom', ref(1))
 
 const isRoot = computed(() => props.pos.depth === 0)
 const isLeaf = computed(() => props.pos.depth >= 2)
@@ -135,6 +148,16 @@ const hasImage = computed(() => {
 
 const isDragging = computed(() => props.isBeingDragged || props.isInDragGroup)
 
+// ★ Персональный scale узла (1 по умолчанию)
+const nodeScale = computed(() => props.pos.node.scale ?? NODE_SCALE.DEFAULT)
+
+// ★ Эффективный scale с учётом сопротивления global zoom
+// При globalZoom=1 равен nodeScale. При zoom-out усиливается.
+// Focus mode = это просто способ задать globalZoom=1.25, поэтому уже учтён.
+const effectiveScale = computed(() =>
+  computeEffectiveScale(nodeScale.value, globalZoom.value)
+)
+
 const nodeClasses = computed(() => ({
   'map-node--root': isRoot.value,
   'map-node--leaf': isLeaf.value,
@@ -143,7 +166,8 @@ const nodeClasses = computed(() => ({
   'map-node--dragging': props.isBeingDragged,
   'map-node--in-drag-group': props.isInDragGroup && !props.isBeingDragged,
   'map-node--custom': props.pos.hasCustomPos,
-  'map-node--image-drop': isImageDragOver.value
+  'map-node--image-drop': isImageDragOver.value,
+  'map-node--scaled': nodeScale.value !== NODE_SCALE.DEFAULT
 }))
 
 const nodeStyle = computed(() => {
@@ -157,15 +181,18 @@ const nodeStyle = computed(() => {
     width: `${props.pos.w}px`,
     height: `${props.pos.h}px`,
     zIndex: props.isBeingDragged ? 100 : props.isInDragGroup ? 99 : undefined,
-    transition: isDragging.value ? 'none' : undefined
+    transition: isDragging.value ? 'none' : undefined,
+    // ★ CSS-переменная, через которую все em-размеры внутри узла
+    // автоматически масштабируются. Базовый 1rem = 14px (см. CSS ниже).
+    '--node-scale': effectiveScale.value
   }
 })
 
 const bgStyle = computed(() => {
   const color = props.pos.node.color || '#5C6BC0'
-  if (isRoot.value) return { background: color, borderRadius: '25px' }
-  if (isLeaf.value) return { background: 'transparent', borderBottom: `2.5px solid ${color}`, borderRadius: '0' }
-  return { background: color + '22', border: `2px solid ${color}`, borderRadius: '20px' }
+  if (isRoot.value) return { background: color, borderRadius: '1.786em' /* 25px */ }
+  if (isLeaf.value) return { background: 'transparent', borderBottom: `0.179em solid ${color}` /* 2.5px */, borderRadius: '0' }
+  return { background: color + '22', border: `0.143em solid ${color}` /* 2px */, borderRadius: '1.429em' /* 20px */ }
 })
 
 function onMouseDown(e) {
@@ -199,6 +226,10 @@ async function onImageDrop(e) {
 </script>
 
 <style scoped>
+/* ═══════════════════════════════════════════════════════════════
+   БАЗА: 1rem внутри узла = 14px × effectiveScale
+   Все внутренние размеры в em — автоматически масштабируются.
+   ═══════════════════════════════════════════════════════════════ */
 .map-node {
   position: absolute;
   cursor: grab;
@@ -206,9 +237,14 @@ async function onImageDrop(e) {
   transition: transform 0.15s ease, opacity 0.15s ease, left 0.2s ease, top 0.2s ease;
   z-index: 2;
   overflow: visible;
+
+  /* ★ КЛЮЧЕВАЯ СТРОКА: задаёт базу для всех em внутри.
+     14px — базовый font-size узла. Меняется при scale. */
+  font-size: calc(14px * var(--node-scale, 1));
 }
 
 .map-node:hover { z-index: 5; }
+
 .map-node:hover :deep(.node-actions) {
   opacity: 1;
   pointer-events: auto;
@@ -238,29 +274,42 @@ async function onImageDrop(e) {
 }
 
 .map-node--drag-over .map-node__bg {
-  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.6) !important;
+  /* 3px → 0.214em при 14px base */
+  box-shadow: 0 0 0 0.214em rgba(33, 150, 243, 0.6) !important;
 }
 
 .map-node--image-drop .map-node__bg {
-  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.6) !important;
+  box-shadow: 0 0 0 0.214em rgba(76, 175, 80, 0.6) !important;
 }
 
+/* ★ Узлы с scale != 1 чуть приподняты для визуального акцента */
+.map-node--scaled {
+  z-index: 3;
+}
+
+.map-node--scaled:hover {
+  z-index: 6;
+}
+
+/* Индикатор "pinned" (оранжевая точка) */
 .map-node--custom::after {
   content: '';
   position: absolute;
-  top: -3px;
-  right: -3px;
-  width: 8px;
-  height: 8px;
+  /* -3px / 8px / 1.5px → em при 14px base */
+  top: -0.214em;
+  right: -0.214em;
+  width: 0.571em;
+  height: 0.571em;
   border-radius: 50%;
   background: #FF9800;
-  border: 1.5px solid white;
+  border: 0.107em solid white;
   z-index: 11;
 }
 
 .map-node--has-image :deep(.node-actions) {
   top: auto;
-  bottom: -10px;
+  /* -10px → -0.714em */
+  bottom: -0.714em;
 }
 
 .map-node__bg {
@@ -269,25 +318,35 @@ async function onImageDrop(e) {
   transition: all 0.2s ease;
 }
 
-/* ── ★ Focus button (лупа) ── */
+/* ═══════════════════════════════════════════════════════════════
+   Focus-button (лупа)
+   Все размеры переведены: 14px base → делим на 14
+   26px → 1.857em, 12px → 0.857em, 2px → 0.143em
+   ═══════════════════════════════════════════════════════════════ */
 .map-node__focus-btn {
   position: absolute;
-  top: -12px;
-  left: -12px;
-  width: 26px;
-  height: 26px;
+  top: -0.857em;      /* было -12px */
+  left: -0.857em;
+  width: 1.857em;     /* было 26px */
+  height: 1.857em;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid rgba(var(--v-theme-on-surface), 0.15);
+  border: 0.143em solid rgba(var(--v-theme-on-surface), 0.15);  /* 2px */
   border-radius: 50%;
   background: rgb(var(--v-theme-surface));
   color: rgba(var(--v-theme-on-surface), 0.5);
   cursor: pointer;
   z-index: 20;
   padding: 0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  /* 2px 8px 0.12 → em */
+  box-shadow: 0 0.143em 0.571em rgba(0, 0, 0, 0.12);
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.map-node__focus-btn svg {
+  width: 1.714em;   /* 24px → 1.714em */
+  height: 1.714em;
 }
 
 .map-node__focus-btn:hover {
@@ -295,7 +354,7 @@ async function onImageDrop(e) {
   color: white;
   border-color: rgb(var(--v-theme-primary));
   transform: scale(1.15);
-  box-shadow: 0 3px 12px rgba(var(--v-theme-primary), 0.35);
+  box-shadow: 0 0.214em 0.857em rgba(var(--v-theme-primary), 0.35);
 }
 
 .map-node__focus-btn:active {
@@ -303,13 +362,12 @@ async function onImageDrop(e) {
   transition-duration: 0.1s;
 }
 
-/* ★ Активное состояние — нода в фокусе */
 .map-node__focus-btn--active {
   background: rgb(var(--v-theme-primary));
   color: white;
   border-color: rgb(var(--v-theme-primary));
-  box-shadow: 0 0 0 3px rgba(var(--v-theme-primary), 0.2),
-              0 2px 8px rgba(var(--v-theme-primary), 0.3);
+  box-shadow: 0 0 0 0.214em rgba(var(--v-theme-primary), 0.2),
+              0 0.143em 0.571em rgba(var(--v-theme-primary), 0.3);
 }
 
 .map-node__focus-btn--active:hover {
@@ -317,7 +375,7 @@ async function onImageDrop(e) {
   transform: scale(1.1);
 }
 
-/* ── Transition ── */
+/* ── Transitions ── */
 .zoom-btn-fade-enter-active {
   transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }

@@ -35,7 +35,7 @@
     <!-- Лейбл размера при ресайзе -->
     <Transition name="size-fade">
       <div v-if="isResizing" class="node-image-size">
-        {{ Math.round(liveWidth) }} × {{ Math.round(liveHeight) }}
+        {{ Math.round(liveWidth * scale) }} × {{ Math.round(liveHeight * scale) }}
       </div>
     </Transition>
   </div>
@@ -47,7 +47,8 @@ import { ref, computed, watch, onBeforeUnmount } from 'vue'
 const props = defineProps({
   src: { type: String, required: true },
   isRoot: { type: Boolean, default: false },
-  imageWidth: { type: Number, default: null }
+  imageWidth: { type: Number, default: null },
+  scale: { type: Number, default: 1 }   
 })
 
 const emit = defineEmits(['remove', 'resize', 'resize-commit'])
@@ -88,11 +89,14 @@ const displayHeight = computed(() => {
   return displayWidth.value * aspectRatio.value
 })
 
-const containerStyle = computed(() => ({
-  width: `${displayWidth.value}px`,
-  height: `${displayHeight.value}px`
-}))
+// ★ Визуальные размеры — с учётом scale
+const visualWidth = computed(() => displayWidth.value * props.scale)
+const visualHeight = computed(() => displayHeight.value * props.scale)
 
+const containerStyle = computed(() => ({
+  width: `${visualWidth.value}px`,
+  height: `${visualHeight.value}px`
+}))
 // ─── Синхронизация props → liveWidth ────────
 
 watch(() => props.imageWidth, (val) => {
@@ -194,16 +198,17 @@ function updateSize(clientX, clientY) {
   const dx = clientX - startX.value
   const dy = clientY - startY.value
   const ratio = aspectRatio.value || 0.75
+  const scale = props.scale || 1   // ★
 
-  // Диагональная проекция — оба направления вносят вклад
-  const delta = (dx + dy / ratio) / 2
+  // Диагональная проекция + корректировка на scale узла:
+  // юзер видит контент в scale× размере, значит 1px мыши
+  // соответствует 1/scale единицы в pristine-модели.
+  const delta = (dx + dy / ratio) / 2 / scale   // ★ /scale
 
   let newW = startWidth.value + delta
   newW = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, Math.round(newW)))
 
   liveWidth.value = newW
-
-  // Live-обновление (без записи в history)
   emit('resize', newW)
 }
 
@@ -232,47 +237,42 @@ onBeforeUnmount(() => {
   bottom: 100%;
   left: 50%;
   transform: translateX(-50%);
-  margin-bottom: 6px;
-  border-radius: 10px;
+  margin-bottom: 0.429em;           /* 6px */
+  border-radius: 0.714em;           /* 10px */
   overflow: visible;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 0.286em 1.143em rgba(0, 0, 0, 0.15);  /* 4px 16px */
   background: rgb(var(--v-theme-surface));
   z-index: 3;
   transition: transform 0.2s ease, width 0.15s ease, height 0.15s ease, box-shadow 0.2s ease;
 }
 
-/* При ресайзе — убираем transition чтобы не лагало */
 .node-image-float--resizing {
   transition: none !important;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 0.429em 1.714em rgba(0, 0, 0, 0.22);  /* 6px 24px */
 }
-
-/* ─── Картинка ─────────────────────────────── */
 
 .node-image {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 10px;
+  border-radius: 0.714em;           /* 10px */
   pointer-events: none;
   user-select: none;
 }
 
-/* ─── Resize Handle ────────────────────────── */
-
 .node-image-resize {
   position: absolute;
-  right: -3px;
-  bottom: -3px;
-  width: 20px;
-  height: 20px;
+  right: -0.214em;                  /* -3px */
+  bottom: -0.214em;
+  width: 1.429em;                   /* 20px */
+  height: 1.429em;
   display: flex;
   align-items: center;
   justify-content: center;
   background: rgba(var(--v-theme-surface), 0.92);
-  border: 1.5px solid rgba(0, 0, 0, 0.12);
-  border-radius: 3px 0 10px 0;
+  border: 0.107em solid rgba(0, 0, 0, 0.12);  /* 1.5px */
+  border-radius: 0.214em 0 0.714em 0;         /* 3px 0 10px 0 */
   cursor: nwse-resize;
   color: rgba(0, 0, 0, 0.35);
   opacity: 0;
@@ -297,14 +297,12 @@ onBeforeUnmount(() => {
   opacity: 1;
 }
 
-/* ─── Remove Button ────────────────────────── */
-
 .node-image-remove {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 20px;
-  height: 20px;
+  top: 0.286em;                     /* 4px */
+  right: 0.286em;
+  width: 1.429em;                   /* 20px */
+  height: 1.429em;
   border-radius: 50%;
   border: none;
   background: rgba(0, 0, 0, 0.6);
@@ -324,20 +322,18 @@ onBeforeUnmount(() => {
   transform: scale(1.1);
 }
 
-/* ─── Size Label ─────────────────────────── */
-
 .node-image-size {
   position: absolute;
-  bottom: -22px;
+  bottom: -1.571em;                 /* -22px */
   left: 50%;
   transform: translateX(-50%);
   background: rgba(0, 0, 0, 0.72);
   color: white;
-  font-size: 10px;
+  font-size: 0.714em;               /* 10px */
   font-weight: 600;
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  padding: 2px 8px;
-  border-radius: 4px;
+  padding: 0.143em 0.571em;         /* 2px 8px */
+  border-radius: 0.286em;           /* 4px */
   white-space: nowrap;
   pointer-events: none;
   z-index: 6;
