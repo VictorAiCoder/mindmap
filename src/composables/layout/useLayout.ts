@@ -3,7 +3,7 @@ import { computed, type ComputedRef, type Ref } from 'vue'
 import {
   NODE_W, NODE_H, ROOT_W, ROOT_H,
   GAP_H, GAP_V, CANVAS_PADDING
-} from '../../constants'
+} from '../constants'
 import { traverseTree } from '../tree/useTreeTraversal'
 import type { MindMapNode } from '../../types/mindmap'
 import type { LayoutData, LayoutPosition, LayoutBounds } from '../../types/layout'

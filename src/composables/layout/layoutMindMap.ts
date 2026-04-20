@@ -1,4 +1,4 @@
-import { ROOT_W, ROOT_H, GAP_H, GAP_V, DEFAULT_CENTER_X } from '@/constants'
+import { ROOT_W, ROOT_H, GAP_H, GAP_V, DEFAULT_CENTER_X } from '../constants'
 import type { MindMapNode, ScenePosition } from '@/types/mindmap'
 import {
   getNodeWidth, getNodeHeight,

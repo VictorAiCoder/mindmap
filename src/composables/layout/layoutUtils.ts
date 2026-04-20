@@ -2,7 +2,7 @@ import type { MindMapNode } from '@/types/mindmap'
 import {
   NODE_W, NODE_H, ROOT_W, ROOT_H,
   NOTE_LINE_HEIGHT, NOTE_PADDING, NOTE_MAX_PREVIEW_LINES,
-} from '@/constants'
+} from '../constants'
 
 // TODO: вынести в constants как NODE_WITH_NOTES_MIN_WIDTH
 const NOTES_MIN_WIDTH = 300

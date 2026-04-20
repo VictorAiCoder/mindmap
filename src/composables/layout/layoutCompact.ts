@@ -1,4 +1,4 @@
-import { GAP_H } from '@/constants'
+import { GAP_H } from '../constants'
 import type { MindMapNode, ScenePosition } from '@/types/mindmap'
 import { getNodeWidth, getNodeHeight, calcSubtreeHeight } from './layoutUtils'
 
