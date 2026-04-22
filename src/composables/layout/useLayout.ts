@@ -99,7 +99,11 @@ function calcAutoPositions(root: MindMapNode): Map<string, AutoPos> {
     const w = nodeWidth(depth, node)
     const h = nodeHeight(depth, node)
 
-    map.set(node.id, { x, y: yCenter - h / 2, w, h, depth })
+    const effX = node.customX ?? x
+    const effY = node.customY ?? (yCenter - h / 2)
+    const effYCenter = effY + h / 2
+
+    map.set(node.id, { x: effX, y: effY, w, h, depth })
 
     if (node.collapsed || !node.children?.length) return
 
@@ -110,10 +114,10 @@ function calcAutoPositions(root: MindMapNode): Map<string, AutoPos> {
     // ★ Для left стороны: выравниваем по правому краю детей
     // (т.е. все дети упираются правым краем в одну вертикаль)
     const childX = side === 'right'
-      ? x + w + GAP_H
-      : x - maxChildWidth(node.children, depth + 1) - GAP_H
+      ? effX + w + GAP_H                               // ★ от effX
+      : effX - maxChildWidth(node.children, depth + 1) - GAP_H
 
-    let cy = yCenter - totalH / 2
+    let cy = effYCenter - totalH / 2                   // ★ от effYCenter
 
     node.children.forEach((child, i) => {
       const ch = childHeights[i]

@@ -30,6 +30,11 @@
           <span>Добавить потомка</span>
         </button>
 
+        <button class="menu-item" @click="onImportMarkdownClick">
+          <v-icon icon="mdi-language-markdown-outline" size="16" />
+          <span>Импорт Markdown…</span>
+        </button>
+
         <button class="menu-item" @click="act('edit')">
           <v-icon icon="mdi-pencil-outline" size="16" />
           <span>Переименовать</span>
@@ -104,7 +109,9 @@ const {
   activeNodeProps: p, 
   menuPosition, 
   emitAction, 
-  registerMenuEl 
+  registerMenuEl,
+  closeMenu,
+  openImportDialog,
 } = useNodeMenu()
 const mindmap = injectStrict(mindMapKey)
 
@@ -116,6 +123,13 @@ watch(menuRef, (el) => {
 
 function act(action: string) {
   emitAction(action)
+}
+
+function onImportMarkdownClick() {
+  const nodeId = activeMenuId.value
+  if (!nodeId) return
+  closeMenu()
+  openImportDialog(nodeId)
 }
 
 function onAfterLeave() {

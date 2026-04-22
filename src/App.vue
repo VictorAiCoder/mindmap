@@ -21,6 +21,8 @@
       <MindMap />
     </v-main>
 
+    <ImportMarkdownHost />
+    
     <v-snackbar
       v-model="snackbar.show"
       :color="snackbar.color"
@@ -37,6 +39,7 @@
 import { reactive, provide } from 'vue'
 import ToolbarPanel from './components/panels/ToolbarPanel.vue'
 import MindMap from './components/MindMap.vue'
+import ImportMarkdownHost from './components/node/ImportMarkdownHost.vue'
 import { useMindMap } from './composables/useMindMap'
 import { useTheme } from './composables/useTheme'
 import { LAYOUT_TYPES } from './composables/layout/useAutoLayout'

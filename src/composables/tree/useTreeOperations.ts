@@ -21,6 +21,8 @@ import { NODE_SCALE } from '@/types/mindmap-constants'
 import { clampScale, normalizeScale } from '@/composables/node/useNodeScale'
 import { ROOT_W, ROOT_H, NODE_W, NODE_H } from '@/composables/constants'
 
+import { parseMarkdownToTree } from '../persistence/importMarkdown'
+
 
 export function useTreeOperations(
   rootNode: Ref<MindMapNode>,
@@ -296,6 +298,88 @@ export function useTreeOperations(
     touch()
   }
 
+  // ─── Импорт Markdown в существующий узел ────────
+
+/**
+ * ★ Импортирует markdown в указанный узел.
+ *
+ * Логика:
+ * - Парсит markdown в поддерево через parseMarkdownToTree.
+ * - Текст целевого узла заменяется на корневой заголовок.
+ * - Notes/image корневой секции копируются в целевой узел.
+ * - Дети корневого узла становятся детьми целевого.
+ *
+ * История: одна запись (Ctrl+Z откатывает всё разом).
+ *
+ * @returns количество импортированных узлов (вся секция + потомки),
+ *          0 если markdown пуст/без заголовков или узел не найден.
+ */
+function importMarkdownIntoNode(
+  nodeId: string,
+  markdown: string
+): number {
+  const target = findNode(nodeId)
+  if (!target) {
+    console.warn(`[importMarkdown] Узел ${nodeId} не найден`)
+    return 0
+  }
+
+  const parsed = parseMarkdownToTree(markdown)
+  if (!parsed) {
+    console.warn('[importMarkdown] Markdown пуст или без заголовков')
+    return 0
+  }
+
+  normalizeForLayout(parsed)
+  // Snapshot ДО мутаций → один undo-step
+  history.save()
+
+  // 1. Переносим «корень» распаршенного дерева в целевой узел
+  target.text = parsed.text
+  if (parsed.notes) {
+    target.notes = parsed.notes
+  }
+  if (parsed.image) {
+    target.image = parsed.image
+  }
+
+  // 2. Дети корневой секции становятся детьми целевого узла
+  for (const child of parsed.children) {
+    target.children.push(child)
+  }
+
+  // 3. Раскрываем узел, чтобы результат был виден сразу
+  target.collapsed = false
+
+  touch()
+
+  return countNodes(parsed)
+}
+
+function normalizeForLayout(node: MindMapNode): void {
+  // ★ Критично: сбрасываем кастомные координаты,
+  // чтобы layout разместил узлы относительно родителя,
+  // а не использовал их как абсолютные позиции.
+  node.customX = null
+  node.customY = null
+  node.collapsed = false
+
+  for (const child of node.children) {
+    normalizeForLayout(child)
+  }
+}
+
+/**
+ * Подсчёт узлов в поддереве (для feedback'а пользователю).
+ */
+function countNodes(node: MindMapNode): number {
+  let count = 1
+  for (const child of node.children) {
+    count += countNodes(child)
+  }
+  return count
+}
+
 
   return {
     addChild,
@@ -317,6 +401,7 @@ export function useTreeOperations(
     moveNodeGroup,
     updateScale,
     commitScale,
-    findNode
+    findNode,
+    importMarkdownIntoNode
   }
 }

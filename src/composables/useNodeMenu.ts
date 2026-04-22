@@ -4,6 +4,18 @@ import { ref, reactive, nextTick, onBeforeUnmount } from 'vue'
 // ★ Глобальное состояние — одно меню на всё приложение
 const activeMenuId = ref<string | null>(null)
 const isOpen = ref(false)
+const importDialogOpen = ref(false)
+const importDialogTargetId = ref<string | null>(null)
+
+function openImportDialog(nodeId: string) {
+  importDialogTargetId.value = nodeId
+  importDialogOpen.value = true
+}
+
+function closeImportDialog() {
+  importDialogOpen.value = false
+  importDialogTargetId.value = null
+}
 
 const menuPosition = reactive({
   position: 'fixed' as const,
@@ -159,6 +171,10 @@ export function useNodeMenu() {
     openMenu,
     closeMenu,
     emitAction,
-    registerMenuEl
+    registerMenuEl,
+    importDialogOpen,
+    importDialogTargetId,
+    openImportDialog,
+    closeImportDialog,
   }
 }

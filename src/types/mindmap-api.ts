@@ -72,6 +72,7 @@ export interface TreeOperationsApi {
     savedCenter?: { cx: number; cy: number }
   ): void
   findNode(id: string): MindMapNode | null
+  importMarkdownIntoNode: (nodeId: string, markdown: string) => number
 }
 
 // ─── History ───────────────────────────────────────
