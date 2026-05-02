@@ -1,6 +1,7 @@
 // src/composables/tree/useNodeFactory.ts
 import { NODE_COLORS, DEFAULT_COLOR } from '../constants'
 import type { MindMapNode } from '@/types/mindmap'
+import type { MindMapDocument } from '@/types/mindmap'
 
 /**
  * Опции для createNode — все поля узла, но опциональные.
@@ -37,13 +38,21 @@ export function createNode(opts: CreateNodeOptions = {}): MindMapNode {
     children: opts.children ?? [],
     collapsed: opts.collapsed ?? false,
     notes: opts.notes ?? '',
-    image: opts.image ?? null,
+    imageId: opts.imageId ?? null,
     imageWidth: opts.imageWidth ?? null,
     customX: opts.customX ?? null,
     customY: opts.customY ?? null,
     // notesPinned, notesVisible — НЕ задаём, остаются undefined
     ...(opts.notesPinned !== undefined && { notesPinned: opts.notesPinned }),
     ...(opts.notesVisible !== undefined && { notesVisible: opts.notesVisible })
+  }
+}
+
+export function createDefaultDocument(): MindMapDocument {
+  return {
+    version: 2,
+    root: createDefaultTree(),
+    images: [],
   }
 }
 

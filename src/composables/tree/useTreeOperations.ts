@@ -10,7 +10,7 @@ import {
 import { createNode } from './useNodeFactory'
 import { applyAutoLayout, resetLayout } from '../layout/useAutoLayout'
 
-import type { MindMapNode, ScenePosition } from '@/types/mindmap'
+import type { MindMapNode, MindMapDocument, ScenePosition, RawImage } from '@/types/mindmap'
 import type {
   TreeOperationsApi,
   HistoryApi,
@@ -23,17 +23,39 @@ import { ROOT_W, ROOT_H, NODE_W, NODE_H } from '@/composables/constants'
 
 import { parseMarkdownToTree } from '../persistence/importMarkdown'
 
+// ─── Helpers ────────────────────────────────────────
+
+/**
+ * Генератор id для картинок. Дублируется с useImageStorage
+ * намеренно — чтобы избежать циклических зависимостей.
+ */
+function generateImageId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `img_${crypto.randomUUID()}`
+  }
+  return `img_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+}
+
+// ─── Composable ─────────────────────────────────────
 
 export function useTreeOperations(
-  rootNode: Ref<MindMapNode>,
+  document: Ref<MindMapDocument>,
   history: HistoryApi
 ): TreeOperationsApi {
+
+  // Удобные геттеры, но без кэширования —
+  // всегда читаем актуальное состояние документа.
+  const rootRef = () => document.value.root
+  const imagesRef = () => document.value.images
+
   function touch(): void {
-    triggerRef(rootNode)
+    // triggerRef на корневом document — реактивные зависимости
+    // (rootNode computed, nodeCount, treeDepth и т.д.) пересчитаются.
+    triggerRef(document)
   }
 
   function findNode(id: string): MindMapNode | null {
-    return findNodeById(rootNode.value, id)
+    return findNodeById(rootRef(), id)
   }
 
   // ─── Notes visibility ───────────────────────────
@@ -41,8 +63,6 @@ export function useTreeOperations(
   function toggleNotesVisible(nodeId: string): void {
     const node = findNode(nodeId)
     if (!node) return
-    // undefined / true → false (скрываем)
-    // false → true (показываем)
     node.notesVisible = node.notesVisible === false
     touch()
   }
@@ -65,9 +85,9 @@ export function useTreeOperations(
   }
 
   function deleteNode(nodeId: string): void {
-    if (rootNode.value.id === nodeId) return
+    if (rootRef().id === nodeId) return
     history.save()
-    detachNode(rootNode.value, nodeId)
+    detachNode(rootRef(), nodeId)
     touch()
   }
 
@@ -125,19 +145,40 @@ export function useTreeOperations(
 
   // ─── Картинки ───────────────────────────────────
 
+  /**
+   * Устанавливает картинку узла: создаёт запись в пуле и сохраняет imageId.
+   *
+   * Политика: старая картинка (если была) в пуле НЕ удаляется.
+   * Причины:
+   *   1) undo/redo — нужна возможность вернуться к предыдущей;
+   *   2) картинка может использоваться другими узлами.
+   * Чистка неиспользуемых — через галерею (Коммит 3)
+   * и автоматически при экспорте в JSON.
+   */
   function setNodeImage(nodeId: string, dataUrl: string): void {
-    history.save()
     const node = findNode(nodeId)
     if (!node) return
-    node.image = dataUrl
+
+    history.save()
+
+    const raw: RawImage = {
+      kind: 'raw',
+      id: generateImageId(),
+      dataUrl,
+      createdAt: Date.now(),
+    }
+    imagesRef().push(raw)
+
+    node.imageId = raw.id
     touch()
   }
 
   function removeNodeImage(nodeId: string): void {
-    history.save()
     const node = findNode(nodeId)
-    if (!node) return
-    node.image = null
+    if (!node || node.imageId === null) return
+
+    history.save()
+    node.imageId = null
     touch()
   }
 
@@ -160,20 +201,20 @@ export function useTreeOperations(
 
   function resetAllPositions(): void {
     history.save()
-    resetLayout(rootNode.value)
+    resetLayout(rootRef())
     touch()
   }
 
   function autoLayout(type: LayoutType = 'mindmap'): void {
     history.save()
-    applyAutoLayout(rootNode.value, type)
+    applyAutoLayout(rootRef(), type)
     touch()
   }
 
   // ─── Перемещение в иерархии ─────────────────────
 
   function reparentNode(nodeId: string, newParentId: string): boolean {
-    const root = rootNode.value
+    const root = rootRef()
 
     if (nodeId === root.id) return false
     if (nodeId === newParentId) return false
@@ -216,7 +257,6 @@ export function useTreeOperations(
       const n = findNode(id)
       if (!n) continue
 
-      // Если узел без customX/Y — берём из layout как стартовую точку
       if (n.customX === null || n.customY === null) {
         const layoutPos = layoutPositions?.get(id)
         if (layoutPos) {
@@ -225,7 +265,6 @@ export function useTreeOperations(
         }
       }
 
-      // Сдвигаем только если есть что сдвигать
       if (n.customX !== null && n.customY !== null) {
         n.customX += dx
         n.customY += dy
@@ -252,9 +291,8 @@ export function useTreeOperations(
     const clamped = clampScale(scale)
     node.scale = clamped
 
-    // Центрирование для закреплённых узлов
     if (node.customX != null && node.customY != null && savedCenter) {
-      const isRoot = nodeId === rootNode.value.id
+      const isRoot = nodeId === rootRef().id
       const { w: baseW, h: baseH } = baseSize(isRoot)
       const newW = baseW * clamped
       const newH = baseH * clamped
@@ -265,10 +303,6 @@ export function useTreeOperations(
     touch()
   }
 
-  /**
-   * ★ Финальный commit scale С записью в историю.
-   * Применяет snap-to-1.
-   */
   function commitScale(
     nodeId: string,
     scale: number,
@@ -277,17 +311,13 @@ export function useTreeOperations(
     const node = findNode(nodeId)
     if (!node) return
 
-    // 1. История: snapshot ДО мутации
     history.save()
 
-    // 2. Snap + clamp
     const final = normalizeScale(scale)
-    // Не храним дефолтное значение — чище JSON при экспорте
     node.scale = final === NODE_SCALE.DEFAULT ? undefined : final
 
-    // 3. Центрирование (если закреплён)
     if (node.customX != null && node.customY != null && savedCenter) {
-      const isRoot = nodeId === rootNode.value.id
+      const isRoot = nodeId === rootRef().id
       const { w: baseW, h: baseH } = baseSize(isRoot)
       const newW = baseW * final
       const newH = baseH * final
@@ -300,86 +330,59 @@ export function useTreeOperations(
 
   // ─── Импорт Markdown в существующий узел ────────
 
-/**
- * ★ Импортирует markdown в указанный узел.
- *
- * Логика:
- * - Парсит markdown в поддерево через parseMarkdownToTree.
- * - Текст целевого узла заменяется на корневой заголовок.
- * - Notes/image корневой секции копируются в целевой узел.
- * - Дети корневого узла становятся детьми целевого.
- *
- * История: одна запись (Ctrl+Z откатывает всё разом).
- *
- * @returns количество импортированных узлов (вся секция + потомки),
- *          0 если markdown пуст/без заголовков или узел не найден.
- */
-function importMarkdownIntoNode(
-  nodeId: string,
-  markdown: string
-): number {
-  const target = findNode(nodeId)
-  if (!target) {
-    console.warn(`[importMarkdown] Узел ${nodeId} не найден`)
-    return 0
+  function importMarkdownIntoNode(
+    nodeId: string,
+    markdown: string
+  ): number {
+    const target = findNode(nodeId)
+    if (!target) {
+      console.warn(`[importMarkdown] Узел ${nodeId} не найден`)
+      return 0
+    }
+
+    // ⚠️ Парсер мутирует imagesRef() во время работы.
+    //   Снимок истории делаем ДО парсинга, чтобы undo откатил и картинки.
+    //   Если парсер вернёт null — откатываем сами через undoStack
+    //   (history.save уже сделан — значит, текущее состояние в undo-стеке).
+    history.save()
+
+    // Создаём обёртку-ref для parser API
+    const images = imagesRef()
+    const imagesWrapper = {
+      get value() { return images },
+      set value(_: typeof images) { /* no-op: парсер всегда мутирует push-ем */ }
+    } as Ref<typeof images>
+
+    const parsed = parseMarkdownToTree(markdown, imagesWrapper)
+    if (!parsed) {
+      console.warn('[importMarkdown] Markdown пуст или без заголовков')
+      // Откатываем "пустой" снимок — делать undo корректно только если
+      // стек не тронут другими операциями; здесь тронут только что нами.
+      history.undo()
+      return 0
+    }
+
+    target.text = parsed.text
+    if (parsed.notes) target.notes = parsed.notes
+    if (parsed.imageId) target.imageId = parsed.imageId
+
+    for (const child of parsed.children) {
+      target.children.push(child)
+    }
+
+    target.collapsed = false
+    touch()
+
+    return countNodes(parsed)
   }
 
-  const parsed = parseMarkdownToTree(markdown)
-  if (!parsed) {
-    console.warn('[importMarkdown] Markdown пуст или без заголовков')
-    return 0
+  function countNodes(node: MindMapNode): number {
+    let count = 1
+    for (const child of node.children) {
+      count += countNodes(child)
+    }
+    return count
   }
-
-  normalizeForLayout(parsed)
-  // Snapshot ДО мутаций → один undo-step
-  history.save()
-
-  // 1. Переносим «корень» распаршенного дерева в целевой узел
-  target.text = parsed.text
-  if (parsed.notes) {
-    target.notes = parsed.notes
-  }
-  if (parsed.image) {
-    target.image = parsed.image
-  }
-
-  // 2. Дети корневой секции становятся детьми целевого узла
-  for (const child of parsed.children) {
-    target.children.push(child)
-  }
-
-  // 3. Раскрываем узел, чтобы результат был виден сразу
-  target.collapsed = false
-
-  touch()
-
-  return countNodes(parsed)
-}
-
-function normalizeForLayout(node: MindMapNode): void {
-  // ★ Критично: сбрасываем кастомные координаты,
-  // чтобы layout разместил узлы относительно родителя,
-  // а не использовал их как абсолютные позиции.
-  node.customX = null
-  node.customY = null
-  node.collapsed = false
-
-  for (const child of node.children) {
-    normalizeForLayout(child)
-  }
-}
-
-/**
- * Подсчёт узлов в поддереве (для feedback'а пользователю).
- */
-function countNodes(node: MindMapNode): number {
-  let count = 1
-  for (const child of node.children) {
-    count += countNodes(child)
-  }
-  return count
-}
-
 
   return {
     addChild,

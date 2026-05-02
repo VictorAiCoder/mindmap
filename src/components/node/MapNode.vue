@@ -14,10 +14,10 @@
   >
     <NodeImage
       v-if="hasImage"
-      :src="pos.node.image"
+      :src="imageSrc"
       :is-root="isRoot"
       :image-width="pos.node.imageWidth"
-      :scale="effectiveScale"       
+      :scale="effectiveScale"
       @remove="$emit('removeImage')"
       @resize="(w) => $emit('resizeImage', w)"
       @resize-commit="(w) => $emit('resizeImageCommit', w)"
@@ -131,20 +131,31 @@ const imageInput = ref(null)
 const isImageDragOver = ref(false)
 const isHovered = ref(false)
 
-// ★ Global zoom инжектится из canvas — используем для сопротивления.
-// Фоллбек на ref(1) — если provide не найден, scale работает без сопротивления.
-// const globalZoom = inject('globalZoom', { value: 1 })
+// ★ Inject'ы из Canvas
 const globalZoom = inject('globalZoom', ref(1))
+
+// ★ НОВЫЙ inject: резолвер картинок из пула.
+//   Если provide не найден — картинки просто не показываются (hasImage=false).
+//   Это безопасный фоллбек для случаев, когда MapNode используется вне Canvas
+//   (например, в тестах).
+const imageStorage = inject('imageStorage', null)
 
 const isRoot = computed(() => props.pos.depth === 0)
 const isLeaf = computed(() => props.pos.depth >= 2)
 const hasChildren = computed(() => props.pos.node.children?.length > 0)
 const hasNotes = computed(() => !!props.pos.node.notes?.trim())
 
-const hasImage = computed(() => {
-  const img = props.pos.node.image
-  return !!img && typeof img === 'string' && img.trim().length > 0
+// ★ ИЗМЕНЕНО: резолв картинки через пул по imageId
+const resolvedImage = computed(() => {
+  const id = props.pos.node.imageId
+  if (!id || !imageStorage) return null
+  return imageStorage.resolve(id)
 })
+
+const hasImage = computed(() => resolvedImage.value !== null)
+const imageSrc = computed(() => resolvedImage.value?.dataUrl ?? '')
+// ★ Для будущих сегментов (Коммит 3). Сейчас всегда undefined для raw.
+// const imageClip = computed(() => resolvedImage.value?.clip ?? null)
 
 const isDragging = computed(() => props.isBeingDragged || props.isInDragGroup)
 
@@ -152,8 +163,6 @@ const isDragging = computed(() => props.isBeingDragged || props.isInDragGroup)
 const nodeScale = computed(() => props.pos.node.scale ?? NODE_SCALE.DEFAULT)
 
 // ★ Эффективный scale с учётом сопротивления global zoom
-// При globalZoom=1 равен nodeScale. При zoom-out усиливается.
-// Focus mode = это просто способ задать globalZoom=1.25, поэтому уже учтён.
 const effectiveScale = computed(() =>
   computeEffectiveScale(nodeScale.value, globalZoom.value)
 )
@@ -182,17 +191,15 @@ const nodeStyle = computed(() => {
     height: `${props.pos.h}px`,
     zIndex: props.isBeingDragged ? 100 : props.isInDragGroup ? 99 : undefined,
     transition: isDragging.value ? 'none' : undefined,
-    // ★ CSS-переменная, через которую все em-размеры внутри узла
-    // автоматически масштабируются. Базовый 1rem = 14px (см. CSS ниже).
     '--node-scale': effectiveScale.value
   }
 })
 
 const bgStyle = computed(() => {
   const color = props.pos.node.color || '#5C6BC0'
-  if (isRoot.value) return { background: color, borderRadius: '1.786em' /* 25px */ }
-  if (isLeaf.value) return { background: 'transparent', borderBottom: `0.179em solid ${color}` /* 2.5px */, borderRadius: '0' }
-  return { background: color + '22', border: `0.143em solid ${color}` /* 2px */, borderRadius: '1.429em' /* 20px */ }
+  if (isRoot.value) return { background: color, borderRadius: '1.786em' }
+  if (isLeaf.value) return { background: 'transparent', borderBottom: `0.179em solid ${color}`, borderRadius: '0' }
+  return { background: color + '22', border: `0.143em solid ${color}`, borderRadius: '1.429em' }
 })
 
 function onMouseDown(e) {
@@ -226,10 +233,7 @@ async function onImageDrop(e) {
 </script>
 
 <style scoped>
-/* ═══════════════════════════════════════════════════════════════
-   БАЗА: 1rem внутри узла = 14px × effectiveScale
-   Все внутренние размеры в em — автоматически масштабируются.
-   ═══════════════════════════════════════════════════════════════ */
+/* … весь CSS без изменений … */
 .map-node {
   position: absolute;
   cursor: grab;
@@ -237,9 +241,6 @@ async function onImageDrop(e) {
   transition: transform 0.15s ease, opacity 0.15s ease, left 0.2s ease, top 0.2s ease;
   z-index: 2;
   overflow: visible;
-
-  /* ★ КЛЮЧЕВАЯ СТРОКА: задаёт базу для всех em внутри.
-     14px — базовый font-size узла. Меняется при scale. */
   font-size: calc(14px * var(--node-scale, 1));
 }
 
@@ -274,7 +275,6 @@ async function onImageDrop(e) {
 }
 
 .map-node--drag-over .map-node__bg {
-  /* 3px → 0.214em при 14px base */
   box-shadow: 0 0 0 0.214em rgba(33, 150, 243, 0.6) !important;
 }
 
@@ -282,20 +282,12 @@ async function onImageDrop(e) {
   box-shadow: 0 0 0 0.214em rgba(76, 175, 80, 0.6) !important;
 }
 
-/* ★ Узлы с scale != 1 чуть приподняты для визуального акцента */
-.map-node--scaled {
-  z-index: 3;
-}
+.map-node--scaled { z-index: 3; }
+.map-node--scaled:hover { z-index: 6; }
 
-.map-node--scaled:hover {
-  z-index: 6;
-}
-
-/* Индикатор "pinned" (оранжевая точка) */
 .map-node--custom::after {
   content: '';
   position: absolute;
-  /* -3px / 8px / 1.5px → em при 14px base */
   top: -0.214em;
   right: -0.214em;
   width: 0.571em;
@@ -308,7 +300,6 @@ async function onImageDrop(e) {
 
 .map-node--has-image :deep(.node-actions) {
   top: auto;
-  /* -10px → -0.714em */
   bottom: -0.714em;
 }
 
@@ -318,34 +309,28 @@ async function onImageDrop(e) {
   transition: all 0.2s ease;
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   Focus-button (лупа)
-   Все размеры переведены: 14px base → делим на 14
-   26px → 1.857em, 12px → 0.857em, 2px → 0.143em
-   ═══════════════════════════════════════════════════════════════ */
 .map-node__focus-btn {
   position: absolute;
-  top: -0.857em;      /* было -12px */
+  top: -0.857em;
   left: -0.857em;
-  width: 1.857em;     /* было 26px */
+  width: 1.857em;
   height: 1.857em;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 0.143em solid rgba(var(--v-theme-on-surface), 0.15);  /* 2px */
+  border: 0.143em solid rgba(var(--v-theme-on-surface), 0.15);
   border-radius: 50%;
   background: rgb(var(--v-theme-surface));
   color: rgba(var(--v-theme-on-surface), 0.5);
   cursor: pointer;
   z-index: 20;
   padding: 0;
-  /* 2px 8px 0.12 → em */
   box-shadow: 0 0.143em 0.571em rgba(0, 0, 0, 0.12);
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .map-node__focus-btn svg {
-  width: 1.714em;   /* 24px → 1.714em */
+  width: 1.714em;
   height: 1.714em;
 }
 
@@ -375,7 +360,6 @@ async function onImageDrop(e) {
   transform: scale(1.1);
 }
 
-/* ── Transitions ── */
 .zoom-btn-fade-enter-active {
   transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }

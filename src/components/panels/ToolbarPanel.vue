@@ -10,17 +10,57 @@
     </v-app-bar-title>
 
     <template #append>
-      <v-tooltip text="Отменить (Ctrl+Z)" location="bottom">
+      
+      <v-tooltip text="Сбросить карту" location="bottom">
         <template #activator="{ props }">
-          <v-btn v-bind="props" icon="mdi-undo" variant="text" :disabled="!canUndo" @click="emit('undo')" />
+          <v-btn v-bind="props" icon="mdi-refresh" variant="text" @click="resetDialog = true" />
         </template>
       </v-tooltip>
 
-      <v-tooltip text="Повторить (Ctrl+Y)" location="bottom">
-        <template #activator="{ props }">
-          <v-btn v-bind="props" icon="mdi-redo" variant="text" :disabled="!canRedo" @click="emit('redo')" />
+      <v-divider vertical class="mx-1" />
+
+      <!-- Импорт -->
+      <v-menu>
+        <template #activator="{ props: menu }">
+          <v-tooltip text="Импорт" location="bottom">
+            <template #activator="{ props: tip }">
+              <v-btn v-bind="{ ...menu, ...tip }" icon="mdi-upload" variant="text" />
+            </template>
+          </v-tooltip>
         </template>
-      </v-tooltip>
+        <v-list density="compact" min-width="220">
+          <v-list-subheader>Импорт карты</v-list-subheader>
+          <v-list-item prepend-icon="mdi-code-json" title="Из JSON" @click="openFilePicker('.json')" />
+          <v-list-item prepend-icon="mdi-language-markdown" title="Из Markdown" @click="openFilePicker('.md,.markdown')" />
+          <v-list-item prepend-icon="mdi-file-question" title="Авто-определение" @click="openFilePicker('.json,.md,.markdown,.txt')" />
+        </v-list>
+      </v-menu>
+
+      <!-- Экспорт -->
+      <v-menu>
+        <template #activator="{ props: menu }">
+          <v-tooltip text="Экспорт" location="bottom">
+            <template #activator="{ props: tip }">
+              <v-btn v-bind="{ ...menu, ...tip }" icon="mdi-download" variant="text" />
+            </template>
+          </v-tooltip>
+        </template>
+        <v-list density="compact" min-width="220">
+          <v-list-subheader>Экспорт карты</v-list-subheader>
+          <v-list-item
+            prepend-icon="mdi-code-json"
+            title="JSON"
+            subtitle="Полные данные карты"
+            @click="emit('export', 'json')"
+          />
+          <v-list-item
+            prepend-icon="mdi-language-markdown"
+            title="Markdown"
+            subtitle="Текстовый формат"
+            @click="emit('export', 'md')"
+          />
+        </v-list>
+      </v-menu>
 
       <v-divider vertical class="mx-1" />
 
@@ -52,59 +92,6 @@
         </v-list>
       </v-menu>
 
-      <v-divider vertical class="mx-1" />
-
-      <!-- Экспорт -->
-      <v-menu>
-        <template #activator="{ props: menu }">
-          <v-tooltip text="Экспорт" location="bottom">
-            <template #activator="{ props: tip }">
-              <v-btn v-bind="{ ...menu, ...tip }" icon="mdi-download" variant="text" />
-            </template>
-          </v-tooltip>
-        </template>
-        <v-list density="compact" min-width="220">
-          <v-list-subheader>Экспорт карты</v-list-subheader>
-          <v-list-item
-            prepend-icon="mdi-code-json"
-            title="JSON"
-            subtitle="Полные данные карты"
-            @click="emit('export', 'json')"
-          />
-          <v-list-item
-            prepend-icon="mdi-language-markdown"
-            title="Markdown"
-            subtitle="Текстовый формат"
-            @click="emit('export', 'md')"
-          />
-        </v-list>
-      </v-menu>
-
-      <!-- Импорт -->
-      <v-menu>
-        <template #activator="{ props: menu }">
-          <v-tooltip text="Импорт" location="bottom">
-            <template #activator="{ props: tip }">
-              <v-btn v-bind="{ ...menu, ...tip }" icon="mdi-upload" variant="text" />
-            </template>
-          </v-tooltip>
-        </template>
-        <v-list density="compact" min-width="220">
-          <v-list-subheader>Импорт карты</v-list-subheader>
-          <v-list-item prepend-icon="mdi-code-json" title="Из JSON" @click="openFilePicker('.json')" />
-          <v-list-item prepend-icon="mdi-language-markdown" title="Из Markdown" @click="openFilePicker('.md,.markdown')" />
-          <v-list-item prepend-icon="mdi-file-question" title="Авто-определение" @click="openFilePicker('.json,.md,.markdown,.txt')" />
-        </v-list>
-      </v-menu>
-
-      <v-divider vertical class="mx-1" />
-
-      <v-tooltip text="Сбросить карту" location="bottom">
-        <template #activator="{ props }">
-          <v-btn v-bind="props" icon="mdi-refresh" variant="text" @click="resetDialog = true" />
-        </template>
-      </v-tooltip>
-
       <v-tooltip text="Переключить тему" location="bottom">
         <template #activator="{ props }">
           <v-btn
@@ -115,6 +102,21 @@
           />
         </template>
       </v-tooltip>
+
+      <v-divider vertical class="mx-1" />
+
+      <v-tooltip text="Отменить (Ctrl+Z)" location="bottom">
+        <template #activator="{ props }">
+          <v-btn v-bind="props" icon="mdi-undo" variant="text" :disabled="!canUndo" @click="emit('undo')" />
+        </template>
+      </v-tooltip>
+
+      <v-tooltip text="Повторить (Ctrl+Y)" location="bottom">
+        <template #activator="{ props }">
+          <v-btn v-bind="props" icon="mdi-redo" variant="text" :disabled="!canRedo" @click="emit('redo')" />
+        </template>
+      </v-tooltip>
+     
     </template>
 
     <input
@@ -149,8 +151,6 @@ import { ref, nextTick } from 'vue'
 import { LAYOUT_TYPES } from '../../composables/layout/useAutoLayout'
 import type { LayoutType, ExportFormat } from '../../types/mindmap-api'
 
-// ─── Props ───────────────────────────────────────────
-
 interface Props {
   nodeCount?: number
   depth?: number
@@ -167,8 +167,6 @@ withDefaults(defineProps<Props>(), {
   isDark: false
 })
 
-// ─── Emits ───────────────────────────────────────────
-
 const emit = defineEmits<{
   export: [format: ExportFormat]
   import: [file: File]
@@ -179,8 +177,6 @@ const emit = defineEmits<{
   autoLayout: [type: LayoutType]
   resetLayout: []
 }>()
-
-// ─── Internal state ──────────────────────────────────
 
 const layoutTypes = LAYOUT_TYPES
 const fileInput = ref<HTMLInputElement | null>(null)

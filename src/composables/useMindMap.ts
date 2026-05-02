@@ -1,46 +1,56 @@
 // src/composables/useMindMap.ts
-import { ref, computed, type Ref } from 'vue'
+import { ref, computed, type Ref, type WritableComputedRef } from 'vue'
 import { useHistory } from './useHistory'
 import { useTreeOperations } from './tree/useTreeOperations'
+import { useImageStorage } from './image/useImageStorage'
 import { useDragDrop } from './drag/useDragDrop'
 import { usePersistence, loadFromStorage } from './persistence/usePersistence'
-import { createDefaultTree } from './tree/useNodeFactory'
+import { createDefaultDocument } from './tree/useNodeFactory'
 import { countNodes, getDepth } from './tree/useTreeTraversal'
 
-import type { MindMapNode } from '@/types/mindmap'
+import type { MindMapNode, MindMapDocument, StoredImage } from '@/types/mindmap'
 import type { MindMapApi } from '@/types/mindmap-api'
 
-/**
- * Корневой composable приложения. Склеивает:
- *   - состояние (rootNode)
- *   - history (undo/redo)
- *   - tree operations (CRUD, layout)
- *   - drag&drop (ui-state для списков)
- *   - persistence (localStorage + import/export)
- *
- * Возвращает единый фасад MindMapApi — его провайдят в App.vue
- * через provide/inject.
- */
 export function useMindMap(): MindMapApi {
-  const rootNode: Ref<MindMapNode> = ref(
-    loadFromStorage() ?? createDefaultTree()
+  // Единый источник истины — документ целиком
+  const document: Ref<MindMapDocument> = ref(
+    loadFromStorage() ?? createDefaultDocument()
   )
 
-  const history = useHistory(rootNode)
-  const tree = useTreeOperations(rootNode, history)
-  const drag = useDragDrop(rootNode, history)
-  const persistence = usePersistence(rootNode)
+  // Writable computed для компонентов, которые читают/пишут корневой узел.
+  // MindMapApi.rootNode типизирован как Ref<MindMapNode>, но
+  // WritableComputedRef структурно совместим (имеет .value getter/setter).
+  const rootNode: WritableComputedRef<MindMapNode> = computed({
+    get: () => document.value.root,
+    set: (v) => { document.value.root = v },
+  })
 
-  // ⭐ Статистика дерева как computed — кешируется и реактивна
+  // Writable computed для пула картинок (аналогично).
+  const images: WritableComputedRef<StoredImage[]> = computed({
+    get: () => document.value.images,
+    set: (v) => { document.value.images = v },
+  })
+
+  // История снапшотит весь документ — дерево и пул картинок
+  // откатываются синхронно.
+  const history = useHistory(document)
+
+  // ⚠️ В useTreeOperations передаём document, а не rootNode:
+  //    там нужен triggerRef, который работает только с "настоящими" ref.
+  const tree = useTreeOperations(document, history)
+  const imageStorage = useImageStorage(images, rootNode)
+  const drag = useDragDrop(rootNode, history)
+  const persistence = usePersistence(document, imageStorage)
+
   const nodeCount = computed(() => countNodes(rootNode.value))
   const treeDepth = computed(() => getDepth(rootNode.value))
 
   function resetToDefault(): void {
-    rootNode.value = createDefaultTree()
+    document.value = createDefaultDocument()
     history.clear()
   }
 
-  async function importTree(file: File): Promise<MindMapNode> {
+  async function importTree(file: File): Promise<MindMapDocument> {
     const imported = await persistence.importTree(file)
     history.clear()
     return imported
@@ -48,26 +58,22 @@ export function useMindMap(): MindMapApi {
 
   return {
     rootNode,
+    imageStorage,
 
-    // Tree operations
     ...tree,
 
-    // Drag & drop
     drag,
 
-    // History
     undo: history.undo,
     redo: history.redo,
     canUndo: history.canUndo,
     canRedo: history.canRedo,
 
-    // Persistence
     exportTree: persistence.exportTree,
     importTree,
 
-    // Misc
     resetToDefault,
-    nodeCount,    // было: countNodes: () => countNodes(rootNode.value)
-    treeDepth     // было: getDepth: () => getDepth(rootNode.value)
+    nodeCount,
+    treeDepth,
   }
 }

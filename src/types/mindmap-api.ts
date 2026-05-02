@@ -1,7 +1,59 @@
 // src/types/mindmap-api.ts
 import type { Ref, ComputedRef } from 'vue'
-import type { MindMapNode, ScenePosition } from './mindmap'
+import type { 
+  MindMapNode, 
+  MindMapDocument,
+  StoredImage,
+  ScenePosition 
+} from './mindmap'
 import type { PositionMap } from './layout'
+
+// ════════════════════════════════════════════
+// ★ НОВЫЙ интерфейс: ImageStorageApi
+// ════════════════════════════════════════════
+
+export interface ResolvedImage {
+  id: string
+  dataUrl: string
+  /** 
+   * Нормализованный прямоугольник обрезки для сегментов.
+   * Для RawImage — undefined (показывать целиком).
+   */
+  clip?: { x: number; y: number; w: number; h: number }
+}
+
+export interface ImageStorageApi {
+  /** Read-only представление пула для компонентов */
+  images: Readonly<Ref<readonly StoredImage[]>>
+
+  /**
+   * Находит картинку по id и резолвит её в готовые для рендера данные.
+   * Для сегмента — возвращает dataUrl исходника + clip.
+   */
+  resolve(id: string | null | undefined): ResolvedImage | null
+
+  /**
+   * Добавляет новую сырую картинку в пул.
+   * Возвращает сгенерированный id.
+   *
+   * 💡 Не пишет в историю — вызывающий код должен делать history.save()
+   * до мутации, если хочет undo.
+   */
+  addRaw(dataUrl: string, name?: string): string
+
+  /**
+   * Удаляет картинку из пула безусловно.
+   * ⚠️ Не проверяет использование — узлы с этим imageId потеряют картинку.
+   * Используется в галерее (Коммит 3).
+   */
+  remove(id: string): void
+
+  /**
+   * Возвращает id всех узлов, использующих данную картинку.
+   * Для предупреждений перед удалением.
+   */
+  findUsages(id: string): string[]
+}
 
 // ─── Layout ────────────────────────────────────────
 
@@ -103,8 +155,9 @@ export interface DragDropApi {
 export type ExportFormat = 'json' | 'md' | 'markdown'
 
 export interface PersistenceApi {
-  exportTree: (format?: ExportFormat) => string
-  importTree: (file: File) => Promise<MindMapNode>
+  exportTree: (format?: ExportFormat) => string,
+  // importTree: (file: File) => Promise<MindMapNode>
+  importTree(file: File): Promise<MindMapDocument>
 }
 
 // ─── Фасад ─────────────────────────────────────────
@@ -127,4 +180,5 @@ export interface MindMapApi extends TreeOperationsApi, PersistenceApi {
   nodeCount: ComputedRef<number>
   /** Глубина дерева (реактивное) */
   treeDepth: ComputedRef<number>
+  imageStorage: ImageStorageApi
 }

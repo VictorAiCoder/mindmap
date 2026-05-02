@@ -1,9 +1,20 @@
 // src/composables/persistence/exportMarkdown.ts
 import type { MindMapNode } from '@/types/mindmap'
+import type { ImageStorageApi } from '@/types/mindmap-api'
 
-export function exportToMarkdown(root: MindMapNode): string {
+/**
+ * ★ ИЗМЕНЕНО: добавлен imageStorage для резолва imageId → dataUrl.
+ *
+ * ⚠️ Для ImageSegment экспортируется dataUrl исходника целиком (clip игнорируется).
+ *    Это "lossy" экспорт — семантика сегмента теряется, но сам снимок
+ *    остаётся в markdown. Решим в Коммите 3 (рендер сегмента в canvas → dataUrl).
+ */
+export function exportToMarkdown(
+  root: MindMapNode,
+  imageStorage: ImageStorageApi
+): string {
   const lines: string[] = []
-  renderNode(root, 1, lines)
+  renderNode(root, 1, lines, imageStorage)
   return lines.join('\n')
 }
 
@@ -15,14 +26,15 @@ const DEFAULT_TITLE = 'Без названия'
 function renderNode(
   node: MindMapNode,
   level: number,
-  lines: string[]
+  lines: string[],
+  imageStorage: ImageStorageApi
 ): void {
   renderNodeHeader(node, level, lines)
-  renderNodeBody(node, lines)
+  renderNodeBody(node, lines, imageStorage)
 
   for (const child of node.children) {
     lines.push('')
-    renderNode(child, level + 1, lines)
+    renderNode(child, level + 1, lines, imageStorage)
   }
 }
 
@@ -40,10 +52,17 @@ function renderNodeHeader(
   }
 }
 
-function renderNodeBody(node: MindMapNode, lines: string[]): void {
-  if (node.image) {
+function renderNodeBody(
+  node: MindMapNode,
+  lines: string[],
+  imageStorage: ImageStorageApi
+): void {
+  // ★ БЫЛО: if (node.image) { ... node.image ... }
+  // ★ СТАЛО: резолв через пул
+  const resolved = imageStorage.resolve(node.imageId)
+  if (resolved) {
     lines.push('')
-    lines.push(`![${escapeAlt(getNodeText(node))}](${node.image})`)
+    lines.push(`![${escapeAlt(getNodeText(node))}](${resolved.dataUrl})`)
   }
 
   if (node.notes && node.notes.trim().length > 0) {

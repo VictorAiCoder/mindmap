@@ -1,4 +1,6 @@
-import type { MindMapNode } from '@/types/mindmap'
+// src/composables/persistence/importMarkdown.ts
+import type { Ref } from 'vue'
+import type { MindMapNode, StoredImage, RawImage } from '@/types/mindmap'
 import { createNode } from '../tree/useNodeFactory'
 
 // ============================================================================
@@ -46,6 +48,17 @@ function parseHeading(line: string): { level: number; title: string } | null {
   return { level: hashes.length, title }
 }
 
+/**
+ * Генератор id картинок. Дублируется с useImageStorage/useTreeOperations
+ * намеренно, чтобы парсер оставался независимым модулем.
+ */
+function generateImageId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `img_${crypto.randomUUID()}`
+  }
+  return `img_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+}
+
 // ============================================================================
 // Разбор markdown на секции
 // ============================================================================
@@ -74,15 +87,32 @@ function splitIntoSections(markdown: string): ParsedSection[] {
 // Преобразование секции в узел
 // ============================================================================
 
-function sectionToNode(section: ParsedSection): MindMapNode {
-  let image: string | undefined
+/**
+ * ★ ИЗМЕНЕНО: теперь принимает аккумулятор images.
+ *
+ * Если в секции найдена картинка (markdown image-line),
+ * она регистрируется как RawImage в images.value, а узлу
+ * записывается imageId. Сами dataUrl больше не хранятся в дереве.
+ */
+function sectionToNode(
+  section: ParsedSection,
+  images: Ref<StoredImage[]>
+): MindMapNode {
+  let imageId: string | null = null
   const notesLines: string[] = []
 
   for (const line of section.content) {
-    if (!image && isImageOnlyLine(line)) {
+    if (imageId === null && isImageOnlyLine(line)) {
       const url = extractImageUrl(line)
       if (url) {
-        image = url
+        const raw: RawImage = {
+          kind: 'raw',
+          id: generateImageId(),
+          dataUrl: url,
+          createdAt: Date.now(),
+        }
+        images.value.push(raw)
+        imageId = raw.id
         continue
       }
     }
@@ -92,9 +122,9 @@ function sectionToNode(section: ParsedSection): MindMapNode {
   const notes = notesLines.join('\n').trim()
 
   return createNode({
-    text: section.title,              // ✅ маппинг: section.title → node.text
+    text: section.title,
     notes: notes || undefined,
-    image,
+    imageId,                              // ★ БЫЛО: image
   })
 }
 
@@ -114,13 +144,11 @@ function buildTree(nodes: NodeWithLevel[]): MindMapNode {
     const current = nodes[i]
     if (!current) continue  // для noUncheckedIndexedAccess
 
-    // Сворачиваем стек, пока верхний элемент не на более высоком уровне
     while (stack.length > 0 && stack[stack.length - 1]!.level >= current.level) {
       stack.pop()
     }
 
     if (stack.length === 0) {
-      // Заголовок того же уровня что и корень — цепляем к корню, чтобы не потерять
       console.warn(
         `[importMarkdown] Заголовок "${current.node.text}" (уровень ${current.level}) ` +
         `конкурирует с корнем. Добавлен как потомок корня.`
@@ -142,12 +170,25 @@ function buildTree(nodes: NodeWithLevel[]): MindMapNode {
 // Публичный API
 // ============================================================================
 
-export function parseMarkdownToTree(markdown: string): MindMapNode | null {
+/**
+ * Парсит Markdown в дерево узлов.
+ *
+ * @param markdown Исходный markdown-текст
+ * @param images Аккумулятор пула картинок (мутируется при встрече image-lines)
+ * @returns корневой узел дерева, либо null если нет заголовков
+ *
+ * ⚠️ При возврате null images НЕ мутируется (секции не обрабатывались).
+ *    При успешном возврате — в images добавлены все найденные картинки.
+ */
+export function parseMarkdownToTree(
+  markdown: string,
+  images: Ref<StoredImage[]>
+): MindMapNode | null {
   const sections = splitIntoSections(markdown)
   if (sections.length === 0) return null
 
   const nodes: NodeWithLevel[] = sections.map((section) => ({
-    node: sectionToNode(section),
+    node: sectionToNode(section, images),
     level: section.level,
   }))
 

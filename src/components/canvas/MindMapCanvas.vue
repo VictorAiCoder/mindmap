@@ -134,6 +134,7 @@ const { layoutData } = useLayout(mindmap.rootNode)
 const panZoom = usePanZoom()
 
 provide('globalZoom', panZoom.zoom)
+provide('imageStorage', mindmap.imageStorage)
 
 onMounted(() => {
   panZoom.setWrapper(wrapperRef.value)
