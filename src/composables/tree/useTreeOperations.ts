@@ -10,7 +10,7 @@ import {
 import { createNode } from './useNodeFactory'
 import { applyAutoLayout, resetLayout } from '../layout/useAutoLayout'
 
-import type { MindMapNode, MindMapDocument, ScenePosition, RawImage } from '@/types/mindmap'
+import type { MindMapNode, MindMapDocument, ScenePosition, RawImage, Center2D } from '@/types/mindmap'
 import type {
   TreeOperationsApi,
   HistoryApi,
@@ -235,26 +235,21 @@ export function useTreeOperations(
     touch()
   }
 
-  /**
-   * ★ НОВОЕ: Удаление картинки из пула с обнулением imageId
-   *   во всех узлах, где она использовалась.
-   *
-   * Если картинки нет в пуле — no-op.
-   */
-  function deleteImageWithDetach(imageId: string): number | void {
+  function deleteImageWithDetach(imageId: string): number {
     const arr = imagesRef()
     const idx = arr.findIndex((i) => i.id === imageId)
-    if (idx === -1) return
+    if (idx === -1) return 0
 
     history.save()
 
-    // 1) Снимаем ссылку со всех узлов
-    detachImageFromTree(rootRef(), imageId)
+    // 1) Снимаем ссылку со всех узлов, считаем сколько отцепили
+    const detachedCount = detachImageFromTree(rootRef(), imageId)
 
-    // 2) Удаляем из пула (мутация in-place)
+    // 2) Удаляем из пула
     arr.splice(idx, 1)
 
     touch()
+    return detachedCount
   }
 
   /**
@@ -366,7 +361,7 @@ export function useTreeOperations(
   function updateScale(
     nodeId: string,
     scale: number,
-    savedCenter?: { cx: number; cy: number }
+    savedCenter?: Center2D
   ): void {
     const node = findNode(nodeId)
     if (!node) return
@@ -389,7 +384,7 @@ export function useTreeOperations(
   function commitScale(
     nodeId: string,
     scale: number,
-    savedCenter?: { cx: number; cy: number }
+    savedCenter?: Center2D
   ): void {
     const node = findNode(nodeId)
     if (!node) return
@@ -426,9 +421,12 @@ export function useTreeOperations(
     history.save()
 
     const images = imagesRef()
-    const imagesWrapper = {
+    const imagesWrapper: Ref<typeof images> = {
       get value() { return images },
-      set value(_: typeof images) { /* no-op */ }
+      set value(v) {
+        images.length = 0
+        images.push(...v)
+      }
     } as Ref<typeof images>
 
     const parsed = parseMarkdownToTree(markdown, imagesWrapper)
@@ -509,16 +507,17 @@ export function useTreeOperations(
 
 // ─── Локальные хелперы (не экспортируем) ───────────
 
-/**
- * Рекурсивно обнуляет node.imageId, если он совпадает с targetId.
- * Использует обход in-place, не создавая новых объектов.
- */
-function detachImageFromTree(root: MindMapNode, targetId: string): void {
+function detachImageFromTree(root: MindMapNode, targetId: string): number {
+  let count = 0
   function walk(node: MindMapNode): void {
-    if (node.imageId === targetId) node.imageId = null
+    if (node.imageId === targetId) {
+      node.imageId = null
+      count++
+    }
     for (const child of node.children) walk(child)
   }
   walk(root)
+  return count
 }
 
 /**

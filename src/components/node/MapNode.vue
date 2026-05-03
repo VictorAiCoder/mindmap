@@ -4,7 +4,7 @@
     class="map-node"
     :class="nodeClasses"
     :style="nodeStyle"
-    @dblclick.stop="$emit('edit')"
+    @dblclick.stop="emit('edit')"
     @mousedown.stop="onMouseDown"
     @mouseenter="isHovered = true"
     @mouseleave="isHovered = false"
@@ -15,26 +15,25 @@
     <NodeImage
       v-if="hasImage"
       :src="imageSrc"
-      :clip="resolvedImage.clip ?? null"
+      :clip="resolvedImage?.clip ?? null"
       :is-root="isRoot"
       :image-width="pos.node.imageWidth"
       :scale="effectiveScale"
-      @remove="$emit('removeImage')"
-      @resize="(w) => $emit('resizeImage', w)"
-      @resize-commit="(w) => $emit('resizeImageCommit', w)"
-      @edit-segments="$emit('editSegments', pos.id)"
+      @remove="emit('removeImage')"
+      @resize="(w) => emit('resizeImage', w)"
+      @resize-commit="(w) => emit('resizeImageCommit', w)"
+      @edit-segments="emit('editSegments', pos.id)"
     />
 
     <div class="map-node__bg" :style="bgStyle" />
 
-    <!-- Кнопка фокуса (лупа) -->
     <Transition name="zoom-btn-fade">
       <button
         v-if="(isHovered || isFocused) && !isDragging"
         class="map-node__focus-btn"
         :class="{ 'map-node__focus-btn--active': isFocused }"
         :title="isFocused ? 'Вернуть масштаб 100%' : 'Фокус на узле (125%)'"
-        @click.stop="$emit('focusNode')"
+        @click.stop="emit('focusNode')"
         @mousedown.stop
       >
         <svg
@@ -68,21 +67,11 @@
       :collapsed="pos.node.collapsed"
       :child-count="pos.node.children?.length || 0"
       :pinned="pos.hasCustomPos"
-      @toggle="$emit('toggle')"
+      @toggle="emit('toggle')"
     >
       <NodeActions
-        :node-id="pos.node.id"
-        :is-root="isRoot"
-        :has-image="hasImage"
-        :has-notes="hasNotes"
-        :pinned="pos.hasCustomPos"
-        @add-image="triggerImageUpload"
-        @open-notes="$emit('openNotes')"
-        @add-child="$emit('addChild')"
-        @edit="$emit('edit')"
-        @reset-position="$emit('resetPosition')"
-        @delete="$emit('delete')"
-        @edit-segments="$emit('editSegments', pos.id)"
+        :active="isMenuActive"
+        @click="onActionsClick"
       />
     </NodeContent>
 
@@ -92,55 +81,130 @@
       :color="pos.node.color"
       :pinned="pos.node.notesPinned"
       :visible="pos.node.notesVisible !== false"
-      @open-notes="$emit('openNotes')"
-      @toggle-pin="$emit('toggleNotePin')"
-      @toggle-visible="$emit('toggleNotesVisible')"
+      @open-notes="emit('openNotes')"
+      @toggle-pin="emit('toggleNotePin')"
+      @toggle-visible="emit('toggleNotesVisible')"
     />
 
-    <input ref="imageInput" type="file" accept="image/*" hidden @change="onImageSelected" />
+    <input
+      ref="imageInput"
+      type="file"
+      accept="image/*"
+      hidden
+      @change="onImageSelected"
+    />
   </div>
 </template>
 
-<script setup>
-import { ref, computed, inject } from 'vue'
-import { processImageFile, getImageFromDrop } from '../../composables/useImageHandler'
-import { computeEffectiveScale } from '../../composables/node/useNodeScale'
-import { NODE_SCALE } from '../../types/mindmap-constants'
+<script setup lang="ts">
+import { ref, computed, inject, type Ref, type CSSProperties } from 'vue'
+import { processImageFile, getImageFromDrop } from '@/composables/useImageHandler'
+import { computeEffectiveScale } from '@/composables/node/useNodeScale'
+import { useNodeMenu } from '@/composables/useNodeMenu'
+import { NODE_SCALE } from '@/types/mindmap-constants'
+import type { LayoutPosition } from '@/types/layout'
+import type { ImageStorageApi } from '@/types/mindmap-api'
+
 import NodeImage from './NodeImage.vue'
 import NodeContent from './NodeContent.vue'
 import NodeNotesPreview from './NodeNotesPreview.vue'
 import NodeActions from './NodeActions.vue'
 
-const props = defineProps({
-  pos: { type: Object, required: true },
-  isDraggedOver: { type: Boolean, default: false },
-  isBeingDragged: { type: Boolean, default: false },
-  isInDragGroup: { type: Boolean, default: false },
-  liveX: { type: Number, default: null },
-  liveY: { type: Number, default: null },
-  isFocused: { type: Boolean, default: false }
+
+
+// ─── Props / Emits ──────────────────────────
+
+interface Props {
+  pos: LayoutPosition
+  isDraggedOver?: boolean
+  isBeingDragged?: boolean
+  isInDragGroup?: boolean
+  liveX?: number | null
+  liveY?: number | null
+  isFocused?: boolean
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  isDraggedOver: false,
+  isBeingDragged: false,
+  isInDragGroup: false,
+  liveX: null,
+  liveY: null,
+  isFocused: false
 })
 
-const emit = defineEmits([
-  'edit', 'addChild', 'delete', 'toggle',
-  'resetPosition', 'startDrag',
-  'setImage', 'setImageById', 'removeImage',  // ★ +setImageById
-  'resizeImage', 'resizeImageCommit',
-  'openNotes', 'toggleNotePin', 'toggleNotesVisible',
-  'focusNode','editSegments'
-])
+const emit = defineEmits<{
+  edit: []
+  addChild: []
+  delete: []
+  toggle: []
+  resetPosition: []
+  startDrag: [event: MouseEvent]
+  setImage: [dataUrl: string]
+  setImageById: [imageId: string]
+  removeImage: []
+  resizeImage: [width: number]
+  resizeImageCommit: [width: number]
+  openNotes: []
+  toggleNotePin: []
+  toggleNotesVisible: []
+  focusNode: []
+  editSegments: [nodeId: string]
+}>()
 
-const imageInput = ref(null)
+// ─── Menu coordination ─────────────────────
+
+const { activeMenuId, openMenu } = useNodeMenu()
+
+const isMenuActive = computed<boolean>(
+  () => activeMenuId.value === props.pos.node.id
+)
+
+function onActionsClick({ triggerEl }: { triggerEl: HTMLElement }): void {
+  openMenu(
+    triggerEl,
+    {
+      nodeId: props.pos.node.id,
+      isRoot: isRoot.value,
+      hasImage: hasImage.value,
+      hasNotes: hasNotes.value,
+      pinned: props.pos.hasCustomPos,
+      w: props.pos.w,
+      h: props.pos.h,
+    },
+    {
+      onAddImage: triggerImageUpload,
+      onOpenNotes: () => emit('openNotes'),
+      onAddChild: () => emit('addChild'),
+      onEdit: () => emit('edit'),
+      onResetPosition: () => emit('resetPosition'),
+      onDelete: () => emit('delete'),
+      onEditSegments: () => emit('editSegments', props.pos.id),
+    }
+  )
+}
+
+// ─── Inject ─────────────────────────────────
+
+const globalZoom = inject<Ref<number>>('globalZoom', ref(1))
+const imageStorage = inject<ImageStorageApi | null>('imageStorage', null)
+
+// ─── Refs / State ───────────────────────────
+
+const imageInput = ref<HTMLInputElement | null>(null)
 const isImageDragOver = ref(false)
 const isHovered = ref(false)
 
-const globalZoom = inject('globalZoom', ref(1))
-const imageStorage = inject('imageStorage', null)
+// ─── Computed: ноды ─────────────────────────
 
-const isRoot = computed(() => props.pos.depth === 0)
-const isLeaf = computed(() => props.pos.depth >= 2)
-const hasChildren = computed(() => props.pos.node.children?.length > 0)
-const hasNotes = computed(() => !!props.pos.node.notes?.trim())
+const isRoot = computed<boolean>(() => props.pos.depth === 0)
+const isLeaf = computed<boolean>(() => props.pos.depth >= 2)
+const hasChildren = computed<boolean>(
+  () => (props.pos.node.children?.length ?? 0) > 0
+)
+const hasNotes = computed<boolean>(() => !!props.pos.node.notes?.trim())
+
+// ─── Computed: изображение ──────────────────
 
 const resolvedImage = computed(() => {
   const id = props.pos.node.imageId
@@ -148,15 +212,23 @@ const resolvedImage = computed(() => {
   return imageStorage.resolve(id)
 })
 
-const hasImage = computed(() => resolvedImage.value !== null)
-const imageSrc = computed(() => resolvedImage.value?.dataUrl ?? '')
+const hasImage = computed<boolean>(() => resolvedImage.value !== null)
+const imageSrc = computed<string>(() => resolvedImage.value?.dataUrl ?? '')
 
-const isDragging = computed(() => props.isBeingDragged || props.isInDragGroup)
+// ─── Computed: drag / scale ─────────────────
 
-const nodeScale = computed(() => props.pos.node.scale ?? NODE_SCALE.DEFAULT)
-const effectiveScale = computed(() =>
+const isDragging = computed<boolean>(
+  () => props.isBeingDragged || props.isInDragGroup
+)
+
+const nodeScale = computed<number>(
+  () => props.pos.node.scale ?? NODE_SCALE.DEFAULT
+)
+const effectiveScale = computed<number>(() =>
   computeEffectiveScale(nodeScale.value, globalZoom.value)
 )
+
+// ─── Computed: классы и стили ───────────────
 
 const nodeClasses = computed(() => ({
   'map-node--root': isRoot.value,
@@ -170,7 +242,7 @@ const nodeClasses = computed(() => ({
   'map-node--scaled': nodeScale.value !== NODE_SCALE.DEFAULT
 }))
 
-const nodeStyle = computed(() => {
+const nodeStyle = computed<CSSProperties>(() => {
   const x = props.liveX ?? props.pos.x
   const y = props.liveY ?? props.pos.y
 
@@ -183,40 +255,70 @@ const nodeStyle = computed(() => {
     zIndex: props.isBeingDragged ? 100 : props.isInDragGroup ? 99 : undefined,
     transition: isDragging.value ? 'none' : undefined,
     '--node-scale': effectiveScale.value
+  } as CSSProperties
+  // ⚠️ as CSSProperties здесь нужен из-за CSS custom property '--node-scale',
+  // которое не входит в стандартный CSSProperties. Vue это поддерживает в runtime,
+  // но TS не знает об этом без augmentation. Альтернатива — augment CSSProperties
+  // глобально (отдельный PR).
+})
+
+const bgStyle = computed<CSSProperties>(() => {
+  const color = props.pos.node.color || '#5C6BC0'
+  if (isRoot.value) {
+    return { background: color, borderRadius: '1.786em' }
+  }
+  if (isLeaf.value) {
+    return {
+      background: 'transparent',
+      borderBottom: `0.179em solid ${color}`,
+      borderRadius: '0'
+    }
+  }
+  return {
+    background: color + '22',
+    border: `0.143em solid ${color}`,
+    borderRadius: '1.429em'
   }
 })
 
-const bgStyle = computed(() => {
-  const color = props.pos.node.color || '#5C6BC0'
-  if (isRoot.value) return { background: color, borderRadius: '1.786em' }
-  if (isLeaf.value) return { background: 'transparent', borderBottom: `0.179em solid ${color}`, borderRadius: '0' }
-  return { background: color + '22', border: `0.143em solid ${color}`, borderRadius: '1.429em' }
-})
+// ─── Handlers ───────────────────────────────
 
-function onMouseDown(e) {
+function onMouseDown(e: MouseEvent): void {
   if (e.button === 0) emit('startDrag', e)
 }
 
-function triggerImageUpload() { imageInput.value?.click() }
-
-async function onImageSelected(e) {
-  const file = e.target?.files?.[0]
-  if (!file) return
-  e.target.value = ''
-  try { emit('setImage', await processImageFile(file)) }
-  catch (err) { console.warn('Image upload error:', err.message) }
+function triggerImageUpload(): void {
+  imageInput.value?.click()
 }
 
-function onImageDragOver(e) {
-  const types = e.dataTransfer?.types ?? []
-  if (types.includes('Files') || types.includes('application/x-mindmap-image-id')) {
-    isImageDragOver.value = true
-    e.dataTransfer.dropEffect = 'copy'
+async function onImageSelected(): Promise<void> {
+  const input = imageInput.value
+  if (!input) return
+  const file = input.files?.[0]
+  if (!file) return
+  input.value = ''
+  try {
+    emit('setImage', await processImageFile(file))
+  } catch (err) {
+    console.warn(
+      'Image upload error:',
+      err instanceof Error ? err.message : err
+    )
   }
 }
 
-// ★ ИЗМЕНЕНО: сначала проверяем id из галереи, потом файл
-async function onImageDrop(e) {
+function onImageDragOver(e: DragEvent): void {
+  const types = e.dataTransfer?.types ?? []
+  if (
+    types.includes('Files') ||
+    types.includes('application/x-mindmap-image-id')
+  ) {
+    isImageDragOver.value = true
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
+  }
+}
+
+async function onImageDrop(e: DragEvent): Promise<void> {
   isImageDragOver.value = false
 
   // 1) Drop карточки из галереи
@@ -226,16 +328,21 @@ async function onImageDrop(e) {
     return
   }
 
-  // 2) Drop файла из ОС (старое поведение)
+  // 2) Drop файла из ОС
   const file = getImageFromDrop(e)
   if (!file) return
-  try { emit('setImage', await processImageFile(file)) }
-  catch (err) { console.warn('Image drop error:', err.message) }
+  try {
+    emit('setImage', await processImageFile(file))
+  } catch (err) {
+    console.warn(
+      'Image drop error:',
+      err instanceof Error ? err.message : err
+    )
+  }
 }
 </script>
 
 <style scoped>
-/* … стили без изменений … */
 .map-node {
   position: absolute;
   cursor: grab;

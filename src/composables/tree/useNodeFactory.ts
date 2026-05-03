@@ -17,16 +17,6 @@ function generateId(): string {
 }
 
 /**
- * Не используется, но оставляем — пригодится для автокраски.
- * TS будет ругаться на unused → добавим export.
- */
-export function pickRandomColor(): string {
-  const index = Math.floor(Math.random() * NODE_COLORS.length)
-  // ★ noUncheckedIndexedAccess: TS считает, что индекс может вернуть undefined
-  return NODE_COLORS[index] ?? DEFAULT_COLOR
-}
-
-/**
  * Создаёт узел со всеми полями, заполненными по умолчанию.
  * Возвращает полноценный MindMapNode — все инварианты соблюдены.
  */
@@ -56,7 +46,7 @@ export function createDefaultDocument(): MindMapDocument {
   }
 }
 
-export function createDefaultTree(): MindMapNode {
+function createDefaultTree(): MindMapNode {
   return createNode({
     text: 'Главная идея',
     color: DEFAULT_COLOR,

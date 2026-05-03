@@ -2,6 +2,7 @@ import { marked } from 'marked'
 import { markedHighlight } from 'marked-highlight'
 import DOMPurify from 'dompurify'
 import { hljs } from './notes/hljsSetup'
+import type { Config } from 'dompurify'
 
 // ============================================================================
 // Настройка marked + подсветка через marked-highlight
@@ -39,7 +40,7 @@ DOMPurify.addHook('afterSanitizeAttributes', (node) => {
   }
 })
 
-const SANITIZE_CONFIG: DOMPurify.Config = {
+const SANITIZE_CONFIG: Config = {
   // Разрешённые теги — стандартный markdown + code/pre
   ALLOWED_TAGS: [
     'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
@@ -71,28 +72,4 @@ export function renderMarkdown(text: string | null | undefined): string {
   if (!text) return ''
   const rawHtml = marked.parse(text) as string
   return DOMPurify.sanitize(rawHtml, SANITIZE_CONFIG) as unknown as string
-}
-
-export function getNotesPreview(
-  text: string | null | undefined,
-  maxLines = 3,
-  maxChars = 150
-): string {
-  if (!text) return ''
-
-  const trimmed = text.trim()
-  if (!trimmed) return ''
-
-  const lines = trimmed
-    .split(/\r?\n/)
-    .filter((line) => line.trim().length > 0)
-    .slice(0, maxLines)
-
-  let preview = lines.join(' ')
-
-  if (preview.length > maxChars) {
-    preview = preview.slice(0, maxChars).trimEnd() + '…'
-  }
-
-  return preview
 }

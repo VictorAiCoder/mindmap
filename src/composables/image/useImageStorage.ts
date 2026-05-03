@@ -1,6 +1,6 @@
 // src/composables/image/useImageStorage.ts
 import { computed, type Ref } from 'vue'
-import type { StoredImage, ImageSegment } from '@/types/mindmap'
+import type { StoredImage, ImageSegment, Clip } from '@/types/mindmap'  // ★ + Clip
 import type { ImageStorageApi, ResolvedImage } from '@/types/mindmap-api'
 
 /**
@@ -18,9 +18,7 @@ function generateId(prefix: 'img' | 'seg'): string {
  * Зажимает clip в [0..1] и отбраковывает вырожденные прямоугольники.
  * Сегмент меньше 1% по любой из сторон считается невалидным.
  */
-function sanitizeClip(
-  clip: { x: number; y: number; w: number; h: number }
-): { x: number; y: number; w: number; h: number } | null {
+function sanitizeClip(clip: Clip): Clip | null {            // ★ Clip × 2
   const x = Math.max(0, Math.min(1, clip.x))
   const y = Math.max(0, Math.min(1, clip.y))
   const w = Math.max(0, Math.min(1 - x, clip.w))
@@ -97,7 +95,7 @@ export function useImageStorage(
 
   function addSegment(
     sourceId: string,
-    clip: { x: number; y: number; w: number; h: number },
+    clip: Clip,                                              // ★ Clip
     name?: string
   ): string | null {
     // 1. Источник должен существовать
@@ -164,7 +162,7 @@ export function useImageStorage(
   function updateSegment(
     id: string,
     patch: Partial<{
-      clip: { x: number; y: number; w: number; h: number }
+      clip: Clip                                             // ★ Clip
       name: string
     }>
   ): void {
@@ -210,7 +208,7 @@ export function useImageStorage(
 
   // ─── Computed ───────────────────────────────
 
-  const images = computed(() => imagesRef.value as readonly StoredImage[])
+  const images = computed<readonly StoredImage[]>(() => imagesRef.value)  // ★ убран "as"
   const totalCount = computed(() => imagesRef.value.length)
 
   return {
@@ -222,6 +220,6 @@ export function useImageStorage(
     totalCount,
     addSegment,
     updateSegment,
-    listSegmentsOf       // ← теперь экспортируется
+    listSegmentsOf
   }
 }

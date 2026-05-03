@@ -7,7 +7,7 @@ import { calcBezierPath, type NodeBox } from '@/utils/bezier'
 /**
  * Одна соединительная линия между родителем и ребёнком.
  */
-export interface Connection {
+interface Connection {
   id: string           // "parentId__childId"
   parentId: string
   childId: string

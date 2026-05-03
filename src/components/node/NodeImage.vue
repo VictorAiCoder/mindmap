@@ -5,11 +5,8 @@
     :class="{ 'node-image-float--resizing': isResizing }"
     :style="containerStyle"
   >
-    <!--
-      Сегмент: фон через background-image, а видимый <img> скрываем.
-      Скрытый <img> всё равно нужен для загрузки и получения naturalW/H.
-    -->
     <img
+      ref="imgEl"
       :src="src"
       class="node-image"
       :class="{ 'node-image--measure-only': hasClip }"
@@ -20,7 +17,6 @@
       @error="onError"
     />
 
-    <!-- Слой для сегмента: рендерится через background-image -->
     <div
       v-if="hasClip"
       class="node-image-clip"
@@ -28,7 +24,6 @@
       aria-hidden="true"
     />
 
-    <!-- ★ Resize handle — правый нижний угол -->
     <div
       class="node-image-resize"
       @mousedown.stop.prevent="startResize"
@@ -40,24 +35,21 @@
       </svg>
     </div>
 
-    <!-- ★ Кнопка "Редактировать сегменты" — только для целых картинок -->
     <button
       v-if="!hasClip"
       class="node-image-edit-segments"
-      title="Редактор сегментов"
-      @click.stop="$emit('editSegments')"
+      title="Редактировать сегменты"
+      @click.stop="emit('editSegments')"
       @mousedown.stop
       @pointerdown.stop
     >
       <v-icon icon="mdi-crop" size="12" />
     </button>
 
-    <!-- Кнопка удаления -->
-    <button class="node-image-remove" @click.stop="$emit('remove')" @mousedown.stop>
+    <button class="node-image-remove" @click.stop="emit('remove')" @mousedown.stop>
       <v-icon icon="mdi-close" size="12" />
     </button>
 
-    <!-- Лейбл размера при ресайзе -->
     <Transition name="size-fade">
       <div v-if="isResizing" class="node-image-size">
         {{ Math.round(liveWidth * scale) }} × {{ Math.round(liveHeight * scale) }}
@@ -66,52 +58,62 @@
   </div>
 </template>
 
-<script setup>
-import { ref, computed, watch, onBeforeUnmount } from 'vue'
+<script setup lang="ts">
+import { ref, computed, watch, onBeforeUnmount, type CSSProperties } from 'vue'
+import type { Clip } from '@/types/mindmap'
 
-const props = defineProps({
-  src: { type: String, required: true },
-  isRoot: { type: Boolean, default: false },
-  imageWidth: { type: Number, default: null },
-  scale: { type: Number, default: 1 },
+// ─── Props / Emits ──────────────────────────
+
+interface Props {
+  src: string
+  isRoot?: boolean
+  imageWidth?: number | null
+  scale?: number
   /**
-   * ★ Нормализованный прямоугольник вырезки [0..1].
-   * null/undefined = показываем картинку целиком (RawImage).
+   * Нормализованный прямоугольник вырезки [0..1].
+   * null = показываем картинку целиком (RawImage).
    */
-  clip: {
-    type: Object,
-    default: null,
-    validator: (v) => v === null || (
-      typeof v.x === 'number' && typeof v.y === 'number' &&
-      typeof v.w === 'number' && typeof v.h === 'number'
-    )
-  }
+  clip?: Clip | null
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  isRoot: false,
+  imageWidth: null,
+  scale: 1,
+  clip: null
 })
 
-// ★ Добавлен editSegments
-const emit = defineEmits(['remove', 'resize', 'resize-commit', 'editSegments'])
+const emit = defineEmits<{
+  remove: []
+  resize: [width: number]
+  'resize-commit': [width: number]
+  editSegments: []
+}>()
 
 // ─── Константы ──────────────────────────────
+
 const MIN_WIDTH = 100
 const MAX_WIDTH = 1000
 const DEFAULT_WIDTH = 160
 
 // ─── State ──────────────────────────────────
+
+const imgEl = ref<HTMLImageElement | null>(null)
+
 const naturalW = ref(0)
 const naturalH = ref(0)
 const isResizing = ref(false)
-const liveWidth = ref(props.imageWidth || DEFAULT_WIDTH)
+const liveWidth = ref<number>(props.imageWidth ?? DEFAULT_WIDTH)
 
-// Стартовые данные ресайза
 const startX = ref(0)
 const startY = ref(0)
 const startWidth = ref(0)
 
 // ─── Computed ───────────────────────────────
 
-const hasClip = computed(() => !!props.clip)
+const hasClip = computed<boolean>(() => props.clip !== null)
 
-const aspectRatio = computed(() => {
+const aspectRatio = computed<number>(() => {
   if (!naturalW.value || !naturalH.value) return 0.75
   if (props.clip) {
     const segW = naturalW.value * props.clip.w
@@ -122,23 +124,23 @@ const aspectRatio = computed(() => {
   return naturalH.value / naturalW.value
 })
 
-const displayWidth = computed(() => {
+const displayWidth = computed<number>(() => {
   if (isResizing.value) return liveWidth.value
-  return props.imageWidth || DEFAULT_WIDTH
+  return props.imageWidth ?? DEFAULT_WIDTH
 })
 
-const liveHeight = computed(() => liveWidth.value * aspectRatio.value)
-const displayHeight = computed(() => displayWidth.value * aspectRatio.value)
+const liveHeight = computed<number>(() => liveWidth.value * aspectRatio.value)
+const displayHeight = computed<number>(() => displayWidth.value * aspectRatio.value)
 
-const visualWidth = computed(() => displayWidth.value * props.scale)
-const visualHeight = computed(() => displayHeight.value * props.scale)
+const visualWidth = computed<number>(() => displayWidth.value * props.scale)
+const visualHeight = computed<number>(() => displayHeight.value * props.scale)
 
-const containerStyle = computed(() => ({
+const containerStyle = computed<CSSProperties>(() => ({
   width: `${visualWidth.value}px`,
   height: `${visualHeight.value}px`
 }))
 
-const clipStyle = computed(() => {
+const clipStyle = computed<CSSProperties>(() => {
   if (!props.clip) return {}
   const { x, y, w, h } = props.clip
 
@@ -160,41 +162,42 @@ const clipStyle = computed(() => {
 
 watch(() => props.imageWidth, (val) => {
   if (!isResizing.value) {
-    liveWidth.value = val || DEFAULT_WIDTH
+    liveWidth.value = val ?? DEFAULT_WIDTH
   }
 })
 
 watch(() => props.clip, () => {
-  if (!props.imageWidth && naturalW.value) {
+  if (props.imageWidth === null && naturalW.value) {
     applyAutoWidth()
   }
 }, { deep: true })
 
 // ─── Image Events ───────────────────────────
 
-function applyAutoWidth() {
+function applyAutoWidth(): void {
   const nw = props.clip
     ? naturalW.value * props.clip.w
     : naturalW.value
   liveWidth.value = Math.min(Math.max(nw, MIN_WIDTH), DEFAULT_WIDTH)
 }
 
-function onLoad(e) {
-  naturalW.value = e.target.naturalWidth
-  naturalH.value = e.target.naturalHeight
+function onLoad(): void {
+  if (!imgEl.value) return
+  naturalW.value = imgEl.value.naturalWidth
+  naturalH.value = imgEl.value.naturalHeight
 
-  if (!props.imageWidth) {
+  if (props.imageWidth === null) {
     applyAutoWidth()
   }
 }
 
-function onError(e) {
-  e.target.style.display = 'none'
+function onError(): void {
+  if (imgEl.value) imgEl.value.style.display = 'none'
 }
 
 // ─── Resize: Mouse ──────────────────────────
 
-function startResize(e) {
+function startResize(e: MouseEvent): void {
   isResizing.value = true
   startX.value = e.clientX
   startY.value = e.clientY
@@ -204,11 +207,11 @@ function startResize(e) {
   window.addEventListener('mouseup', onMouseUp)
 }
 
-function onMouseMove(e) {
+function onMouseMove(e: MouseEvent): void {
   updateSize(e.clientX, e.clientY)
 }
 
-function onMouseUp() {
+function onMouseUp(): void {
   window.removeEventListener('mousemove', onMouseMove)
   window.removeEventListener('mouseup', onMouseUp)
   commit()
@@ -216,7 +219,7 @@ function onMouseUp() {
 
 // ─── Resize: Touch ──────────────────────────
 
-function startResizeTouch(e) {
+function startResizeTouch(e: TouchEvent): void {
   if (!e.touches.length) return
   isResizing.value = true
   startX.value = e.touches[0].clientX
@@ -228,13 +231,13 @@ function startResizeTouch(e) {
   window.addEventListener('touchcancel', onTouchEnd)
 }
 
-function onTouchMove(e) {
+function onTouchMove(e: TouchEvent): void {
   e.preventDefault()
   if (!e.touches.length) return
   updateSize(e.touches[0].clientX, e.touches[0].clientY)
 }
 
-function onTouchEnd() {
+function onTouchEnd(): void {
   window.removeEventListener('touchmove', onTouchMove)
   window.removeEventListener('touchend', onTouchEnd)
   window.removeEventListener('touchcancel', onTouchEnd)
@@ -243,13 +246,13 @@ function onTouchEnd() {
 
 // ─── Resize: Core Logic ─────────────────────
 
-function updateSize(clientX, clientY) {
+function updateSize(clientX: number, clientY: number): void {
   const dx = clientX - startX.value
   const dy = clientY - startY.value
   const ratio = aspectRatio.value || 0.75
-  const scale = props.scale || 1
+  const scaleVal = props.scale || 1
 
-  const delta = (dx + dy / ratio) / 2 / scale
+  const delta = (dx + dy / ratio) / 2 / scaleVal
 
   let newW = startWidth.value + delta
   newW = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, Math.round(newW)))
@@ -258,7 +261,7 @@ function updateSize(clientX, clientY) {
   emit('resize', newW)
 }
 
-function commit() {
+function commit(): void {
   isResizing.value = false
   const finalWidth = Math.round(liveWidth.value)
   emit('resize-commit', finalWidth)

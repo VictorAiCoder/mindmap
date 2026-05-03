@@ -4,9 +4,10 @@
     <button
       ref="triggerRef"
       class="node-actions__trigger"
-      :class="{ 'node-actions__trigger--open': isMine }"
-      @mousedown.stop.prevent
+      :class="{ 'node-actions__trigger--open': active }"
+      title="Действия"
       @click.stop="onTriggerClick"
+      @mousedown.stop
     >
       <v-icon icon="mdi-dots-horizontal" class="node-actions__icon" />
     </button>
@@ -14,45 +15,37 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useNodeMenu } from '@/composables/useNodeMenu'
+import { ref } from 'vue'
 
-const props = defineProps<{
-  nodeId: string
-  isRoot: boolean
-  hasImage: boolean
-  hasNotes: boolean
-  pinned: boolean
-}>()
+// ─── Props / Emits ──────────────────────────
+
+interface Props {
+  /** true, когда для этого узла сейчас открыто меню (подсветка триггера). */
+  active: boolean
+}
+
+defineProps<Props>()
 
 const emit = defineEmits<{
-  addImage: []
-  openNotes: []
-  addChild: []
-  edit: []
-  resetPosition: []
-  delete: []
-  editSegments: []
+  /**
+   * Клик по кнопке. Отдаёт наружу triggerEl — родитель решает,
+   * что с ним делать (например, открыть меню через useNodeMenu).
+   *
+   * Инверсия управления: компонент не знает про меню, только про факт клика.
+   */
+  click: [payload: { triggerEl: HTMLElement }]
 }>()
 
-const { isOpen, activeMenuId, openMenu } = useNodeMenu()
+// ─── Refs ───────────────────────────────────
 
 const triggerRef = ref<HTMLElement | null>(null)
-const isMine = computed(() => isOpen.value && activeMenuId.value === props.nodeId)
 
-function onTriggerClick() {
-  console.log('[trigger] props.nodeId=', props.nodeId, 'all props=', { ...props })
-  openMenu(
-    props.nodeId,
-    triggerRef.value!,
-    {
-      isRoot: props.isRoot,
-      hasImage: props.hasImage,
-      hasNotes: props.hasNotes,
-      pinned: props.pinned
-    },
-    (action: string) => emit(action as any)
-  )
+// ─── Handlers ───────────────────────────────
+
+function onTriggerClick(): void {
+  const el = triggerRef.value
+  if (!el) return
+  emit('click', { triggerEl: el })
 }
 </script>
 

@@ -1,10 +1,13 @@
 // src/types/mindmap-api.ts
 import type { Ref, ComputedRef } from 'vue'
-import type { 
-  MindMapNode, 
+import type {
+  MindMapNode,
   MindMapDocument,
   StoredImage,
-  ScenePosition 
+  ImageSegment,
+  Clip,        
+  ScenePosition,
+  Center2D 
 } from './mindmap'
 import type { PositionMap } from './layout'
 import type { SegmentOperationsApi } from '@/composables/image/useSegmentOperations'
@@ -16,11 +19,11 @@ import type { SegmentOperationsApi } from '@/composables/image/useSegmentOperati
 export interface ResolvedImage {
   id: string
   dataUrl: string
-  /** 
+  /**
    * Нормализованный прямоугольник обрезки для сегментов.
    * Для RawImage — undefined (показывать целиком).
    */
-  clip?: { x: number; y: number; w: number; h: number }
+  clip?: Clip                                             // ★ Clip
 }
 
 export interface ImageStorageApi {
@@ -58,7 +61,7 @@ export interface ImageStorageApi {
   /** Количество картинок в пуле (реактивное) */
   totalCount: ComputedRef<number>
 
-   /**
+  /**
    * Создаёт сегмент из существующей RawImage.
    * ⚠️ sourceId должен указывать на картинку kind === 'raw'.
    * Сегменты из сегментов не поддерживаются.
@@ -67,7 +70,7 @@ export interface ImageStorageApi {
    */
   addSegment(
     sourceId: string,
-    clip: { x: number; y: number; w: number; h: number },
+    clip: Clip,                                           // ★ Clip
     name?: string
   ): string | null
 
@@ -77,9 +80,9 @@ export interface ImageStorageApi {
    */
   updateSegment(
     id: string,
-    patch: Partial<{ 
-      clip: { x: number; y: number; w: number; h: number }
-      name: string 
+    patch: Partial<{
+      clip: Clip                                          // ★ Clip
+      name: string
     }>
   ): void
 
@@ -87,7 +90,7 @@ export interface ImageStorageApi {
    * Возвращает все сегменты, построенные от указанного источника.
    * (Реактивно через computed в вызывающем коде, если нужно.)
    */
-  listSegmentsOf(sourceId: string): readonly import('./mindmap').ImageSegment[]
+  listSegmentsOf(sourceId: string): readonly ImageSegment[]   // ★ убран inline import()
 }
 
 // ─── Layout ────────────────────────────────────────
@@ -151,12 +154,12 @@ export interface TreeOperationsApi {
   updateScale(
     nodeId: string,
     scale: number,
-    savedCenter?: { cx: number; cy: number }
+    savedCenter?: Center2D
   ): void
   commitScale(
     nodeId: string,
     scale: number,
-    savedCenter?: { cx: number; cy: number }
+    savedCenter?: Center2D
   ): void
   findNode(id: string): MindMapNode | null
   importMarkdownIntoNode: (nodeId: string, markdown: string) => number
@@ -179,7 +182,7 @@ export interface TreeOperationsApi {
    * Пишет историю.
    * @returns количество узлов, у которых снята привязка
    */
-  deleteImageWithDetach: (imageId: string) => number
+  deleteImageWithDetach: (imageId: string) => void
 
   /**
    * Удаляет из пула все картинки, на которые нет ссылок.
@@ -206,18 +209,6 @@ export interface HistoryApi {
   clear: () => void
 }
 
-// ─── DragDrop (ui-состояние для списков) ───────────
-
-export interface DragDropApi {
-  draggedNodeId: Ref<string | null>
-  dropTargetNodeId: Ref<string | null>
-  startDrag: (nodeId: string) => void
-  setDropTarget: (nodeId: string) => void
-  clearDropTarget: () => void
-  finishDrop: () => boolean
-  cancelDrag: () => void
-}
-
 // ─── Persistence ───────────────────────────────────
 
 export type ExportFormat = 'json' | 'md' | 'markdown'
@@ -231,9 +222,6 @@ export interface PersistenceApi {
 
 export interface MindMapApi extends TreeOperationsApi, PersistenceApi, SegmentOperationsApi {
   rootNode: Ref<MindMapNode>
-
-  /** UI-состояние drag&drop (для списков в панелях) */
-  drag: DragDropApi
 
   // History
   undo: () => void

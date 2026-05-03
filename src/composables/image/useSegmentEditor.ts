@@ -343,4 +343,4 @@ export function useSegmentEditor(opts: SegmentEditorOptions) {
   }
 }
 
-export type SegmentEditorApi = ReturnType<typeof useSegmentEditor>
+type SegmentEditorApi = ReturnType<typeof useSegmentEditor>

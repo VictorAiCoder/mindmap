@@ -1,7 +1,7 @@
 // src/composables/useTheme.ts
 import { ref, computed, watch, type Ref, type ComputedRef } from 'vue'
 
-export type Theme = 'light' | 'dark'
+type Theme = 'light' | 'dark'
 
 const STORAGE_KEY = 'mindmap-theme'
 
@@ -22,7 +22,7 @@ watch(theme, (value) => {
 
 // ─── Public API ──────────────────────────────────────
 
-export interface UseThemeReturn {
+interface UseThemeReturn {
   theme: Ref<Theme>
   isDark: ComputedRef<boolean>
   toggle: () => void

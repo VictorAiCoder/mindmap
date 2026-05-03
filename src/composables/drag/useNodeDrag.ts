@@ -6,7 +6,7 @@ import type { PositionMap } from '../../types/layout'
 
 const MOVE_THRESHOLD = 4
 
-export interface NodeDragApi {
+interface NodeDragApi {
   draggingNodeId: Ref<string | null>
   isDraggingNode: ComputedRef<boolean>
   dropTargetId: Ref<string | null>

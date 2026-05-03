@@ -1,60 +1,106 @@
 // src/composables/useNodeMenu.ts
-import { ref, reactive, nextTick, onBeforeUnmount } from 'vue'
+import { ref, reactive, nextTick } from 'vue'
 
-// ★ Глобальное состояние — одно меню на всё приложение
+// ═══════════════════════════════════════════════════════════════
+// Public types
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Снимок состояния узла на момент открытия меню.
+ * Содержит всё, что нужно меню для рендера UI и keepCenter-операций.
+ *
+ * Поля w/h нужны для вычисления центра узла (scale slider),
+ * т.к. layoutData не доступен из глобального API composable'а.
+ */
+export interface NodeActionsContext {
+  nodeId: string
+  isRoot: boolean
+  hasImage: boolean
+  hasNotes: boolean
+  pinned: boolean
+  /** Ширина узла из LayoutPosition на момент открытия меню. */
+  w: number
+  /** Высота узла из LayoutPosition на момент открытия меню. */
+  h: number
+}
+
+/**
+ * Типизированные обработчики действий меню.
+ * Инверсия управления: меню не знает, что делают эти действия —
+ * только зовёт нужный callback. Родитель (MapNode) решает, что делать.
+ */
+export interface NodeMenuHandlers {
+  onAddImage: () => void
+  onOpenNotes: () => void
+  onAddChild: () => void
+  onEdit: () => void
+  onResetPosition: () => void
+  onDelete: () => void
+  onEditSegments: () => void
+}
+
+/** Ключ действия — сужен до keyof NodeMenuHandlers (защита от опечаток). */
+export type NodeMenuAction = keyof NodeMenuHandlers
+
+// ═══════════════════════════════════════════════════════════════
+// State
+// ═══════════════════════════════════════════════════════════════
+
 const activeMenuId = ref<string | null>(null)
 const isOpen = ref(false)
 const importDialogOpen = ref(false)
 const importDialogTargetId = ref<string | null>(null)
-
-function openImportDialog(nodeId: string) {
-  importDialogTargetId.value = nodeId
-  importDialogOpen.value = true
-}
-
-function closeImportDialog() {
-  importDialogOpen.value = false
-  importDialogTargetId.value = null
-}
 
 const menuPosition = reactive({
   position: 'fixed' as const,
   left: '0px',
   top: '0px',
   zIndex: 9999,
-  visibility: 'hidden' as 'hidden' | 'visible'  // ★ прячем до позиционирования
+  visibility: 'hidden' as 'hidden' | 'visible'
 })
 
-interface ActiveNodeProps {
-  nodeId: string
-  isRoot: boolean
-  hasImage: boolean
-  hasNotes: boolean
-  pinned: boolean
-}
-
-const activeNodeProps = reactive<ActiveNodeProps>({
+/**
+ * Реактивный снимок контекста узла для меню.
+ * Меню читает поля из этого объекта (isRoot, hasImage и т.д.).
+ */
+const activeNodeProps = reactive<NodeActionsContext>({
   nodeId: '',
   isRoot: false,
   hasImage: false,
   hasNotes: false,
-  pinned: false
+  pinned: false,
+  w: 0,
+  h: 0
 })
 
-let activeEmit: ((action: string) => void) | null = null
+let activeHandlers: NodeMenuHandlers | null = null
 let cleanupFn: (() => void) | null = null
 
-// ★ Ссылка на DOM-элемент меню, устанавливается из NodeActionsMenu
 const menuElRef = ref<HTMLElement | null>(null)
-
-// ★ Ссылка на trigger, от которого позиционируем
 let activeTriggerEl: HTMLElement | null = null
 
-function closeMenu() {
-  // console.log('[menu] closeMenu called', new Error().stack?.split('\n').slice(1, 4))
+// ═══════════════════════════════════════════════════════════════
+// Import dialog
+// ═══════════════════════════════════════════════════════════════
+
+function openImportDialog(nodeId: string): void {
+  importDialogTargetId.value = nodeId
+  importDialogOpen.value = true
+}
+
+function closeImportDialog(): void {
+  importDialogOpen.value = false
+  importDialogTargetId.value = null
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Open / close
+// ═══════════════════════════════════════════════════════════════
+
+function closeMenu(): void {
   isOpen.value = false
   activeMenuId.value = null
-  activeEmit = null
+  activeHandlers = null
   activeTriggerEl = null
   menuPosition.visibility = 'hidden'
 
@@ -64,13 +110,19 @@ function closeMenu() {
   }
 }
 
+/**
+ * Открывает меню узла. Если меню уже открыто для этого же узла — toggle (закрывает).
+ *
+ * @param triggerEl  DOM-элемент кнопки-триггера (для позиционирования и self-close)
+ * @param ctx        Снимок состояния узла (nodeId + UI-флаги + геометрия)
+ * @param handlers   Типизированные callback'и действий меню
+ */
 async function openMenu(
-  nodeId: string,
   triggerEl: HTMLElement,
-  props: { isRoot: boolean; hasImage: boolean; hasNotes: boolean; pinned: boolean },
-  emitAction: (action: string) => void
-) {
-  if (activeMenuId.value === nodeId && isOpen.value) {
+  ctx: NodeActionsContext,
+  handlers: NodeMenuHandlers
+): Promise<void> {
+  if (activeMenuId.value === ctx.nodeId && isOpen.value) {
     closeMenu()
     return
   }
@@ -80,22 +132,24 @@ async function openMenu(
     cleanupFn = null
   }
 
-  activeMenuId.value = nodeId
-  activeEmit = emitAction
+  activeMenuId.value = ctx.nodeId
+  activeHandlers = handlers
   activeTriggerEl = triggerEl
-  Object.assign(activeNodeProps, { ...props, nodeId })  // ★ добавили nodeId
+  Object.assign(activeNodeProps, ctx)
   isOpen.value = true
 
   await nextTick()
-  // await nextTick()
 
   positionMenu()
   menuPosition.visibility = 'visible'
   setupOutsideListeners()
-
 }
 
-function positionMenu() {
+// ═══════════════════════════════════════════════════════════════
+// Positioning
+// ═══════════════════════════════════════════════════════════════
+
+function positionMenu(): void {
   if (!activeTriggerEl || !menuElRef.value) return
 
   const btn = activeTriggerEl.getBoundingClientRect()
@@ -105,40 +159,42 @@ function positionMenu() {
   let left = btn.right + 6
   let top = btn.top - 4
 
-  // Если вылезает за правый край
   if (left + menu.width + pad > window.innerWidth) {
     left = btn.left - menu.width - 6
   }
-
-  // Если вылезает снизу
   if (top + menu.height + pad > window.innerHeight) {
     top = window.innerHeight - menu.height - pad
   }
-
-  // Если вылезает сверху
   if (top < pad) top = pad
 
   menuPosition.left = `${Math.round(left)}px`
   menuPosition.top = `${Math.round(top)}px`
 }
 
-function setupOutsideListeners() {
-  const onMouseDown = (e: MouseEvent) => {
-    const target = e.target as HTMLElement
+// ═══════════════════════════════════════════════════════════════
+// Outside listeners
+// ═══════════════════════════════════════════════════════════════
 
-    // Клик на любой trigger — пусть тот trigger обработает
-    if (target.closest?.('.node-actions__trigger')) {
+function setupOutsideListeners(): void {
+  const onMouseDown = (e: MouseEvent): void => {
+    const target = e.target as Node
+
+    // Клик по самой кнопке-триггеру → toggle (закрываем).
+    // Сравнение по DOM вместо CSS-селектора — composable не зависит
+    // от имён классов внутри NodeActions.vue.
+    if (activeTriggerEl?.contains(target)) {
       closeMenu()
       return
     }
 
-    // Клик внутри меню — игнор
+    // Клик внутри меню → ничего не делаем.
     if (menuElRef.value?.contains(target)) return
 
+    // Клик вовне → закрываем.
     closeMenu()
   }
 
-  const onEscape = (e: KeyboardEvent) => {
+  const onEscape = (e: KeyboardEvent): void => {
     if (e.key === 'Escape') closeMenu()
   }
 
@@ -151,25 +207,34 @@ function setupOutsideListeners() {
   }
 }
 
-function emitAction(action: string) {
-  const fn = activeEmit
+// ═══════════════════════════════════════════════════════════════
+// Action dispatch
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Вызывает обработчик действия и закрывает меню.
+ * Типизирован по keyof NodeMenuHandlers — опечатка = compile error.
+ */
+function runAction<K extends NodeMenuAction>(action: K): void {
+  const handlers = activeHandlers
   closeMenu()
-  fn?.(action)
+  handlers?.[action]()
 }
 
-// ★ Функция для регистрации menuElRef из компонента меню
-function registerMenuEl(el: HTMLElement | null) {
+function registerMenuEl(el: HTMLElement | null): void {
   menuElRef.value = el
 }
 
-// ★ Состояние редактора сегментов (по аналогии с importDialog)
+// ═══════════════════════════════════════════════════════════════
+// Segment editor
+// ═══════════════════════════════════════════════════════════════
+
 const segmentEditorOpen = ref(false)
 const segmentEditorSourceId = ref<string | null>(null)
 const segmentEditorNodeId = ref<string | null>(null)
 
 function openSegmentEditor(nodeId: string, sourceImageId: string): void {
-  // Закрываем меню, если оно открыто
-  closeMenu?.()
+  closeMenu()
   segmentEditorNodeId.value = nodeId
   segmentEditorSourceId.value = sourceImageId
   segmentEditorOpen.value = true
@@ -181,6 +246,9 @@ function closeSegmentEditor(): void {
   segmentEditorNodeId.value = null
 }
 
+// ═══════════════════════════════════════════════════════════════
+// Public API
+// ═══════════════════════════════════════════════════════════════
 
 export function useNodeMenu() {
   return {
@@ -190,7 +258,7 @@ export function useNodeMenu() {
     menuPosition,
     openMenu,
     closeMenu,
-    emitAction,
+    runAction,
     registerMenuEl,
     importDialogOpen,
     importDialogTargetId,
@@ -200,6 +268,6 @@ export function useNodeMenu() {
     segmentEditorSourceId,
     segmentEditorNodeId,
     openSegmentEditor,
-    closeSegmentEditor,
+    closeSegmentEditor
   }
 }

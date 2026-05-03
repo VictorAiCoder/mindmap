@@ -170,7 +170,7 @@ const filteredImages = computed<StoredImage[]>(() => {
     list = list.filter(img => (img.name ?? '').toLowerCase().includes(q))
   }
 
-  return [...list].sort((a, b) => b.createdAt - a.createdAt)
+  return [...list].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
 })
 
 // ─── Handlers ───────────────────────────────

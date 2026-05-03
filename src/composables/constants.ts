@@ -38,8 +38,3 @@ export const DEFAULT_CENTER_Y = 600
 export const NOTE_LINE_HEIGHT = 18
 export const NOTE_PADDING = 26
 export const NOTE_MAX_PREVIEW_LINES = 7
-
-// Image
-export const MAX_IMAGE_SIZE = 500 * 1024
-export const IMAGE_THUMB_WIDTH = 160
-export const IMAGE_THUMB_HEIGHT = 120

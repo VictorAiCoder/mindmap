@@ -10,7 +10,7 @@
         @mousedown.stop.prevent
         @click.stop
       >
-        <button class="menu-item" @click="act('addChild')">
+        <button class="menu-item" @click="act('onAddChild')">
           <v-icon icon="mdi-plus-circle-outline" size="16" />
           <span>Добавить потомка</span>
         </button>
@@ -57,23 +57,23 @@
           </div>
         </div>
 
-        <button class="menu-item" @click="act('edit')">
+        <button class="menu-item" @click="act('onEdit')">
           <v-icon icon="mdi-pencil-outline" size="16" />
           <span>Переименовать</span>
         </button>
 
         <div class="menu-divider" />
 
-        <button v-if="!p.hasImage" class="menu-item" @click="act('addImage')">
+        <button v-if="!p.hasImage" class="menu-item" @click="act('onAddImage')">
           <v-icon icon="mdi-image-plus" size="16" />
           <span>Добавить картинку</span>
         </button>
-        <button v-else class="menu-item" @click="act('editSegments')">
+        <button v-else class="menu-item" @click="act('onEditSegments')">
           <v-icon icon="mdi-crop" size="16" />
           <span>Редактор сегментов</span>
         </button>
 
-        <button class="menu-item" @click="act('openNotes')">
+        <button class="menu-item" @click="act('onOpenNotes')">
           <v-icon
             :icon="p.hasNotes ? 'mdi-text-box-edit-outline' : 'mdi-text-box-plus-outline'"
             size="16"
@@ -84,12 +84,12 @@
         <template v-if="p.pinned || !p.isRoot">
           <div class="menu-divider" />
 
-          <button v-if="p.pinned" class="menu-item menu-item--warn" @click="act('resetPosition')">
+          <button v-if="p.pinned" class="menu-item menu-item--warn" @click="act('onResetPosition')">
             <v-icon icon="mdi-pin-off-outline" size="16" />
             <span>Сбросить позицию</span>
           </button>
 
-          <button v-if="!p.isRoot" class="menu-item menu-item--danger" @click="act('delete')">
+          <button v-if="!p.isRoot" class="menu-item menu-item--danger" @click="act('onDelete')">
             <v-icon icon="mdi-delete-outline" size="16" />
             <span>Удалить</span>
           </button>
@@ -101,17 +101,18 @@
 
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
-import { useNodeMenu } from '@/composables/useNodeMenu'
+import { useNodeMenu, type NodeMenuHandlers } from '@/composables/useNodeMenu'
 import { injectStrict } from '@/utils/injectStrict'
 import { mindMapKey } from '@/types/injection-keys'
 import { NODE_SCALE } from '@/types/mindmap-constants'
+import type { Center2D } from '@/types/mindmap'
 
 const { 
   isOpen, 
   activeMenuId,
   activeNodeProps: p, 
   menuPosition, 
-  emitAction, 
+  runAction, 
   registerMenuEl,
   closeMenu,
   openImportDialog,
@@ -124,8 +125,8 @@ watch(menuRef, (el) => {
   registerMenuEl(el)
 }, { flush: 'post' })
 
-function act(action: string) {
-  emitAction(action)
+function act(action: keyof NodeMenuHandlers) {
+  runAction(action)
 }
 
 function onImportMarkdownClick() {
@@ -151,101 +152,84 @@ const SCALE_STEP = NODE_SCALE.STEP
 
 /**
  * Сессия drag'а слайдера. Запоминаем "центр" узла в момент начала,
- * чтобы при изменении scale узел визуально оставался на месте.
- *
- * null → слайдер не используется, liveScale читает из node.scale.
- * объект → идёт live-preview, liveScale читает отсюда.
+ * чтобы при изменении scale узел визуально оставался на месте
+ * (актуально только для закреплённых узлов).
  */
 interface DragSession {
   nodeId: string
   liveValue: number
-  /** Центр узла на момент старта (только для закреплённых узлов). */
-  savedCenter: { cx: number; cy: number } | null
+  savedCenter: Center2D | null
 }
 
 const dragSession = ref<DragSession | null>(null)
 
 /**
- * Текущий scale активного узла.
- * Если идёт drag — показываем liveValue.
- * Иначе — читаем из дерева.
+ * Вычисляет центр активного узла, если он закреплён.
+ * Использует w/h из activeNodeProps (снимок LayoutPosition на момент открытия меню).
+ *
+ * Возвращает null, если узел не закреплён (тогда keepCenter не нужен —
+ * узел позиционируется layout-алгоритмом).
  */
+function computeCenterForActiveNode(): Center2D | null {
+  const nodeId = activeMenuId.value
+  if (!nodeId) return null
+
+  const node = mindmap.findNode(nodeId)
+  if (!node) return null
+
+  if (node.customX == null || node.customY == null) return null
+
+  const { w, h } = p  // activeNodeProps
+  if (w <= 0 || h <= 0) return null
+
+  return {
+    cx: node.customX + w / 2,
+    cy: node.customY + h / 2
+  }
+}
+
 const liveScale = computed<number>(() => {
   if (dragSession.value) return dragSession.value.liveValue
 
   const nodeId = activeMenuId.value
   if (!nodeId) return NODE_SCALE.DEFAULT
 
-  const node = mindmap.findNode(nodeId)  // ⚠️ адаптируй имя метода
+  const node = mindmap.findNode(nodeId)
   return node?.scale ?? NODE_SCALE.DEFAULT
 })
 
-const scalePercent = computed(() => Math.round(liveScale.value * 100))
-const isDefaultScale = computed(() =>
-  Math.abs(liveScale.value - NODE_SCALE.DEFAULT) < 0.001
+const scalePercent = computed<number>(() => Math.round(liveScale.value * 100))
+const isDefaultScale = computed<boolean>(
+  () => Math.abs(liveScale.value - NODE_SCALE.DEFAULT) < 0.001
 )
 
-/**
- * Старт drag'а слайдера (pointerdown).
- * Запоминаем центр узла — от него будем корректировать позицию.
- */
-function onSliderStart(_e: PointerEvent) {
+function onSliderStart(_e: PointerEvent): void {
   const nodeId = activeMenuId.value
-  console.log('[slider] start, nodeId=', nodeId)
-  
+  if (!nodeId) return
+
   const node = mindmap.findNode(nodeId)
-  console.log('[slider] node=', node, 'findNode is', typeof mindmap.findNode)
-  console.log('[slider] updateScale is', typeof mindmap.updateScale)
-  console.log('[slider] commitScale is', typeof mindmap.commitScale)
-  console.log('[slider] findPosition is', typeof mindmap.findPosition)
-  
   if (!node) return
-
-  const currentScale = node.scale ?? NODE_SCALE.DEFAULT
-
-  // Если узел закреплён — вычисляем текущий центр
-  let savedCenter: { cx: number; cy: number } | null = null
-  if (node.customX != null && node.customY != null) {
-    // Нужны текущие размеры узла. Берём из LayoutPosition через mindmap.
-    const pos = mindmap.findPosition?.(nodeId)  // ⚠️ см. примечание ниже
-    if (pos) {
-      savedCenter = {
-        cx: node.customX + pos.w / 2,
-        cy: node.customY + pos.h / 2
-      }
-    }
-  }
 
   dragSession.value = {
     nodeId,
-    liveValue: currentScale,
-    savedCenter
+    liveValue: node.scale ?? NODE_SCALE.DEFAULT,
+    savedCenter: computeCenterForActiveNode()
   }
 }
 
-/**
- * Live-изменение слайдера (input event).
- * Обновляем scale БЕЗ записи в историю.
- */
-function onSliderInput(e: Event) {
+function onSliderInput(e: Event): void {
   const session = dragSession.value
-  console.log('[slider] input, session=', session, 'value=', (e.target as HTMLInputElement).value)
   if (!session) return
 
   const target = e.target as HTMLInputElement
   const value = parseFloat(target.value)
-
   if (!Number.isFinite(value)) return
 
   session.liveValue = value
   mindmap.updateScale(session.nodeId, value, session.savedCenter ?? undefined)
 }
 
-/**
- * Окончание drag'а (pointerup).
- * Применяем snap-to-1 и записываем в историю.
- */
-function onSliderCommit() {
+function onSliderCommit(): void {
   const session = dragSession.value
   if (!session) return
 
@@ -258,29 +242,15 @@ function onSliderCommit() {
   dragSession.value = null
 }
 
-/**
- * Сброс масштаба на 100% (кнопка-refresh).
- */
-function resetScale() {
+function resetScale(): void {
   const nodeId = activeMenuId.value
   if (!nodeId) return
 
-  const node = mindmap.findNode(nodeId)
-  if (!node) return
-
-  // Если узел закреплён — центрируем при сбросе
-  let savedCenter: { cx: number; cy: number } | null = null
-  if (node.customX != null && node.customY != null) {
-    const pos = mindmap.findPosition?.(nodeId)
-    if (pos) {
-      savedCenter = {
-        cx: node.customX + pos.w / 2,
-        cy: node.customY + pos.h / 2
-      }
-    }
-  }
-
-  mindmap.commitScale(nodeId, NODE_SCALE.DEFAULT, savedCenter ?? undefined)
+  mindmap.commitScale(
+    nodeId,
+    NODE_SCALE.DEFAULT,
+    computeCenterForActiveNode() ?? undefined
+  )
 }
 </script>
 
