@@ -43,14 +43,10 @@ export function useTreeOperations(
   history: HistoryApi
 ): TreeOperationsApi {
 
-  // Удобные геттеры, но без кэширования —
-  // всегда читаем актуальное состояние документа.
   const rootRef = () => document.value.root
   const imagesRef = () => document.value.images
 
   function touch(): void {
-    // triggerRef на корневом document — реактивные зависимости
-    // (rootNode computed, nodeCount, treeDepth и т.д.) пересчитаются.
     triggerRef(document)
   }
 
@@ -143,7 +139,7 @@ export function useTreeOperations(
     touch()
   }
 
-  // ─── Картинки ───────────────────────────────────
+  // ─── Картинки: установка ────────────────────────
 
   /**
    * Устанавливает картинку узла: создаёт запись в пуле и сохраняет imageId.
@@ -152,7 +148,7 @@ export function useTreeOperations(
    * Причины:
    *   1) undo/redo — нужна возможность вернуться к предыдущей;
    *   2) картинка может использоваться другими узлами.
-   * Чистка неиспользуемых — через галерею (Коммит 3)
+   * Чистка неиспользуемых — через галерею (Коммит 2a)
    * и автоматически при экспорте в JSON.
    */
   function setNodeImage(nodeId: string, dataUrl: string): void {
@@ -170,6 +166,30 @@ export function useTreeOperations(
     imagesRef().push(raw)
 
     node.imageId = raw.id
+    touch()
+  }
+
+  /**
+   * ★ НОВОЕ: Цепляет к узлу существующую картинку из пула.
+   *
+   * В отличие от setNodeImage — не создаёт новую запись.
+   * Используется галереей при drag'n'drop существующей картинки на узел.
+   */
+  function setNodeImageById(nodeId: string, imageId: string): void {
+    const node = findNode(nodeId)
+    if (!node) return
+
+    const exists = imagesRef().some((img) => img.id === imageId)
+    if (!exists) {
+      console.warn(`[setNodeImageById] картинка ${imageId} не найдена в пуле`)
+      return
+    }
+
+    // No-op: уже стоит эта же картинка — экономим snapshot
+    if (node.imageId === imageId) return
+
+    history.save()
+    node.imageId = imageId
     touch()
   }
 
@@ -195,6 +215,69 @@ export function useTreeOperations(
     if (!node) return
     node.imageWidth = width
     touch()
+  }
+
+  // ─── Картинки: операции галереи ─────────────────
+
+  /**
+   * ★ НОВОЕ: Переименование картинки в пуле с записью в историю.
+   * Пустое имя или такое же — игнорируются (no-op).
+   */
+  function renameImage(imageId: string, name: string): void {
+    const trimmed = name.trim()
+    if (!trimmed) return
+
+    const img = imagesRef().find((i) => i.id === imageId)
+    if (!img || img.name === trimmed) return
+
+    history.save()
+    img.name = trimmed
+    touch()
+  }
+
+  /**
+   * ★ НОВОЕ: Удаление картинки из пула с обнулением imageId
+   *   во всех узлах, где она использовалась.
+   *
+   * Если картинки нет в пуле — no-op.
+   */
+  function deleteImageWithDetach(imageId: string): number | void {
+    const arr = imagesRef()
+    const idx = arr.findIndex((i) => i.id === imageId)
+    if (idx === -1) return
+
+    history.save()
+
+    // 1) Снимаем ссылку со всех узлов
+    detachImageFromTree(rootRef(), imageId)
+
+    // 2) Удаляем из пула (мутация in-place)
+    arr.splice(idx, 1)
+
+    touch()
+  }
+
+  /**
+   * ★ НОВОЕ: Удаляет неиспользуемые картинки. Если удалять нечего —
+   *   историю не трогает. Возвращает число удалённых.
+   */
+  function purgeUnusedImages(): number {
+    const arr = imagesRef()
+    if (arr.length === 0) return 0
+
+    const used = collectUsedImageIds(rootRef())
+
+    // Собираем индексы неиспользуемых (с конца, чтобы splice был безопасен)
+    const toRemove: number[] = []
+    for (let i = arr.length - 1; i >= 0; i--) {
+      if (!used.has(arr[i].id)) toRemove.push(i)
+    }
+    if (toRemove.length === 0) return 0
+
+    history.save()
+    for (const i of toRemove) arr.splice(i, 1)
+    touch()
+    return toRemove.length
   }
 
   // ─── Layout ─────────────────────────────────────
@@ -340,24 +423,17 @@ export function useTreeOperations(
       return 0
     }
 
-    // ⚠️ Парсер мутирует imagesRef() во время работы.
-    //   Снимок истории делаем ДО парсинга, чтобы undo откатил и картинки.
-    //   Если парсер вернёт null — откатываем сами через undoStack
-    //   (history.save уже сделан — значит, текущее состояние в undo-стеке).
     history.save()
 
-    // Создаём обёртку-ref для parser API
     const images = imagesRef()
     const imagesWrapper = {
       get value() { return images },
-      set value(_: typeof images) { /* no-op: парсер всегда мутирует push-ем */ }
+      set value(_: typeof images) { /* no-op */ }
     } as Ref<typeof images>
 
     const parsed = parseMarkdownToTree(markdown, imagesWrapper)
     if (!parsed) {
       console.warn('[importMarkdown] Markdown пуст или без заголовков')
-      // Откатываем "пустой" снимок — делать undo корректно только если
-      // стек не тронут другими операциями; здесь тронут только что нами.
       history.undo()
       return 0
     }
@@ -384,6 +460,23 @@ export function useTreeOperations(
     return count
   }
 
+    /**
+   * Возвращает id узлов, использующих данную картинку.
+   * Не мутирует, не пишет в историю.
+   */
+  function findImageUsages(imageId: string): string[] {
+    const root = rootRef()
+    if (!root) return []
+    const result: string[] = []
+    const stack: MindMapNode[] = [root]
+    while (stack.length) {
+      const n = stack.pop()!
+      if (n.imageId === imageId) result.push(n.id)
+      if (n.children) stack.push(...n.children)
+    }
+    return result
+  }
+
   return {
     addChild,
     deleteNode,
@@ -395,9 +488,13 @@ export function useTreeOperations(
     toggleNotePin,
     toggleNotesVisible,
     setNodeImage,
+    setNodeImageById,        // ★ новое
     removeNodeImage,
     setImageWidth,
     commitImageResize,
+    renameImage,             // ★ новое
+    deleteImageWithDetach,   // ★ новое
+    purgeUnusedImages,       // ★ новое
     resetAllPositions,
     autoLayout,
     reparentNode,
@@ -405,6 +502,34 @@ export function useTreeOperations(
     updateScale,
     commitScale,
     findNode,
-    importMarkdownIntoNode
+    importMarkdownIntoNode,
+    findImageUsages
   }
+}
+
+// ─── Локальные хелперы (не экспортируем) ───────────
+
+/**
+ * Рекурсивно обнуляет node.imageId, если он совпадает с targetId.
+ * Использует обход in-place, не создавая новых объектов.
+ */
+function detachImageFromTree(root: MindMapNode, targetId: string): void {
+  function walk(node: MindMapNode): void {
+    if (node.imageId === targetId) node.imageId = null
+    for (const child of node.children) walk(child)
+  }
+  walk(root)
+}
+
+/**
+ * Собирает Set всех imageId, используемых в дереве.
+ */
+function collectUsedImageIds(root: MindMapNode): Set<string> {
+  const used = new Set<string>()
+  function walk(node: MindMapNode): void {
+    if (node.imageId) used.add(node.imageId)
+    for (const child of node.children) walk(child)
+  }
+  walk(root)
+  return used
 }

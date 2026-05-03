@@ -5,14 +5,27 @@
     :class="{ 'node-image-float--resizing': isResizing }"
     :style="containerStyle"
   >
+    <!--
+      Сегмент: фон через background-image, а видимый <img> скрываем.
+      Скрытый <img> всё равно нужен для загрузки и получения naturalW/H.
+    -->
     <img
       :src="src"
       class="node-image"
+      :class="{ 'node-image--measure-only': hasClip }"
       alt=""
       draggable="false"
       referrerpolicy="no-referrer"
       @load="onLoad"
       @error="onError"
+    />
+
+    <!-- Слой для сегмента: рендерится через background-image -->
+    <div
+      v-if="hasClip"
+      class="node-image-clip"
+      :style="clipStyle"
+      aria-hidden="true"
     />
 
     <!-- ★ Resize handle — правый нижний угол -->
@@ -26,6 +39,18 @@
         <path d="M 9 5 L 5 9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
       </svg>
     </div>
+
+    <!-- ★ Кнопка "Редактировать сегменты" — только для целых картинок -->
+    <button
+      v-if="!hasClip"
+      class="node-image-edit-segments"
+      title="Редактор сегментов"
+      @click.stop="$emit('editSegments')"
+      @mousedown.stop
+      @pointerdown.stop
+    >
+      <v-icon icon="mdi-crop" size="12" />
+    </button>
 
     <!-- Кнопка удаления -->
     <button class="node-image-remove" @click.stop="$emit('remove')" @mousedown.stop>
@@ -48,10 +73,23 @@ const props = defineProps({
   src: { type: String, required: true },
   isRoot: { type: Boolean, default: false },
   imageWidth: { type: Number, default: null },
-  scale: { type: Number, default: 1 }   
+  scale: { type: Number, default: 1 },
+  /**
+   * ★ Нормализованный прямоугольник вырезки [0..1].
+   * null/undefined = показываем картинку целиком (RawImage).
+   */
+  clip: {
+    type: Object,
+    default: null,
+    validator: (v) => v === null || (
+      typeof v.x === 'number' && typeof v.y === 'number' &&
+      typeof v.w === 'number' && typeof v.h === 'number'
+    )
+  }
 })
 
-const emit = defineEmits(['remove', 'resize', 'resize-commit'])
+// ★ Добавлен editSegments
+const emit = defineEmits(['remove', 'resize', 'resize-commit', 'editSegments'])
 
 // ─── Константы ──────────────────────────────
 const MIN_WIDTH = 100
@@ -71,8 +109,16 @@ const startWidth = ref(0)
 
 // ─── Computed ───────────────────────────────
 
+const hasClip = computed(() => !!props.clip)
+
 const aspectRatio = computed(() => {
   if (!naturalW.value || !naturalH.value) return 0.75
+  if (props.clip) {
+    const segW = naturalW.value * props.clip.w
+    const segH = naturalH.value * props.clip.h
+    if (segW <= 0) return 0.75
+    return segH / segW
+  }
   return naturalH.value / naturalW.value
 })
 
@@ -81,15 +127,9 @@ const displayWidth = computed(() => {
   return props.imageWidth || DEFAULT_WIDTH
 })
 
-const liveHeight = computed(() => {
-  return liveWidth.value * aspectRatio.value
-})
+const liveHeight = computed(() => liveWidth.value * aspectRatio.value)
+const displayHeight = computed(() => displayWidth.value * aspectRatio.value)
 
-const displayHeight = computed(() => {
-  return displayWidth.value * aspectRatio.value
-})
-
-// ★ Визуальные размеры — с учётом scale
 const visualWidth = computed(() => displayWidth.value * props.scale)
 const visualHeight = computed(() => displayHeight.value * props.scale)
 
@@ -97,6 +137,25 @@ const containerStyle = computed(() => ({
   width: `${visualWidth.value}px`,
   height: `${visualHeight.value}px`
 }))
+
+const clipStyle = computed(() => {
+  if (!props.clip) return {}
+  const { x, y, w, h } = props.clip
+
+  const sizeX = w > 0 ? 100 / w : 100
+  const sizeY = h > 0 ? 100 / h : 100
+
+  const posX = (1 - w) > 0.0001 ? (x / (1 - w)) * 100 : 0
+  const posY = (1 - h) > 0.0001 ? (y / (1 - h)) * 100 : 0
+
+  return {
+    backgroundImage: `url("${props.src}")`,
+    backgroundSize: `${sizeX}% ${sizeY}%`,
+    backgroundPosition: `${posX}% ${posY}%`,
+    backgroundRepeat: 'no-repeat'
+  }
+})
+
 // ─── Синхронизация props → liveWidth ────────
 
 watch(() => props.imageWidth, (val) => {
@@ -105,17 +164,27 @@ watch(() => props.imageWidth, (val) => {
   }
 })
 
+watch(() => props.clip, () => {
+  if (!props.imageWidth && naturalW.value) {
+    applyAutoWidth()
+  }
+}, { deep: true })
+
 // ─── Image Events ───────────────────────────
+
+function applyAutoWidth() {
+  const nw = props.clip
+    ? naturalW.value * props.clip.w
+    : naturalW.value
+  liveWidth.value = Math.min(Math.max(nw, MIN_WIDTH), DEFAULT_WIDTH)
+}
 
 function onLoad(e) {
   naturalW.value = e.target.naturalWidth
   naturalH.value = e.target.naturalHeight
 
   if (!props.imageWidth) {
-    liveWidth.value = Math.min(
-      Math.max(naturalW.value, MIN_WIDTH),
-      DEFAULT_WIDTH
-    )
+    applyAutoWidth()
   }
 }
 
@@ -174,36 +243,13 @@ function onTouchEnd() {
 
 // ─── Resize: Core Logic ─────────────────────
 
-/**
- * ★ Пропорциональный ресайз.
- *
- * Тянем за правый нижний угол → deltaX = основной вклад,
- * deltaY вносит пропорциональный вклад через aspectRatio.
- *
- *   ┌──────────────────────┐
- *   │                      │
- *   │      картинка        │  height = width × ratio
- *   │                      │
- *   └──────────────────── ◢ ← handle
- *                         ↘
- *                    drag direction
- *
- * Формула:  newWidth = startWidth + (deltaX + deltaY / ratio) / 2
- *
- * Центрирование:  left: 50% + translateX(-50%) в CSS
- * → при изменении width контейнер автоматически
- *   остаётся по центру ноды.
- */
 function updateSize(clientX, clientY) {
   const dx = clientX - startX.value
   const dy = clientY - startY.value
   const ratio = aspectRatio.value || 0.75
-  const scale = props.scale || 1   // ★
+  const scale = props.scale || 1
 
-  // Диагональная проекция + корректировка на scale узла:
-  // юзер видит контент в scale× размере, значит 1px мыши
-  // соответствует 1/scale единицы в pristine-модели.
-  const delta = (dx + dy / ratio) / 2 / scale   // ★ /scale
+  const delta = (dx + dy / ratio) / 2 / scale
 
   let newW = startWidth.value + delta
   newW = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, Math.round(newW)))
@@ -215,8 +261,6 @@ function updateSize(clientX, clientY) {
 function commit() {
   isResizing.value = false
   const finalWidth = Math.round(liveWidth.value)
-
-  // Финальный коммит с записью в history
   emit('resize-commit', finalWidth)
 }
 
@@ -237,10 +281,10 @@ onBeforeUnmount(() => {
   bottom: 100%;
   left: 50%;
   transform: translateX(-50%);
-  margin-bottom: 0.429em;           /* 6px */
-  border-radius: 0.714em;           /* 10px */
-  overflow: visible;
-  box-shadow: 0 0.286em 1.143em rgba(0, 0, 0, 0.15);  /* 4px 16px */
+  margin-bottom: 0.429em;
+  border-radius: 0.714em;
+  overflow: hidden;
+  box-shadow: 0 0.286em 1.143em rgba(0, 0, 0, 0.15);
   background: rgb(var(--v-theme-surface));
   z-index: 3;
   transition: transform 0.2s ease, width 0.15s ease, height 0.15s ease, box-shadow 0.2s ease;
@@ -248,7 +292,7 @@ onBeforeUnmount(() => {
 
 .node-image-float--resizing {
   transition: none !important;
-  box-shadow: 0 0.429em 1.714em rgba(0, 0, 0, 0.22);  /* 6px 24px */
+  box-shadow: 0 0.429em 1.714em rgba(0, 0, 0, 0.22);
 }
 
 .node-image {
@@ -256,23 +300,35 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 0.714em;           /* 10px */
+  border-radius: 0.714em;
+  pointer-events: none;
+  user-select: none;
+}
+
+.node-image--measure-only {
+  visibility: hidden;
+}
+
+.node-image-clip {
+  position: absolute;
+  inset: 0;
+  border-radius: 0.714em;
   pointer-events: none;
   user-select: none;
 }
 
 .node-image-resize {
   position: absolute;
-  right: -0.214em;                  /* -3px */
+  right: -0.214em;
   bottom: -0.214em;
-  width: 1.429em;                   /* 20px */
+  width: 1.429em;
   height: 1.429em;
   display: flex;
   align-items: center;
   justify-content: center;
   background: rgba(var(--v-theme-surface), 0.92);
-  border: 0.107em solid rgba(0, 0, 0, 0.12);  /* 1.5px */
-  border-radius: 0.214em 0 0.714em 0;         /* 3px 0 10px 0 */
+  border: 0.107em solid rgba(0, 0, 0, 0.12);
+  border-radius: 0.214em 0 0.714em 0;
   cursor: nwse-resize;
   color: rgba(0, 0, 0, 0.35);
   opacity: 0;
@@ -297,11 +353,13 @@ onBeforeUnmount(() => {
   opacity: 1;
 }
 
+/* ─── Кнопки в правом верхнем углу ─── */
+/* "Удалить" — самый правый */
 .node-image-remove {
   position: absolute;
-  top: 0.286em;                     /* 4px */
+  top: 0.286em;
   right: 0.286em;
-  width: 1.429em;                   /* 20px */
+  width: 1.429em;
   height: 1.429em;
   border-radius: 50%;
   border: none;
@@ -315,25 +373,50 @@ onBeforeUnmount(() => {
   transition: opacity 0.2s, transform 0.15s, background 0.2s;
   z-index: 5;
 }
-
 .node-image-float:hover .node-image-remove { opacity: 1; }
 .node-image-remove:hover {
   background: rgba(244, 67, 54, 0.9);
   transform: scale(1.1);
 }
 
+/* ★ "Редактировать сегменты" */
+.node-image-edit-segments {
+  position: absolute;
+  top: 0.286em;
+  left: 0.286em;
+  width: 1.429em;
+  height: 1.429em;
+  border-radius: 50%;
+  background: rgb(var(--v-theme-primary));
+  color: rgb(var(--v-theme-on-primary));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  /* box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); */
+  cursor: pointer;
+  opacity: 0.9;
+  transition: opacity 0.2s, transform 0.15s, background 0.2s;
+  z-index: 500;
+}
+.node-image-float:hover .node-image-edit-segments { opacity: 1; }
+.node-image-edit-segments:hover {
+  background: rgba(var(--v-theme-primary), 0.9);
+  transform: scale(1.2);
+}
+
 .node-image-size {
   position: absolute;
-  bottom: -1.571em;                 /* -22px */
+  bottom: -1.571em;
   left: 50%;
   transform: translateX(-50%);
   background: rgba(0, 0, 0, 0.72);
   color: white;
-  font-size: 0.714em;               /* 10px */
+  font-size: 0.714em;
   font-weight: 600;
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  padding: 0.143em 0.571em;         /* 2px 8px */
-  border-radius: 0.286em;           /* 4px */
+  padding: 0.143em 0.571em;
+  border-radius: 0.286em;
   white-space: nowrap;
   pointer-events: none;
   z-index: 6;

@@ -15,12 +15,14 @@
     <NodeImage
       v-if="hasImage"
       :src="imageSrc"
+      :clip="resolvedImage.clip ?? null"
       :is-root="isRoot"
       :image-width="pos.node.imageWidth"
       :scale="effectiveScale"
       @remove="$emit('removeImage')"
       @resize="(w) => $emit('resizeImage', w)"
       @resize-commit="(w) => $emit('resizeImageCommit', w)"
+      @edit-segments="$emit('editSegments', pos.id)"
     />
 
     <div class="map-node__bg" :style="bgStyle" />
@@ -80,6 +82,7 @@
         @edit="$emit('edit')"
         @reset-position="$emit('resetPosition')"
         @delete="$emit('delete')"
+        @edit-segments="$emit('editSegments', pos.id)"
       />
     </NodeContent>
 
@@ -121,23 +124,17 @@ const props = defineProps({
 const emit = defineEmits([
   'edit', 'addChild', 'delete', 'toggle',
   'resetPosition', 'startDrag',
-  'setImage', 'removeImage',
+  'setImage', 'setImageById', 'removeImage',  // ★ +setImageById
   'resizeImage', 'resizeImageCommit',
   'openNotes', 'toggleNotePin', 'toggleNotesVisible',
-  'focusNode'
+  'focusNode','editSegments'
 ])
 
 const imageInput = ref(null)
 const isImageDragOver = ref(false)
 const isHovered = ref(false)
 
-// ★ Inject'ы из Canvas
 const globalZoom = inject('globalZoom', ref(1))
-
-// ★ НОВЫЙ inject: резолвер картинок из пула.
-//   Если provide не найден — картинки просто не показываются (hasImage=false).
-//   Это безопасный фоллбек для случаев, когда MapNode используется вне Canvas
-//   (например, в тестах).
 const imageStorage = inject('imageStorage', null)
 
 const isRoot = computed(() => props.pos.depth === 0)
@@ -145,7 +142,6 @@ const isLeaf = computed(() => props.pos.depth >= 2)
 const hasChildren = computed(() => props.pos.node.children?.length > 0)
 const hasNotes = computed(() => !!props.pos.node.notes?.trim())
 
-// ★ ИЗМЕНЕНО: резолв картинки через пул по imageId
 const resolvedImage = computed(() => {
   const id = props.pos.node.imageId
   if (!id || !imageStorage) return null
@@ -154,15 +150,10 @@ const resolvedImage = computed(() => {
 
 const hasImage = computed(() => resolvedImage.value !== null)
 const imageSrc = computed(() => resolvedImage.value?.dataUrl ?? '')
-// ★ Для будущих сегментов (Коммит 3). Сейчас всегда undefined для raw.
-// const imageClip = computed(() => resolvedImage.value?.clip ?? null)
 
 const isDragging = computed(() => props.isBeingDragged || props.isInDragGroup)
 
-// ★ Персональный scale узла (1 по умолчанию)
 const nodeScale = computed(() => props.pos.node.scale ?? NODE_SCALE.DEFAULT)
-
-// ★ Эффективный scale с учётом сопротивления global zoom
 const effectiveScale = computed(() =>
   computeEffectiveScale(nodeScale.value, globalZoom.value)
 )
@@ -217,14 +208,25 @@ async function onImageSelected(e) {
 }
 
 function onImageDragOver(e) {
-  if (e.dataTransfer?.types?.includes('Files')) {
+  const types = e.dataTransfer?.types ?? []
+  if (types.includes('Files') || types.includes('application/x-mindmap-image-id')) {
     isImageDragOver.value = true
     e.dataTransfer.dropEffect = 'copy'
   }
 }
 
+// ★ ИЗМЕНЕНО: сначала проверяем id из галереи, потом файл
 async function onImageDrop(e) {
   isImageDragOver.value = false
+
+  // 1) Drop карточки из галереи
+  const galleryImageId = e.dataTransfer?.getData('application/x-mindmap-image-id')
+  if (galleryImageId) {
+    emit('setImageById', galleryImageId)
+    return
+  }
+
+  // 2) Drop файла из ОС (старое поведение)
   const file = getImageFromDrop(e)
   if (!file) return
   try { emit('setImage', await processImageFile(file)) }
@@ -233,7 +235,7 @@ async function onImageDrop(e) {
 </script>
 
 <style scoped>
-/* … весь CSS без изменений … */
+/* … стили без изменений … */
 .map-node {
   position: absolute;
   cursor: grab;

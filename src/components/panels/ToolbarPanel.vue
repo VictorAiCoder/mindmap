@@ -4,10 +4,38 @@
     <v-app-bar-title class="d-flex align-center">
       <v-icon icon="mdi-brain" class="mr-2" />
       <span class="font-weight-bold">MindMap</span>
+      
+      <v-divider vertical class="mx-1" />
+      <!-- ★ Галерея -->
+      <v-tooltip text="Галерея картинок" location="bottom">
+        <template #activator="{ props }">
+          <v-btn
+            v-bind="props"
+            variant="text"
+            :active="galleryOpen"
+            @click="emit('toggleGallery')"
+          >
+            <v-badge
+              :content="imagesTotal"
+              :model-value="imagesTotal > 0"
+              :color="imagesUnused > 0 ? 'warning' : 'grey-lighten-1'"
+              offset-x="-4"
+              offset-y="-4"
+            >
+              <v-icon icon="mdi-image-multiple" />
+            </v-badge>
+          </v-btn>
+        </template>
+      </v-tooltip>
+
+      <!-- <v-divider vertical class="mx-1" /> -->
+
       <v-chip size="small" class="ml-3" variant="tonal" color="white">
         {{ nodeCount }} узлов · глубина {{ depth }}
       </v-chip>
     </v-app-bar-title>
+
+    
 
     <template #append>
       
@@ -116,6 +144,8 @@
           <v-btn v-bind="props" icon="mdi-redo" variant="text" :disabled="!canRedo" @click="emit('redo')" />
         </template>
       </v-tooltip>
+
+      <div class="mx-4" />
      
     </template>
 
@@ -157,6 +187,10 @@ interface Props {
   canUndo?: boolean
   canRedo?: boolean
   isDark?: boolean
+  // ★ Галерея
+  imagesTotal?: number
+  imagesUnused?: number
+  galleryOpen?: boolean
 }
 
 withDefaults(defineProps<Props>(), {
@@ -164,7 +198,10 @@ withDefaults(defineProps<Props>(), {
   depth: 0,
   canUndo: false,
   canRedo: false,
-  isDark: false
+  isDark: false,
+  imagesTotal: 0,
+  imagesUnused: 0,
+  galleryOpen: false
 })
 
 const emit = defineEmits<{
@@ -176,6 +213,7 @@ const emit = defineEmits<{
   toggleTheme: []
   autoLayout: [type: LayoutType]
   resetLayout: []
+  toggleGallery: []   // ★
 }>()
 
 const layoutTypes = LAYOUT_TYPES

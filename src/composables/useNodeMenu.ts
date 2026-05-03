@@ -162,6 +162,26 @@ function registerMenuEl(el: HTMLElement | null) {
   menuElRef.value = el
 }
 
+// ★ Состояние редактора сегментов (по аналогии с importDialog)
+const segmentEditorOpen = ref(false)
+const segmentEditorSourceId = ref<string | null>(null)
+const segmentEditorNodeId = ref<string | null>(null)
+
+function openSegmentEditor(nodeId: string, sourceImageId: string): void {
+  // Закрываем меню, если оно открыто
+  closeMenu?.()
+  segmentEditorNodeId.value = nodeId
+  segmentEditorSourceId.value = sourceImageId
+  segmentEditorOpen.value = true
+}
+
+function closeSegmentEditor(): void {
+  segmentEditorOpen.value = false
+  segmentEditorSourceId.value = null
+  segmentEditorNodeId.value = null
+}
+
+
 export function useNodeMenu() {
   return {
     isOpen,
@@ -176,5 +196,10 @@ export function useNodeMenu() {
     importDialogTargetId,
     openImportDialog,
     closeImportDialog,
+    segmentEditorOpen,
+    segmentEditorSourceId,
+    segmentEditorNodeId,
+    openSegmentEditor,
+    closeSegmentEditor,
   }
 }

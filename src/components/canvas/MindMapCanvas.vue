@@ -47,6 +47,7 @@
           @reset-position="handleResetPosition(pos.id)"
           @start-drag="(e: MouseEvent) => nodeDrag.startNodeDrag(e, pos.id, pos.x, pos.y)"
           @set-image="(url: string) => handleSetImage(pos.id, url)"
+          @set-image-by-id="(imageId: string) => handleSetImageById(pos.id, imageId)"
           @remove-image="handleRemoveImage(pos.id)"
           @resize-image="(w: number) => mindmap.setImageWidth(pos.id, w)"
           @resize-image-commit="(w: number) => mindmap.commitImageResize(pos.id, w)"
@@ -54,6 +55,7 @@
           @toggle-note-pin="handleToggleNotePin(pos.node.id)"
           @toggle-notes-visible="handleToggleNotesVisible(pos.node.id)"
           @focus-node="handleFocusNode(pos)"
+          @edit-segments="handleEditSegment(pos.id)"
         />
         <NodeActionsMenu />
       </div>
@@ -84,7 +86,22 @@
       </div>
     </div>
 
+    <!-- Панель заметок (справа) -->
     <NotesPanel :node-id="notesNodeId" @close="notesNodeId = null" />
+
+    <SegmentEditorPanel
+      :open="segmentEditorOpen"
+      :source-id="segmentEditorSourceId"
+      :mindmap="mindmap"
+      @close="closeSegmentEditor"
+    />
+
+    <!-- ★ Панель галереи картинок (слева) -->
+    <ImageGalleryPanel
+      v-model="galleryOpenLocal"
+      @highlight-nodes="handleHighlightFromGallery"
+      @dropped="handleGalleryDropped"
+    />
 
     <DragHint
       :is-dragging="nodeDrag.isDraggingNode.value"
@@ -105,9 +122,11 @@ import { ref, computed, watch, onMounted, nextTick, provide } from 'vue'
 
 import MapNode from '../node/MapNode.vue'
 import NotesPanel from '../panels/NotesPanel.vue'
+import ImageGalleryPanel from '../panels/ImageGalleryPanel.vue'
 import DragHint from './DragHint.vue'
 import CanvasControls from './CanvasControls.vue'
 import NodeActionsMenu from '../node/NodeActionsMenu.vue'
+import SegmentEditorPanel from '../panels/segment-editor/SegmentEditorPanel.vue'
 
 import { useLayout } from '../../composables/layout/useLayout'
 import { useNodeDrag } from '../../composables/drag/useNodeDrag'
@@ -118,6 +137,17 @@ import { injectStrict } from '../../utils/injectStrict'
 import { mindMapKey, notifyKey } from '../../types/injection-keys'
 
 import type { LayoutPosition, PositionMap } from '../../types/layout'
+
+// ─── Props / Emits (для v-model:gallery-open от родителя) ───
+const props = withDefaults(defineProps<{
+  galleryOpen?: boolean
+}>(), {
+  galleryOpen: false
+})
+
+const emit = defineEmits<{
+  'update:galleryOpen': [value: boolean]
+}>()
 
 // ─── Инжекции ───────────────────────────────
 const mindmap = injectStrict(mindMapKey)
@@ -179,9 +209,6 @@ function handleFocusNode(pos: LayoutPosition) {
 }
 
 // ─── Node Drag ──────────────────────────────
-// Сбор live-позиций для узлов без customX/Y.
-// Передаётся в useNodeDrag — он вызовет функцию при finishDrag
-// и передаст результат в mindmap.moveNodeGroup.
 function buildLayoutPositionMap(): PositionMap {
   const map: PositionMap = new Map()
   for (const pos of layoutData.value.positions) {
@@ -310,6 +337,11 @@ function handleSetImage(nodeId: string, dataUrl: string) {
   notify('Картинка добавлена', 'success', 'mdi-image')
 }
 
+function handleSetImageById(nodeId: string, imageId: string) {
+  mindmap.setNodeImageById(nodeId, imageId)
+  notify('Картинка прикреплена', 'success', 'mdi-image-check')
+}
+
 function handleRemoveImage(nodeId: string) {
   mindmap.removeNodeImage(nodeId)
   notify('Картинка удалена', 'info', 'mdi-image-off')
@@ -325,6 +357,75 @@ function handleToggleNotePin(nodeId: string) {
 function handleToggleNotesVisible(nodeId: string) {
   mindmap.toggleNotesVisible(nodeId)
 }
+
+// ─── Gallery Panel ──────────────────────────
+// v-model мост: внешний prop ↔ внутреннее состояние drawer'а
+const galleryOpenLocal = computed<boolean>({
+  get: () => props.galleryOpen,
+  set: (v) => emit('update:galleryOpen', v)
+})
+
+function handleHighlightFromGallery(nodeIds: string[]) {
+  if (nodeIds.length === 0) return
+  const target = layoutData.value.positions.find(p => nodeIds.includes(p.id))
+  if (target) handleFocusNode(target)
+}
+
+// ★ Закрываем галерею после удачного drop картинки в узел.
+// Плюс принудительно снимаем глобальный класс, чтобы оверлей
+// гарантированно вернул свой обычный вид (на случай, если dragend
+// в карточке не выстрелит до размонтирования drawer'а).
+function handleGalleryDropped() {
+  document.body.classList.remove('mindmap-dragging-image')
+  galleryOpenLocal.value = false
+}
+
+// ─── Segment Editor ─────────────────────────
+const segmentEditorOpen = ref<boolean>(false)
+const segmentEditorSourceId = ref<string | null>(null)
+
+/**
+ * Открыть редактор сегментов для картинки узла.
+ *
+ * Логика:
+ *  - У узла должна быть привязана картинка (imageId).
+ *  - Если картинка — raw, редактируем её сегменты напрямую.
+ *  - Если картинка — segment (узел показывает сегмент),
+ *    редактируем сегменты её источника (sourceId).
+ *  - В обоих случаях открывается редактор для raw-источника.
+ */
+function handleEditSegment(nodeId: string) {
+  const node = mindmap.findNode(nodeId)
+  if (!node?.imageId) {
+    notify('У узла нет картинки', 'warning', 'mdi-image-off')
+    return
+  }
+
+  const img = mindmap.imageStorage.images.value.find(i => i.id === node.imageId)
+  if (!img) {
+    notify('Картинка не найдена', 'error', 'mdi-alert')
+    return
+  }
+
+  // Резолвим до raw-источника
+  const sourceId = img.kind === 'raw' ? img.id : img.sourceId
+
+  // Дополнительная проверка, что источник действительно есть
+  const source = mindmap.imageStorage.images.value.find(i => i.id === sourceId)
+  if (!source || source.kind !== 'raw') {
+    notify('Не удалось найти исходную картинку', 'error', 'mdi-alert')
+    return
+  }
+
+  segmentEditorSourceId.value = sourceId
+  segmentEditorOpen.value = true
+}
+
+function closeSegmentEditor() {
+  segmentEditorOpen.value = false
+  segmentEditorSourceId.value = null
+}
+
 </script>
 
 <style scoped>

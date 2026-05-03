@@ -7,6 +7,7 @@
       :can-undo="canUndo"
       :can-redo="canRedo"
       :is-dark="isDark"
+      @toggle-gallery="galleryOpen = !galleryOpen"
       @export="handleExport"
       @import="handleImport"
       @reset="resetToDefault"
@@ -17,8 +18,11 @@
       @reset-layout="handleResetLayout"
     />
 
-    <v-main>
-      <MindMap />
+    <v-main>  
+      <!-- <div style="position:fixed;top:80px;left:10px;z-index:9999;background:yellow;padding:4px">
+        galleryOpen = {{ galleryOpen }}
+      </div> -->
+      <MindMap v-model:gallery-open="galleryOpen" />
     </v-main>
 
     <ImportMarkdownHost />
@@ -36,7 +40,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, provide } from 'vue'
+import { ref, reactive, provide } from 'vue'
 import ToolbarPanel from './components/panels/ToolbarPanel.vue'
 import MindMap from './components/MindMap.vue'
 import ImportMarkdownHost from './components/node/ImportMarkdownHost.vue'
@@ -50,10 +54,20 @@ import {
   type NotifyFn
 } from './types/injection-keys'
 import type { LayoutType, ExportFormat } from './types/mindmap-api'
+import ImageGalleryPanel from './components/panels/ImageGalleryPanel.vue'
 
 // ─── Core ────────────────────────────────────────────
 
 const mindmap = useMindMap()
+const galleryOpen = ref<boolean>(false)
+
+function handleHighlightNodes(nodeIds: string[]) {
+  // Пока просто лог. Потом можно подключить через inject-ключ
+  // или emit в MindMap.
+  console.log('[Gallery] highlight:', nodeIds)
+  notify(`Использ. в ${nodeIds.length} узел(ах)`, 'info', 'mdi-target')
+}
+
 provide(mindMapKey, mindmap)
 
 // Деструктуризация refs — чтобы в шаблоне работала авто-распаковка
@@ -140,4 +154,13 @@ function handleResetLayout(): void {
 
 <style>
 html, body { overflow-y: auto; }
+
+/* Глобально (без scoped!) */
+body.mindmap-dragging-image .v-overlay__scrim,
+body.mindmap-dragging-image .v-navigation-drawer__scrim,
+body.mindmap-dragging-image .v-overlay--active > .v-overlay__scrim {
+  pointer-events: none !important;
+  opacity: 0 !important;          /* ★ убираем серую заливку */
+  transition: opacity 0.15s;
+}
 </style>

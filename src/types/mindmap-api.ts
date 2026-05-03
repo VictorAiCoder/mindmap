@@ -7,9 +7,10 @@ import type {
   ScenePosition 
 } from './mindmap'
 import type { PositionMap } from './layout'
+import type { SegmentOperationsApi } from '@/composables/image/useSegmentOperations'
 
 // ════════════════════════════════════════════
-// ★ НОВЫЙ интерфейс: ImageStorageApi
+// ★ ImageStorageApi — "тупой" CRUD пула картинок
 // ════════════════════════════════════════════
 
 export interface ResolvedImage {
@@ -44,15 +45,49 @@ export interface ImageStorageApi {
   /**
    * Удаляет картинку из пула безусловно.
    * ⚠️ Не проверяет использование — узлы с этим imageId потеряют картинку.
-   * Используется в галерее (Коммит 3).
+   * ⚠️ Не пишет в историю.
    */
   remove(id: string): void
 
   /**
-   * Возвращает id всех узлов, использующих данную картинку.
-   * Для предупреждений перед удалением.
+   * Переименовывает картинку. Пустое/whitespace имя игнорируется.
+   * ⚠️ Не пишет в историю.
    */
-  findUsages(id: string): string[]
+  rename(id: string, name: string): void
+
+  /** Количество картинок в пуле (реактивное) */
+  totalCount: ComputedRef<number>
+
+   /**
+   * Создаёт сегмент из существующей RawImage.
+   * ⚠️ sourceId должен указывать на картинку kind === 'raw'.
+   * Сегменты из сегментов не поддерживаются.
+   * ⚠️ Не пишет в историю.
+   * @returns id созданного сегмента или null если sourceId невалидный
+   */
+  addSegment(
+    sourceId: string,
+    clip: { x: number; y: number; w: number; h: number },
+    name?: string
+  ): string | null
+
+  /**
+   * Обновляет прямоугольник и/или имя сегмента.
+   * ⚠️ Не пишет в историю.
+   */
+  updateSegment(
+    id: string,
+    patch: Partial<{ 
+      clip: { x: number; y: number; w: number; h: number }
+      name: string 
+    }>
+  ): void
+
+  /**
+   * Возвращает все сегменты, построенные от указанного источника.
+   * (Реактивно через computed в вызывающем коде, если нужно.)
+   */
+  listSegmentsOf(sourceId: string): readonly import('./mindmap').ImageSegment[]
 }
 
 // ─── Layout ────────────────────────────────────────
@@ -125,6 +160,39 @@ export interface TreeOperationsApi {
   ): void
   findNode(id: string): MindMapNode | null
   importMarkdownIntoNode: (nodeId: string, markdown: string) => number
+
+  // ── ★ Image-aware tree operations (history-aware) ──
+
+  /**
+   * Привязывает к узлу существующую картинку из пула.
+   * Снимает прежнюю привязку (если была) и пишет историю.
+   */
+  setNodeImageById: (nodeId: string, imageId: string) => void
+
+  /**
+   * Переименовывает картинку с записью в историю.
+   */
+  renameImage: (imageId: string, name: string) => void
+
+  /**
+   * Удаляет картинку из пула и снимает её со всех узлов.
+   * Пишет историю.
+   * @returns количество узлов, у которых снята привязка
+   */
+  deleteImageWithDetach: (imageId: string) => number
+
+  /**
+   * Удаляет из пула все картинки, на которые нет ссылок.
+   * Пишет историю только если что-то удалено.
+   * @returns число удалённых картинок
+   */
+  purgeUnusedImages: () => number
+
+  /**
+   * Возвращает id узлов, использующих данную картинку.
+   * (Не мутирует, не пишет историю.)
+   */
+  findImageUsages: (imageId: string) => string[]
 }
 
 // ─── History ───────────────────────────────────────
@@ -156,13 +224,12 @@ export type ExportFormat = 'json' | 'md' | 'markdown'
 
 export interface PersistenceApi {
   exportTree: (format?: ExportFormat) => string,
-  // importTree: (file: File) => Promise<MindMapNode>
   importTree(file: File): Promise<MindMapDocument>
 }
 
 // ─── Фасад ─────────────────────────────────────────
 
-export interface MindMapApi extends TreeOperationsApi, PersistenceApi {
+export interface MindMapApi extends TreeOperationsApi, PersistenceApi, SegmentOperationsApi {
   rootNode: Ref<MindMapNode>
 
   /** UI-состояние drag&drop (для списков в панелях) */
@@ -180,5 +247,9 @@ export interface MindMapApi extends TreeOperationsApi, PersistenceApi {
   nodeCount: ComputedRef<number>
   /** Глубина дерева (реактивное) */
   treeDepth: ComputedRef<number>
+
+  /** Реактивное количество неиспользуемых картинок (требует обхода дерева) */
+  unusedImageCount: ComputedRef<number>
+
   imageStorage: ImageStorageApi
 }

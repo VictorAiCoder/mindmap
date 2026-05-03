@@ -10,21 +10,6 @@
         @mousedown.stop.prevent
         @click.stop
       >
-        <button v-if="!p.hasImage" class="menu-item" @click="act('addImage')">
-          <v-icon icon="mdi-image-plus" size="16" />
-          <span>Добавить картинку</span>
-        </button>
-
-        <button class="menu-item" @click="act('openNotes')">
-          <v-icon
-            :icon="p.hasNotes ? 'mdi-text-box-edit-outline' : 'mdi-text-box-plus-outline'"
-            size="16"
-          />
-          <span>{{ p.hasNotes ? 'Редактировать заметку' : 'Добавить заметку' }}</span>
-        </button>
-
-        <div class="menu-divider" />
-
         <button class="menu-item" @click="act('addChild')">
           <v-icon icon="mdi-plus-circle-outline" size="16" />
           <span>Добавить потомка</span>
@@ -35,12 +20,6 @@
           <span>Импорт Markdown…</span>
         </button>
 
-        <button class="menu-item" @click="act('edit')">
-          <v-icon icon="mdi-pencil-outline" size="16" />
-          <span>Переименовать</span>
-        </button>
-
-        <!-- ★ Секция масштаба узла -->
         <div class="menu-divider" />
 
         <div class="menu-scale" @mousedown.stop>
@@ -77,6 +56,30 @@
             <span>250%</span>
           </div>
         </div>
+
+        <button class="menu-item" @click="act('edit')">
+          <v-icon icon="mdi-pencil-outline" size="16" />
+          <span>Переименовать</span>
+        </button>
+
+        <div class="menu-divider" />
+
+        <button v-if="!p.hasImage" class="menu-item" @click="act('addImage')">
+          <v-icon icon="mdi-image-plus" size="16" />
+          <span>Добавить картинку</span>
+        </button>
+        <button v-else class="menu-item" @click="act('editSegments')">
+          <v-icon icon="mdi-crop" size="16" />
+          <span>Редактор сегментов</span>
+        </button>
+
+        <button class="menu-item" @click="act('openNotes')">
+          <v-icon
+            :icon="p.hasNotes ? 'mdi-text-box-edit-outline' : 'mdi-text-box-plus-outline'"
+            size="16"
+          />
+          <span>{{ p.hasNotes ? 'Редактор заметки' : 'Добавить заметку' }}</span>
+        </button>
 
         <template v-if="p.pinned || !p.isRoot">
           <div class="menu-divider" />

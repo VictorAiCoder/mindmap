@@ -7,6 +7,7 @@ import { useDragDrop } from './drag/useDragDrop'
 import { usePersistence, loadFromStorage } from './persistence/usePersistence'
 import { createDefaultDocument } from './tree/useNodeFactory'
 import { countNodes, getDepth } from './tree/useTreeTraversal'
+import { useSegmentOperations } from './image/useSegmentOperations'
 
 import type { MindMapNode, MindMapDocument, StoredImage } from '@/types/mindmap'
 import type { MindMapApi } from '@/types/mindmap-api'
@@ -39,6 +40,21 @@ export function useMindMap(): MindMapApi {
   //    там нужен triggerRef, который работает только с "настоящими" ref.
   const tree = useTreeOperations(document, history)
   const imageStorage = useImageStorage(images, rootNode)
+  const unusedImageCount = computed(() => {
+    const root = rootNode.value
+    
+    if (!root) return imageStorage.totalCount.value
+
+      const usedIds = new Set<string>()
+      const stack: MindMapNode[] = [root]
+      while (stack.length) {
+        const n = stack.pop()!
+        if (n.imageId) usedIds.add(n.imageId)
+        if (n.children) stack.push(...n.children)
+      }
+
+    return imageStorage.images.value.filter((img) => !usedIds.has(img.id)).length
+  })
   const drag = useDragDrop(rootNode, history)
   const persistence = usePersistence(document, imageStorage)
 
@@ -56,11 +72,14 @@ export function useMindMap(): MindMapApi {
     return imported
   }
 
+  const segmentOps = useSegmentOperations(document, history, imageStorage)
+
   return {
     rootNode,
     imageStorage,
-
+    unusedImageCount,
     ...tree,
+    ...segmentOps,
 
     drag,
 
@@ -74,6 +93,6 @@ export function useMindMap(): MindMapApi {
 
     resetToDefault,
     nodeCount,
-    treeDepth,
+    treeDepth
   }
 }

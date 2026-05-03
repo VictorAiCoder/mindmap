@@ -32,6 +32,7 @@ const emit = defineEmits<{
   edit: []
   resetPosition: []
   delete: []
+  editSegments: []
 }>()
 
 const { isOpen, activeMenuId, openMenu } = useNodeMenu()
