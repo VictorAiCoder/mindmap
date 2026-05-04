@@ -1,7 +1,7 @@
 // src/composables/image/useSegmentOperations.ts
 import type { Ref } from 'vue'
 import { triggerRef } from 'vue'
-import type { MindMapDocument } from '@/types/mindmap'
+import type { MindMapDocument } from '@entities/mindmap'
 import type { HistoryApi, ImageStorageApi } from '@/types/mindmap-api'
 
 /**

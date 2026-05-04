@@ -107,7 +107,7 @@
 
 <script setup lang="ts">
 import { ref, nextTick, onUnmounted } from 'vue'
-import type { StoredImage } from '@/types/mindmap'
+import type { StoredImage } from '@entities/image'
 import ImagePreview from './ImagePreview.vue'
 
 const props = defineProps<{

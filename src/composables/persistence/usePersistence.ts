@@ -5,13 +5,9 @@ import { exportToMarkdown } from './exportMarkdown'
 import { parseMarkdownToTree } from './importMarkdown'
 import { createDefaultDocument } from '@/composables/tree/useNodeFactory'
 
-import type {
-  MindMapNode,
-  MindMapDocument,
-  StoredImage,
-  RawImage,
-  ImageSegment,
-} from '@/types/mindmap'
+import type { MindMapNode } from '@entities/node'
+import type { StoredImage, RawImage, ImageSegment } from '@entities/image'
+import type { MindMapDocument } from '@entities/mindmap'
 import type {
   PersistenceApi,
   ExportFormat,

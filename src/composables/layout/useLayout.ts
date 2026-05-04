@@ -6,7 +6,7 @@ import {
 } from '../constants'
 import { NODE_SCALE } from '../../types/mindmap-constants'
 import { traverseTree } from '../tree/useTreeTraversal'
-import type { MindMapNode } from '../../types/mindmap'
+import type { MindMapNode } from '@entities/node'
 import type { LayoutData, LayoutPosition, LayoutBounds } from '../../types/layout'
 
 export function useLayout(

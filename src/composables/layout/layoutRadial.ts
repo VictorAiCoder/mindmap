@@ -1,5 +1,5 @@
 import { GAP_H, ROOT_W, ROOT_H, DEFAULT_CENTER_X, DEFAULT_CENTER_Y } from '../constants'
-import type { MindMapNode, ScenePosition } from '@/types/mindmap'
+import type { MindMapNode, ScenePosition } from '@entities/node'
 import { getNodeWidth, getNodeHeight } from './layoutUtils'
 
 const BASE_RADIUS = 360

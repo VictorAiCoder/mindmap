@@ -1,6 +1,6 @@
 // src/composables/image/useImageStorage.ts
 import { computed, type Ref } from 'vue'
-import type { StoredImage, ImageSegment, Clip } from '@/types/mindmap'  // ★ + Clip
+import type { StoredImage, ImageSegment, Clip } from '@entities/image'  // ★ + Clip
 import type { ImageStorageApi, ResolvedImage } from '@/types/mindmap-api'
 
 /**

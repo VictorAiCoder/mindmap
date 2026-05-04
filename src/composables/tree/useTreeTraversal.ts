@@ -1,5 +1,5 @@
 // src/composables/tree/useTreeTraversal.ts
-import type { MindMapNode } from '@/types/mindmap'
+import type { MindMapNode } from '@entities/node'
 
 /**
  * Обход дерева в глубину. Вызывает callback для каждого узла.

@@ -1,7 +1,7 @@
 // src/composables/tree/useNodeFactory.ts
 import { NODE_COLORS, DEFAULT_COLOR } from '../constants'
-import type { MindMapNode } from '@/types/mindmap'
-import type { MindMapDocument } from '@/types/mindmap'
+import type { MindMapNode } from '@entities/node'
+import type { MindMapDocument } from '@entities/mindmap'
 
 /**
  * Опции для createNode — все поля узла, но опциональные.

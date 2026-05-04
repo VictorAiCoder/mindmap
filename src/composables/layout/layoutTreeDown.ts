@@ -1,4 +1,4 @@
-import type { MindMapNode } from '@/types/mindmap'
+import type { MindMapNode } from '@entities/node'
 import { GAP_H, DEFAULT_CENTER_X } from '../constants'
 import { getNodeWidth, getNodeHeight, calcSubtreeWidth } from './layoutUtils'
 

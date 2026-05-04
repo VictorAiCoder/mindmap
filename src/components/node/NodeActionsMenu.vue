@@ -105,7 +105,7 @@ import { useNodeMenu, type NodeMenuHandlers } from '@/composables/useNodeMenu'
 import { injectStrict } from '@shared/lib/injectStrict'
 import { mindMapKey } from '@/types/injection-keys'
 import { NODE_SCALE } from '@/types/mindmap-constants'
-import type { Center2D } from '@/types/mindmap'
+import type { Center2D } from '@entities/node'
 
 const { 
   isOpen, 

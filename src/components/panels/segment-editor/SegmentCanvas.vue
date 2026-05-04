@@ -48,7 +48,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import type { ImageSegment } from '@/types/mindmap'
+import type { ImageSegment } from '@entities/image'
 import type { Rect, Corner } from '@/composables/image/useSegmentEditor'
 
 const props = defineProps<{

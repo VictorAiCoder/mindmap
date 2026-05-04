@@ -1,5 +1,5 @@
 // src/composables/persistence/exportMarkdown.ts
-import type { MindMapNode } from '@/types/mindmap'
+import type { MindMapNode } from '@entities/node'
 import type { ImageStorageApi } from '@/types/mindmap-api'
 
 /**

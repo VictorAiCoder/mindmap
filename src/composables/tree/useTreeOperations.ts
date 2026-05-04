@@ -10,7 +10,9 @@ import {
 import { createNode } from './useNodeFactory'
 import { applyAutoLayout, resetLayout } from '../layout/useAutoLayout'
 
-import type { MindMapNode, MindMapDocument, ScenePosition, RawImage, Center2D } from '@/types/mindmap'
+import type { MindMapNode, ScenePosition, Center2D } from '@entities/node'
+import type { RawImage } from '@entities/image'
+import type { MindMapDocument } from '@entities/mindmap'
 import type {
   TreeOperationsApi,
   HistoryApi,

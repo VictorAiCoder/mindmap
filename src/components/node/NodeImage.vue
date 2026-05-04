@@ -60,7 +60,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onBeforeUnmount, type CSSProperties } from 'vue'
-import type { Clip } from '@/types/mindmap'
+import type { Clip } from '@entities/image'
 
 // ─── Props / Emits ──────────────────────────
 

@@ -100,7 +100,7 @@
 import { computed, ref, watch } from 'vue'
 import { useSegmentEditor } from '@/composables/image/useSegmentEditor'
 import type { MindMapApi } from '@/types/mindmap-api'
-import type { ImageSegment } from '@/types/mindmap'
+import type { ImageSegment } from '@entities/image'
 import SegmentCanvas from './SegmentCanvas.vue'
 
 const props = defineProps<{

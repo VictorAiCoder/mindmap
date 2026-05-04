@@ -109,7 +109,8 @@ import ImageGalleryCard from './ImageGalleryCard.vue'
 import { injectStrict } from '@shared/lib/injectStrict'
 import { mindMapKey, notifyKey } from '../../types/injection-keys'
 
-import type { MindMapNode, StoredImage } from '@/types/mindmap'
+import type { MindMapNode } from '@entities/node'
+import type { StoredImage } from '@entities/image'
 
 // ─── Props / Emits (v-model) ────────────────
 const props = withDefaults(defineProps<{

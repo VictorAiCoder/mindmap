@@ -1,4 +1,4 @@
-import type { MindMapNode } from '@/types/mindmap'
+import type { MindMapNode } from '@entities/node'
 import {
   NODE_W, NODE_H, ROOT_W, ROOT_H,
   NOTE_LINE_HEIGHT, NOTE_PADDING, NOTE_MAX_PREVIEW_LINES,

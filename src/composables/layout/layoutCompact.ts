@@ -1,5 +1,5 @@
 import { GAP_H } from '../constants'
-import type { MindMapNode, ScenePosition } from '@/types/mindmap'
+import type { MindMapNode, ScenePosition } from '@entities/node'
 import { getNodeWidth, getNodeHeight, calcSubtreeHeight } from './layoutUtils'
 
 const V_GAP = 12

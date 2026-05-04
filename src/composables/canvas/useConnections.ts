@@ -1,6 +1,6 @@
 // src/composables/canvas/useConnections.ts
 import { computed, type ComputedRef, type Ref } from 'vue'
-import type { MindMapNode } from '@/types/mindmap'
+import type { MindMapNode } from '@entities/node'
 import type { LayoutData, LayoutPosition } from '@/types/layout'
 import { calcBezierPath, type NodeBox } from '@shared/lib/bezier'
 

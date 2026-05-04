@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { ref } from 'vue'
 import { useConnections, type GetLivePosition } from '../useConnections'
-import type { MindMapNode } from '@/types/mindmap'
+import type { MindMapNode } from '@entities/node'
 import type { LayoutData, LayoutPosition } from '@/types/layout'
 
 // ---------- Фабрики тестовых данных ----------

@@ -1,5 +1,5 @@
 // src/types/layout.ts
-import type { MindMapNode } from './mindmap'
+import type { MindMapNode } from '@entities/node'
 
 /**
  * Позиция узла на канвасе.

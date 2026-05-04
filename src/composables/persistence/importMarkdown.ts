@@ -1,6 +1,7 @@
 // src/composables/persistence/importMarkdown.ts
 import type { Ref } from 'vue'
-import type { MindMapNode, StoredImage, RawImage } from '@/types/mindmap'
+import type { MindMapNode } from '@entities/node'
+import type { StoredImage, RawImage } from '@entities/image'
 import { createNode } from '../tree/useNodeFactory'
 
 // ============================================================================

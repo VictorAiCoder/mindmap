@@ -15,7 +15,8 @@
     "paths": {
       "@/*": ["./src/*"],
       "@features/*": ["./src/features/*"],
-      "@shared/*": ["./src/shared/*"]
+      "@shared/*": ["./src/shared/*"],
+      "@entities/*": ["./src/entities/*"],
     },
 
     "allowJs": true,

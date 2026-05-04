@@ -8,7 +8,9 @@ import { createDefaultDocument } from './tree/useNodeFactory'
 import { countNodes, getDepth } from './tree/useTreeTraversal'
 import { useSegmentOperations } from './image/useSegmentOperations'
 
-import type { MindMapNode, MindMapDocument, StoredImage } from '@/types/mindmap'
+import type { MindMapNode } from '@entities/node'
+import type { StoredImage } from '@entities/image'
+import type { MindMapDocument } from '@entities/mindmap'
 import type { MindMapApi } from '@/types/mindmap-api'
 
 export function useMindMap(): MindMapApi {

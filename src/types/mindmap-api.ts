@@ -1,14 +1,8 @@
 // src/types/mindmap-api.ts
 import type { Ref, ComputedRef } from 'vue'
-import type {
-  MindMapNode,
-  MindMapDocument,
-  StoredImage,
-  ImageSegment,
-  Clip,        
-  ScenePosition,
-  Center2D 
-} from './mindmap'
+import type { MindMapNode, ScenePosition, Center2D } from '@entities/node'
+import type { StoredImage, ImageSegment, Clip } from '@entities/image'
+import type { MindMapDocument } from '@entities/mindmap'
 import type { PositionMap } from './layout'
 import type { SegmentOperationsApi } from '@/composables/image/useSegmentOperations'
 

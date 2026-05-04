@@ -7,7 +7,7 @@ import { layoutRadial } from './layoutRadial'
 import { layoutCompact } from './layoutCompact'
 import { layoutSpacious } from './layoutSpacious'
 
-import type { MindMapNode } from '@/types/mindmap'
+import type { MindMapNode } from '@entities/node'
 import type {
   LayoutType,
   LayoutDescriptor
