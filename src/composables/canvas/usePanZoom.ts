@@ -11,32 +11,33 @@ export function usePanZoom() {
   const lastMouse = { x: 0, y: 0 }
   const lastPan = { x: 0, y: 0 }
 
-  // ★ Трекинг фокуса
   const focusedNodeId = ref<string | null>(null)
   const FOCUS_ZOOM = 1.25
   const DEFAULT_ZOOM = 1
 
-  // ★ Сохранённые ссылки — позволяют resetView/zoomIn/zoomOut работать без аргументов
   const rootSceneCenter = ref<{ x: number; y: number } | null>(null)
   const wrapperElRef = ref<HTMLElement | null>(null)
 
+  // ★ НОВОЕ: храним bounds, чтобы все формулы согласованно
+  // переводили screen ↔ scene с учётом CSS-смещения left/top.
+  const sceneBounds = ref<{ minX: number; minY: number }>({ minX: 0, minY: 0 })
+
   const zoomPercent = computed(() => Math.round(zoom.value * 100))
 
-  /**
-   * ★ Регистрируем wrapper-элемент. Вызвать один раз из canvas.
-   */
   function setWrapper(el: HTMLElement | null) {
     wrapperElRef.value = el
   }
 
-  /**
-   * Регистрируем центр root-ноды в scene-координатах.
-   */
   function setRootSceneCenter(x: number, y: number) {
+    console.log('[ROOT-CENTER-SET]', { x, y, currentBounds: sceneBounds.value })
     rootSceneCenter.value = { x, y }
   }
 
-  // ── Helpers ──
+  // ★ НОВОЕ: вызывается из MindMapCanvas при изменении bounds.
+  function setBounds(minX: number, minY: number) {
+    console.log('[BOUNDS-SET]', { minX, minY })
+    sceneBounds.value = { minX, minY }
+  }
 
   function getViewportCenter(): { x: number; y: number } {
     if (wrapperElRef.value) {
@@ -46,18 +47,35 @@ export function usePanZoom() {
     return { x: window.innerWidth / 2, y: window.innerHeight / 2 }
   }
 
-  function zoomToPivot(
-    pivotSceneX: number,
-    pivotSceneY: number,
-    oldZoom: number,
-    newZoom: number
-  ) {
-    const pivotScreenX = pivotSceneX * oldZoom + panX.value
-    const pivotScreenY = pivotSceneY * oldZoom + panY.value
+  function screenToSceneLocal(screenX: number, screenY: number) {
+    const z = zoom.value
+    const b = sceneBounds.value
+    return {
+      x: (screenX - panX.value + b.minX) / z,
+      y: (screenY - panY.value + b.minY) / z
+    }
+  }
+
+  function calcPanForScenePoint(sceneX, sceneY, screenX, screenY, targetZoom) {
+    const z = clamp(targetZoom, 0.2, 3)
+    const b = sceneBounds.value
+    return {
+      panX: screenX + b.minX - sceneX * z,
+      panY: screenY + b.minY - sceneY * z
+    }
+  }
+
+  function zoomToPivot(pivotSceneX, pivotSceneY, oldZoom, newZoom) {
+    const b = sceneBounds.value
+    const pivotScreenX = panX.value - b.minX + pivotSceneX * oldZoom
+    const pivotScreenY = panY.value - b.minY + pivotSceneY * oldZoom
 
     zoom.value = newZoom
-    panX.value = pivotScreenX - pivotSceneX * newZoom
-    panY.value = pivotScreenY - pivotSceneY * newZoom
+    const newPan = calcPanForScenePoint(
+      pivotSceneX, pivotSceneY, pivotScreenX, pivotScreenY, newZoom
+    )
+    panX.value = newPan.panX
+    panY.value = newPan.panY
   }
 
   function calcPivotBetween(
@@ -70,11 +88,8 @@ export function usePanZoom() {
     }
   }
 
-  // ── Wheel zoom ──
-
-  function onWheel(e: WheelEvent, wrapperEl?: HTMLElement | null) {  // ← добавили | null
+  function onWheel(e: WheelEvent, wrapperEl?: HTMLElement | null) {
     focusedNodeId.value = null
-
     if (wrapperEl) wrapperElRef.value = wrapperEl
 
     const delta = e.deltaY > 0 ? -0.08 : 0.08
@@ -82,46 +97,46 @@ export function usePanZoom() {
     const newZoom = clamp(oldZoom + delta, 0.2, 3)
     if (newZoom === oldZoom) return
 
-    let cursorX: number
-    let cursorY: number
+    let cursorScreenX: number, cursorScreenY: number
 
     if (wrapperElRef.value) {
       const rect = wrapperElRef.value.getBoundingClientRect()
-      cursorX = e.clientX - rect.left
-      cursorY = e.clientY - rect.top
+      cursorScreenX = e.clientX - rect.left
+      cursorScreenY = e.clientY - rect.top
     } else {
-      cursorX = e.clientX
-      cursorY = e.clientY
+      cursorScreenX = e.clientX
+      cursorScreenY = e.clientY
     }
 
-    const cursorSceneX = (cursorX - panX.value) / oldZoom
-    const cursorSceneY = (cursorY - panY.value) / oldZoom
+    console.log('[WHEEL-IN]', {
+      cursorScreen: { x: cursorScreenX, y: cursorScreenY },
+      panBefore: { x: panX.value, y: panY.value },
+      zoomFromTo: [oldZoom, newZoom],
+      bounds: { ...sceneBounds.value },
+      rootSceneCenter: rootSceneCenter.value ? { ...rootSceneCenter.value } : null,
+    })
+
+    const cursorScene = screenToSceneLocal(cursorScreenX, cursorScreenY)
 
     let pivot: { x: number; y: number }
-
     if (rootSceneCenter.value) {
-      pivot = calcPivotBetween(
-        { x: cursorSceneX, y: cursorSceneY },
-        rootSceneCenter.value
-      )
+      pivot = calcPivotBetween(cursorScene, rootSceneCenter.value)
     } else {
-      pivot = { x: cursorSceneX, y: cursorSceneY }
+      pivot = cursorScene
     }
 
     zoomToPivot(pivot.x, pivot.y, oldZoom, newZoom)
+
+    console.log('[WHEEL-OUT]', {
+      cursorScene,
+      pivot,
+      panAfter: { x: panX.value, y: panY.value },
+      zoomNow: zoom.value,
+    })
   }
 
-  // ── Button zoom ──
-
-  function zoomIn() {
-    focusedNodeId.value = null
-    zoomByDelta(0.15)
-  }
-
-  function zoomOut() {
-    focusedNodeId.value = null
-    zoomByDelta(-0.15)
-  }
+  function zoomIn() { focusedNodeId.value = null; zoomByDelta(0.15) }
+  function zoomOut() { focusedNodeId.value = null; zoomByDelta(-0.15) }
 
   function zoomByDelta(delta: number) {
     const oldZoom = zoom.value
@@ -129,42 +144,42 @@ export function usePanZoom() {
     if (newZoom === oldZoom) return
 
     const center = getViewportCenter()
-    const centerSceneX = (center.x - panX.value) / oldZoom
-    const centerSceneY = (center.y - panY.value) / oldZoom
+    const centerScene = screenToSceneLocal(center.x, center.y)
 
     let pivot: { x: number; y: number }
-
     if (rootSceneCenter.value) {
-      pivot = calcPivotBetween(
-        { x: centerSceneX, y: centerSceneY },
-        rootSceneCenter.value
-      )
+      pivot = calcPivotBetween(centerScene, rootSceneCenter.value)
     } else {
-      pivot = { x: centerSceneX, y: centerSceneY }
+      pivot = centerScene
     }
 
     zoomToPivot(pivot.x, pivot.y, oldZoom, newZoom)
   }
 
-  // ── Reset view — корневая нода в центр ──
-
   function resetView() {
     focusedNodeId.value = null
-
     const targetZoom = DEFAULT_ZOOM
 
     if (rootSceneCenter.value) {
       const center = getViewportCenter()
-      const targetPanX = center.x - rootSceneCenter.value.x * targetZoom
-      const targetPanY = center.y - rootSceneCenter.value.y * targetZoom
-
-      animateTo(targetPanX, targetPanY, targetZoom)
+      const target = calcPanForScenePoint(
+        rootSceneCenter.value.x, rootSceneCenter.value.y,
+        center.x, center.y,
+        targetZoom
+      )
+      console.log('[RESET-VIEW]', {
+        center,
+        rootSceneCenter: { ...rootSceneCenter.value },
+        bounds: { ...sceneBounds.value },
+        computedPan: target,
+        targetZoom
+      })
+      animateTo(target.panX, target.panY, targetZoom)
     } else {
+      console.log('[RESET-VIEW] no rootSceneCenter, going to (0,0,1)')
       animateTo(0, 0, targetZoom)
     }
   }
-
-  // ── Pan ──
 
   function startPan(e: MouseEvent) {
     focusedNodeId.value = null
@@ -181,65 +196,54 @@ export function usePanZoom() {
     panY.value = lastPan.y + (e.clientY - lastMouse.y)
   }
 
-  function endPan() {
-    isPanning.value = false
-  }
+  function endPan() { isPanning.value = false }
 
+  /**
+   * Публичная функция для drag-and-drop hit-test'а.
+   * Возвращает МИРОВЫЕ координаты (как pos.x в layout).
+   */
   function screenToScene(
-    clientX: number,
-    clientY: number,
+    clientX: number, clientY: number,
     wrapperRect: DOMRect,
     bounds: { minX: number; minY: number }
   ) {
-    const z = zoom.value
-    return {
-      x: (clientX - wrapperRect.left - panX.value) / z + bounds.minX,
-      y: (clientY - wrapperRect.top - panY.value) / z + bounds.minY
-    }
+    return screenToSceneLocal(
+      clientX - wrapperRect.left,
+      clientY - wrapperRect.top
+    )
+    
   }
-
-  // ── Анимация ──
 
   function animateTo(targetPanX: number, targetPanY: number, targetZoom: number) {
     isAnimating.value = true
     panX.value = targetPanX
     panY.value = targetPanY
     zoom.value = clamp(targetZoom, 0.2, 3)
-
-    setTimeout(() => {
-      isAnimating.value = false
-    }, 500)
-  }
-
-  // ── Focus on node ──
-
-  function calcCenterPan(sceneX: number, sceneY: number, targetZoom: number) {
-    const center = getViewportCenter()
-    const z = clamp(targetZoom, 0.2, 3)
-    return {
-      panX: center.x - sceneX * z,
-      panY: center.y - sceneY * z
-    }
+    setTimeout(() => { isAnimating.value = false }, 500)
   }
 
   function nodeCenterScene(
-    pos: { x: number; y: number; w: number; h: number },
-    bounds: { minX: number; minY: number }
+    pos: { x: number; y: number; w: number; h: number }
   ) {
     return {
-      x: pos.x - bounds.minX + pos.w / 2,
-      y: pos.y - bounds.minY + pos.h / 2
+      x: pos.x + pos.w / 2,
+      y: pos.y + pos.h / 2
     }
   }
 
   function focusOnNode(
-  pos: { id: string; x: number; y: number; w: number; h: number },
-  rootPos: { x: number; y: number; w: number; h: number } | null,  // ← было без | null
-  bounds: { minX: number; minY: number },
-  wrapperEl: HTMLElement | null                                    // ← было без | null
-) {
-  if (!wrapperEl || !rootPos) return
-
+    pos: { id: string; x: number; y: number; w: number; h: number },
+    rootPos: { x: number; y: number; w: number; h: number } | null,
+    bounds: { minX: number; minY: number },
+    wrapperEl: HTMLElement | null
+  ) {
+    console.log('[FOCUS-IN]', {
+      pos: { x: pos.x, y: pos.y, w: pos.w, h: pos.h },
+      rootPos: rootPos ? { x: rootPos.x, y: rootPos.y, w: rootPos.w, h: rootPos.h } : null,
+      bounds,
+      sceneBounds: { ...sceneBounds.value }
+    })
+    if (!wrapperEl || !rootPos) return
     wrapperElRef.value = wrapperEl
 
     const isSameNode = focusedNodeId.value === pos.id
@@ -264,7 +268,12 @@ export function usePanZoom() {
       focusedNodeId.value = pos.id
     }
 
-    const target = calcCenterPan(targetSceneX, targetSceneY, targetZoom)
+    const center = getViewportCenter()
+    const target = calcPanForScenePoint(
+      targetSceneX, targetSceneY,
+      center.x, center.y,
+      targetZoom
+    )
     animateTo(target.panX, target.panY, targetZoom)
   }
 
@@ -273,6 +282,7 @@ export function usePanZoom() {
     focusedNodeId,
     setWrapper,
     setRootSceneCenter,
+    setBounds,           // ★ НОВОЕ
     onWheel, zoomIn, zoomOut, resetView,
     startPan, movePan, endPan,
     screenToScene,

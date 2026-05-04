@@ -34,12 +34,8 @@
           v-for="pos in layoutData.positions"
           :key="pos.id"
           :pos="pos"
-          :is-dragged-over="nodeDrag.dropTargetId.value === pos.id"
-          :is-being-dragged="nodeDrag.draggingNodeId.value === pos.id"
-          :is-in-drag-group="nodeDrag.isInDragGroup(pos.id)"
+          :drag="dragStates.get(pos.id)"
           :is-focused="panZoom.focusedNodeId.value === pos.id"
-          :live-x="livePositions.get(pos.id)?.x"
-          :live-y="livePositions.get(pos.id)?.y"
           @edit="startEdit(pos.id)"
           @add-child="handleAddChild(pos.id)"
           @delete="handleDelete(pos.id)"
@@ -52,8 +48,8 @@
           @resize-image="(w: number) => mindmap.setImageWidth(pos.id, w)"
           @resize-image-commit="(w: number) => mindmap.commitImageResize(pos.id, w)"
           @open-notes="notesNodeId = pos.id"
-          @toggle-note-pin="handleToggleNotePin(pos.node.id)"
-          @toggle-notes-visible="handleToggleNotesVisible(pos.node.id)"
+          @toggle-note-pin="handleToggleNotePin(pos.id)"
+          @toggle-notes-visible="handleToggleNotesVisible(pos.id)"
           @focus-node="handleFocusNode(pos)"
           @edit-segments="handleEditSegment(pos.id)"
         />
@@ -96,7 +92,6 @@
       @close="closeSegmentEditor"
     />
 
-    <!-- ★ Панель галереи картинок (слева) -->
     <ImageGalleryPanel
       v-model="galleryOpenLocal"
       @highlight-nodes="handleHighlightFromGallery"
@@ -137,8 +132,12 @@ import { injectStrict } from '../../utils/injectStrict'
 import { mindMapKey, notifyKey } from '../../types/injection-keys'
 
 import type { LayoutPosition, PositionMap } from '../../types/layout'
+import type { NodeDragState } from '../../types/node-drag'
 
-// ─── Props / Emits (для v-model:gallery-open от родителя) ───
+// ═══════════════════════════════════════════
+// Props / Emits
+// ═══════════════════════════════════════════
+
 const props = withDefaults(defineProps<{
   galleryOpen?: boolean
 }>(), {
@@ -149,25 +148,91 @@ const emit = defineEmits<{
   'update:galleryOpen': [value: boolean]
 }>()
 
-// ─── Инжекции ───────────────────────────────
+// ═══════════════════════════════════════════
+// Инжекции и глобальный провайд
+// ═══════════════════════════════════════════
+
 const mindmap = injectStrict(mindMapKey)
 const notify = injectStrict(notifyKey)
 
-// ─── DOM refs ───────────────────────────────
+// ═══════════════════════════════════════════
+// DOM refs
+// ═══════════════════════════════════════════
+
 const wrapperRef = ref<HTMLElement | null>(null)
 const editFieldRef = ref<{ focus: () => void } | null>(null)
 
-// ─── Layout ─────────────────────────────────
+// ═══════════════════════════════════════════
+// Layout — базовый источник позиций
+// ═══════════════════════════════════════════
+
 const { layoutData } = useLayout(mindmap.rootNode)
 
-// ─── Pan & Zoom ─────────────────────────────
+/**
+ * Индекс позиций по id для O(1) поиска.
+ * Используется при handleDelete / startEdit / handleHighlightFromGallery.
+ * Пересобирается при каждом изменении layoutData — обычно редко.
+ */
+const posById = computed<Map<string, LayoutPosition>>(() => {
+  const map = new Map<string, LayoutPosition>()
+  for (const pos of layoutData.value.positions) {
+    map.set(pos.id, pos)
+  }
+  return map
+})
+
+const rootPos = computed<LayoutPosition | null>(() => {
+  for (const pos of layoutData.value.positions) {
+    if (pos.depth === 0) return pos
+  }
+  return null
+})
+
+// ═══════════════════════════════════════════
+// Pan & Zoom
+// ═══════════════════════════════════════════
+
 const panZoom = usePanZoom()
 
 provide('globalZoom', panZoom.zoom)
 provide('imageStorage', mindmap.imageStorage)
 
-onMounted(() => {
+onMounted(async () => {
   panZoom.setWrapper(wrapperRef.value)
+  await nextTick()
+  panZoom.resetView()
+  
+  setTimeout(() => {
+    const wrapper = wrapperRef.value
+    if (!wrapper) return
+    const wrapperRect = wrapper.getBoundingClientRect()
+    
+    // ВСЯ сцена
+    const sceneEl = wrapper.querySelector('.canvas-scene') as HTMLElement
+    const sr = sceneEl?.getBoundingClientRect()
+    
+    // ROOT узел — найти первый с классом map-node--root
+    const rootEl = wrapper.querySelector('.map-node--root') as HTMLElement
+    const rr = rootEl?.getBoundingClientRect()
+    
+    console.log('[POST-RESET-DOM-V2]', {
+      wrapper: { l: wrapperRect.left, t: wrapperRect.top, w: wrapperRect.width },
+      wrapperCenter: { x: wrapperRect.width / 2, y: wrapperRect.height / 2 },
+      sceneRel: sr ? { l: sr.left - wrapperRect.left, t: sr.top - wrapperRect.top, w: sr.width, h: sr.height } : null,
+      rootRel: rr ? { 
+        l: rr.left - wrapperRect.left, 
+        t: rr.top - wrapperRect.top, 
+        w: rr.width, 
+        h: rr.height,
+        centerX: rr.left + rr.width/2 - wrapperRect.left,
+        centerY: rr.top + rr.height/2 - wrapperRect.top,
+      } : null,
+      rootPosLayout: rootPos.value ? { x: rootPos.value.x, y: rootPos.value.y, w: rootPos.value.w, h: rootPos.value.h } : null,
+      pan: { x: panZoom.panX.value, y: panZoom.panY.value },
+      zoom: panZoom.zoom.value,
+      bounds: { ...layoutData.value.bounds }
+    })
+  }, 700)
 })
 
 const sceneStyle = computed(() => {
@@ -185,30 +250,29 @@ const sceneStyle = computed(() => {
   }
 })
 
-// ─── Focus on Node ──────────────────────────
-const rootPos = computed<LayoutPosition | null>(() =>
-  layoutData.value.positions.find(p => p.depth === 0) ?? null
-)
-
 watch(rootPos, (rp) => {
   if (!rp) return
   const b = layoutData.value.bounds
+  panZoom.setBounds(b.minX, b.minY)
   panZoom.setRootSceneCenter(
-    rp.x - b.minX + rp.w / 2,
-    rp.y - b.minY + rp.h / 2
+    rp.x + rp.w / 2,
+    rp.y + rp.h / 2
   )
 }, { immediate: true })
 
+watch(() => layoutData.value.bounds, (b) => {
+  panZoom.setBounds(b.minX, b.minY)
+}, { immediate: true, deep: false })
+
+
 function handleFocusNode(pos: LayoutPosition) {
-  panZoom.focusOnNode(
-    pos,
-    rootPos.value,
-    layoutData.value.bounds,
-    wrapperRef.value
-  )
+  panZoom.focusOnNode(pos, rootPos.value, layoutData.value.bounds, wrapperRef.value)
 }
 
-// ─── Node Drag ──────────────────────────────
+// ═══════════════════════════════════════════
+// Node Drag
+// ═══════════════════════════════════════════
+
 function buildLayoutPositionMap(): PositionMap {
   const map: PositionMap = new Map()
   for (const pos of layoutData.value.positions) {
@@ -223,7 +287,10 @@ const nodeDrag = useNodeDrag(
   buildLayoutPositionMap
 )
 
-// ─── Live-координаты для узлов из drag-группы ─
+// ═══════════════════════════════════════════
+// Live-состояние узлов при drag'е
+// ═══════════════════════════════════════════
+
 const livePositions = computed(() => {
   const map = new Map<string, { x: number; y: number }>()
   for (const pos of layoutData.value.positions) {
@@ -233,14 +300,40 @@ const livePositions = computed(() => {
   return map
 })
 
-// ─── Live Connections ───────────────────────
+const dragStates = computed<Map<string, NodeDragState>>(() => {
+  const map = new Map<string, NodeDragState>()
+  const draggedOverId = nodeDrag.dropTargetId.value
+  const beingDraggedId = nodeDrag.draggingNodeId.value
+  const lives = livePositions.value
+
+  for (const pos of layoutData.value.positions) {
+    const live = lives.get(pos.id)
+    map.set(pos.id, {
+      isDraggedOver: draggedOverId === pos.id,
+      isBeingDragged: beingDraggedId === pos.id,
+      isInDragGroup: nodeDrag.isInDragGroup(pos.id),
+      liveX: live?.x ?? null,
+      liveY: live?.y ?? null,
+    })
+  }
+  return map
+})
+
+// ═══════════════════════════════════════════
+// Live Connections
+// ═══════════════════════════════════════════
+
 const liveConnections = useConnections(
   mindmap.rootNode,
   layoutData,
   nodeDrag.getLivePosition
 )
 
-// ─── Drop Target Detection ──────────────────
+// ═══════════════════════════════════════════
+// Drop Target Detection (hit-test на mousemove)
+// ═══════════════════════════════════════════
+
+/** Толерантность прицела при поиске drop-target'а (в координатах сцены, px). */
 const HIT_PADDING = 8
 
 function updateDropTarget(e: MouseEvent) {
@@ -253,6 +346,7 @@ function updateDropTarget(e: MouseEvent) {
 
   let found: string | null = null
 
+  // Hit-test остаётся O(N) — пространственный индекс пока не оправдан.
   for (const pos of layoutData.value.positions) {
     if (nodeDrag.isInDragGroup(pos.id)) continue
 
@@ -271,7 +365,10 @@ function updateDropTarget(e: MouseEvent) {
   else nodeDrag.clearDropTarget()
 }
 
-// ─── Canvas Mouse Events ────────────────────
+// ═══════════════════════════════════════════
+// Canvas Mouse Events (pan + drop-target tracking)
+// ═══════════════════════════════════════════
+
 function onCanvasMouseDown(e: MouseEvent) {
   if (nodeDrag.isDraggingNode.value) return
 
@@ -292,12 +389,15 @@ function onCanvasMouseMove(e: MouseEvent) {
   }
 }
 
-// ─── Edit ───────────────────────────────────
+// ═══════════════════════════════════════════
+// Inline text editor
+// ═══════════════════════════════════════════
+
 const editingId = ref<string | null>(null)
 const editText = ref<string>('')
 
 function startEdit(nodeId: string) {
-  const pos = layoutData.value.positions.find(p => p.id === nodeId)
+  const pos = posById.value.get(nodeId)
   if (!pos) return
   editingId.value = nodeId
   editText.value = pos.node.text
@@ -315,14 +415,17 @@ function cancelEdit() {
   editingId.value = null
 }
 
-// ─── CRUD Handlers ──────────────────────────
+// ═══════════════════════════════════════════
+// CRUD Handlers (с уведомлениями)
+// ═══════════════════════════════════════════
+
 function handleAddChild(parentId: string) {
   const newId = mindmap.addChild(parentId)
   if (newId) nextTick(() => startEdit(newId))
 }
 
 function handleDelete(nodeId: string) {
-  const pos = layoutData.value.positions.find(p => p.id === nodeId)
+  const pos = posById.value.get(nodeId)
   mindmap.deleteNode(nodeId)
   if (pos) notify(`Узел «${pos.node.text}» удалён`, 'error', 'mdi-delete')
 }
@@ -347,7 +450,10 @@ function handleRemoveImage(nodeId: string) {
   notify('Картинка удалена', 'info', 'mdi-image-off')
 }
 
-// ─── Notes Panel ────────────────────────────
+// ═══════════════════════════════════════════
+// Notes Panel
+// ═══════════════════════════════════════════
+
 const notesNodeId = ref<string | null>(null)
 
 function handleToggleNotePin(nodeId: string) {
@@ -358,8 +464,10 @@ function handleToggleNotesVisible(nodeId: string) {
   mindmap.toggleNotesVisible(nodeId)
 }
 
-// ─── Gallery Panel ──────────────────────────
-// v-model мост: внешний prop ↔ внутреннее состояние drawer'а
+// ═══════════════════════════════════════════
+// Gallery Panel
+// ═══════════════════════════════════════════
+
 const galleryOpenLocal = computed<boolean>({
   get: () => props.galleryOpen,
   set: (v) => emit('update:galleryOpen', v)
@@ -367,20 +475,31 @@ const galleryOpenLocal = computed<boolean>({
 
 function handleHighlightFromGallery(nodeIds: string[]) {
   if (nodeIds.length === 0) return
-  const target = layoutData.value.positions.find(p => nodeIds.includes(p.id))
-  if (target) handleFocusNode(target)
+  // Ищем первый узел из списка, который реально есть на карте — через O(1) индекс.
+  for (const id of nodeIds) {
+    const pos = posById.value.get(id)
+    if (pos) {
+      handleFocusNode(pos)
+      return
+    }
+  }
 }
 
-// ★ Закрываем галерею после удачного drop картинки в узел.
-// Плюс принудительно снимаем глобальный класс, чтобы оверлей
-// гарантированно вернул свой обычный вид (на случай, если dragend
-// в карточке не выстрелит до размонтирования drawer'а).
+/**
+ * Закрываем галерею после удачного drop картинки в узел.
+ * Плюс принудительно снимаем глобальный класс, чтобы оверлей
+ * гарантированно вернул свой обычный вид (на случай, если dragend
+ * в карточке не выстрелит до размонтирования drawer'а).
+ */
 function handleGalleryDropped() {
   document.body.classList.remove('mindmap-dragging-image')
   galleryOpenLocal.value = false
 }
 
-// ─── Segment Editor ─────────────────────────
+// ═══════════════════════════════════════════
+// Segment Editor
+// ═══════════════════════════════════════════
+
 const segmentEditorOpen = ref<boolean>(false)
 const segmentEditorSourceId = ref<string | null>(null)
 
@@ -407,10 +526,8 @@ function handleEditSegment(nodeId: string) {
     return
   }
 
-  // Резолвим до raw-источника
   const sourceId = img.kind === 'raw' ? img.id : img.sourceId
 
-  // Дополнительная проверка, что источник действительно есть
   const source = mindmap.imageStorage.images.value.find(i => i.id === sourceId)
   if (!source || source.kind !== 'raw') {
     notify('Не удалось найти исходную картинку', 'error', 'mdi-alert')
@@ -425,7 +542,6 @@ function closeSegmentEditor() {
   segmentEditorOpen.value = false
   segmentEditorSourceId.value = null
 }
-
 </script>
 
 <style scoped>

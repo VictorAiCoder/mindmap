@@ -18,11 +18,11 @@
       @click.stop="$emit('toggleVisible')"
       title="Показать заметку"
     >
-      <svg 
-        class="icon-eye-crossed" 
+      <svg
+        class="icon-eye-crossed"
         viewBox="0 0 24 24" fill="none" stroke="currentColor"
         stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-        >
+      >
         <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
         <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
         <line x1="1" y1="1" x2="23" y2="23"/>
@@ -31,19 +31,18 @@
 
     <!-- ═══ Развёрнутое состояние ═══ -->
     <template v-else>
-      <!-- Toolbar: eye + pin -->
       <div class="notes-toolbar" @click.stop>
         <button
-          class="notes-btn notes-eye-btn  pa-2"
+          class="notes-btn notes-eye-btn pa-2"
           :class="{ 'notes-btn--active': visible }"
           title="Свернуть заметку"
           @click.stop="$emit('toggleVisible')"
         >
-          <svg 
-            class="icon-eye" 
+          <svg
+            class="icon-eye"
             viewBox="0 0 24 24" fill="none" stroke="currentColor"
             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-            >
+          >
             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
             <circle cx="12" cy="12" r="3"/>
           </svg>
@@ -55,16 +54,12 @@
           :title="pinned ? 'Открепить' : 'Закрепить'"
           @click.stop="onTogglePin"
         >
-          <svg 
-            class="icon-pin" 
-            viewBox="0 0 24 24" fill="currentColor"
-            >
+          <svg class="icon-pin" viewBox="0 0 24 24" fill="currentColor">
             <path d="M16,12V4H17V2H7V4H8V12L6,14V16H11.2V22H12.8V16H18V14L16,12Z"/>
           </svg>
         </button>
       </div>
 
-      <!-- Content area — кликабельно для открытия -->
       <div class="notes-content" @click.stop="$emit('openNotes')">
         <div class="markdown-mini" v-html="renderedHtml" />
 
@@ -77,22 +72,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onBeforeUnmount, toRef } from 'vue'
 import { renderMarkdown } from '@/composables/useMarkdown'
+import { useNodeDisplay } from '@/composables/node/useNodeDisplay'
+import type { LayoutPosition } from '@/types/layout'
+
+// ─── Props / Emits ──────────────────────────
 
 interface Props {
-  notes?: string
-  color?: string
-  pinned?: boolean
-  visible?: boolean
+  pos: LayoutPosition
 }
 
-const props = withDefaults(defineProps<Props>(), {
-  notes: '',
-  color: '#5C6BC0',
-  pinned: false,
-  visible: true,
-})
+const props = defineProps<Props>()
 
 const emit = defineEmits<{
   openNotes: []
@@ -100,56 +91,72 @@ const emit = defineEmits<{
   toggleVisible: []
 }>()
 
-// ── isExpanded синхронизируется с pinned ──
-const isExpanded = ref(props.pinned)
+// ─── Shared display state ───────────────────
 
-watch(() => props.pinned, (val) => {
+const { node, color } = useNodeDisplay(toRef(props, 'pos'))
+
+// ─── Local-only state ──────────────────────
+
+const pinned = computed<boolean>(() => !!node.value.notesPinned)
+const notes = computed<string>(() => node.value.notes ?? '')
+const visible = computed<boolean>(() => node.value.notesVisible !== false)
+
+// ─── Expanded state (sync with pinned/visible) ──
+
+const isExpanded = ref<boolean>(pinned.value)
+
+watch(pinned, (val) => {
   if (val) isExpanded.value = true
 })
 
-watch(() => props.visible, (val) => {
-  if (val && props.pinned) {
+watch(visible, (val) => {
+  if (val && pinned.value) {
     isExpanded.value = true
   }
 })
 
-const isLong = computed(() =>
-  props.notes.length > 200 || props.notes.split('\n').length > 5
+// ─── Computed display ───────────────────────
+
+const isLong = computed<boolean>(
+  () => notes.value.length > 200 || notes.value.split('\n').length > 5,
 )
 
 const previewStyle = computed(() => {
-  if (!props.visible) return {}
-  return { borderLeftColor: props.color }
+  if (!visible.value) return {}
+  return { borderLeftColor: color.value }
 })
 
-// ✅ Единый рендерер markdown с hljs + DOMPurify
-const renderedHtml = computed(() => renderMarkdown(props.notes))
+const renderedHtml = computed<string>(() => renderMarkdown(notes.value))
 
-function onTogglePin() {
-  if (!props.pinned) {
+// ─── Handlers ───────────────────────────────
+
+function onTogglePin(): void {
+  if (!pinned.value) {
     isExpanded.value = true
   }
   emit('togglePin')
 }
 
-// ── Hover logic ──
+// ─── Hover logic ────────────────────────────
+
 let hoverTimer: ReturnType<typeof setTimeout> | null = null
 
-function onMouseEnter() {
-  if (!props.visible || props.pinned) return
-  hoverTimer = setTimeout(() => { isExpanded.value = true }, 300)
+function onMouseEnter(): void {
+  if (!visible.value || pinned.value) return
+  hoverTimer = setTimeout(() => {
+    isExpanded.value = true
+  }, 300)
 }
 
-function onMouseLeave() {
+function onMouseLeave(): void {
   if (hoverTimer) clearTimeout(hoverTimer)
-  if (!props.pinned) isExpanded.value = false
+  if (!pinned.value) isExpanded.value = false
 }
 
 onBeforeUnmount(() => {
   if (hoverTimer) clearTimeout(hoverTimer)
 })
 </script>
-
 <style scoped>
 /* ── Корневой контейнер ── */
 .notes-preview {
@@ -157,7 +164,7 @@ onBeforeUnmount(() => {
   top: 100%;
   left: 50%;
   transform: translateX(-50%);
-  margin-top: 0.429em;          /* 6px */
+  margin-top: 0.429em;
   z-index: 1;
   transition: all 0.25s ease;
 }
@@ -172,60 +179,60 @@ onBeforeUnmount(() => {
 }
 
 .notes-collapsed-indicator {
-  width: 2.571em;               /* 36px */
+  width: 2.571em;
   height: 2.571em;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
   background: rgb(var(--v-theme-surface));
-  border: 0.143em solid;        /* 2px */
-  box-shadow: 0 0.143em 0.571em rgba(0, 0, 0, 0.1);  /* 2px 8px */
+  border: 0.143em solid;
+  box-shadow: 0 0.143em 0.571em rgba(0, 0, 0, 0.1);
   cursor: pointer;
   color: rgba(var(--v-theme-on-surface), 0.35);
   transition: all 0.2s ease;
 }
 
 .icon-eye-crossed {
-  width: 1.429em;               /* 20px */
+  width: 1.429em;
   height: 1.429em;
 }
 
 .notes-collapsed-indicator:hover {
   color: rgba(var(--v-theme-on-surface), 0.7);
-  box-shadow: 0 0.214em 0.857em rgba(0, 0, 0, 0.15);  /* 3px 12px */
+  box-shadow: 0 0.214em 0.857em rgba(0, 0, 0, 0.15);
   transform: scale(1.1);
 }
 
 /* ── Развёрнутый режим ── */
 .notes-preview:not(.notes-preview--collapsed) {
-  padding: 0.714em 1em;         /* 10px 14px */
-  padding-right: 3.714em;       /* 52px */
+  padding: 0.714em 1em;
+  padding-right: 3.714em;
   width: max-content;
-  max-width: 20em;              /* 280px */
+  max-width: 20em;
   background: rgb(var(--v-theme-surface));
-  border-left: 0.214em solid;   /* 3px */
-  border-radius: 0 0.571em 0.571em 0;  /* 8px */
-  box-shadow: 0 0.143em 0.857em rgba(0, 0, 0, 0.1);  /* 2px 12px */
+  border-left: 0.214em solid;
+  border-radius: 0 0.571em 0.571em 0;
+  box-shadow: 0 0.143em 0.857em rgba(0, 0, 0, 0.1);
   overflow: hidden;
-  max-height: 11.429em;         /* 160px */
+  max-height: 11.429em;
 }
 
 .notes-preview--expanded {
-  max-width: 27.143em !important;   /* 380px */
-  max-height: 35.714em !important;  /* 500px */
+  max-width: 27.143em !important;
+  max-height: 35.714em !important;
   overflow-y: auto !important;
   z-index: 50 !important;
-  box-shadow: 0 0.571em 2.286em rgba(0, 0, 0, 0.18) !important;  /* 8px 32px */
-  transform: translateX(-50%) translateY(0.143em);  /* 2px */
+  box-shadow: 0 0.571em 2.286em rgba(0, 0, 0, 0.18) !important;
+  transform: translateX(-50%) translateY(0.143em);
 }
 
 .notes-preview--pinned {
-  border-left-width: 0.286em;   /* 4px */
-  box-shadow: 0 0.286em 1.429em rgba(0, 0, 0, 0.14);  /* 4px 20px */
+  border-left-width: 0.286em;
+  box-shadow: 0 0.286em 1.429em rgba(0, 0, 0, 0.14);
 }
 
-.notes-preview--expanded::-webkit-scrollbar { width: 0.286em; }  /* 4px */
+.notes-preview--expanded::-webkit-scrollbar { width: 0.286em; }
 .notes-preview--expanded::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.15);
   border-radius: 0.286em;
@@ -233,20 +240,20 @@ onBeforeUnmount(() => {
 
 /* ── Toolbar ── */
 .notes-toolbar {
-  margin-bottom: 0.571em;       /* 8px */
+  margin-bottom: 0.571em;
   display: flex;
-  gap: 0.143em;                 /* 2px */
+  gap: 0.143em;
   z-index: 10;
 }
 
 .notes-btn {
-  width: 1.571em;               /* 22px */
+  width: 1.571em;
   height: 1.571em;
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
-  border-radius: 0.286em;       /* 4px */
+  border-radius: 0.286em;
   background: rgba(var(--v-theme-on-surface), 0.06);
   color: rgba(var(--v-theme-on-surface), 0.4);
   cursor: pointer;
@@ -254,17 +261,8 @@ onBeforeUnmount(() => {
   padding: 0;
 }
 
-.icon-eye {
-  width: 1em;                   /* 14px */
-  height: 1em;
-}
-
-.icon-pin {
-  width: 0.857em;               /* 12px */
-  height: 0.857em;
-}
-
-/* (остальные :hover и active — не трогаем, там только color/background) */
+.icon-eye { width: 1em; height: 1em; }
+.icon-pin { width: 0.857em; height: 0.857em; }
 
 .notes-btn:hover {
   background: rgba(var(--v-theme-on-surface), 0.12);
@@ -282,35 +280,29 @@ onBeforeUnmount(() => {
   color: rgb(var(--v-theme-primary));
 }
 
-/* ── Content area ── */
-.notes-content {
-  cursor: pointer;
-}
+.notes-content { cursor: pointer; }
 
-/* ── Fade & more ── */
 .notes-fade {
   position: relative;
-  margin-top: -1.714em;         /* -24px */
+  margin-top: -1.714em;
   padding-top: 1.714em;
   background: linear-gradient(to bottom, transparent, rgb(var(--v-theme-surface)) 70%);
   text-align: center;
 }
 
 .notes-more {
-  font-size: 0.714em;           /* 10px */
+  font-size: 0.714em;
   color: rgba(var(--v-theme-on-surface), 0.4);
   font-style: italic;
 }
 
 /* ── Markdown мини-стили ── */
 .markdown-mini {
-  font-size: 0.857em;           /* 12px */
+  font-size: 0.857em;
   line-height: 1.5;
   color: rgba(var(--v-theme-on-surface), 0.8);
   word-break: break-word;
 }
-
-/* h1..h6, p, ul, ol, li, blockquote — уже в em, НЕ ТРОГАЕМ */
 
 .markdown-mini :deep(h1) { font-size: 1.15em; font-weight: 700; margin: 0.3em 0; }
 .markdown-mini :deep(h2) { font-size: 1.1em; font-weight: 600; margin: 0.3em 0; }
@@ -324,18 +316,18 @@ onBeforeUnmount(() => {
 .markdown-mini :deep(li) { margin: 0.1em 0; }
 
 .markdown-mini :deep(blockquote) {
-  border-left: 0.143em solid rgba(var(--v-theme-primary), 0.4);  /* 2px */
+  border-left: 0.143em solid rgba(var(--v-theme-primary), 0.4);
   padding: 0.2em 0.6em;
   margin: 0.3em 0;
   background: rgba(var(--v-theme-primary), 0.04);
-  border-radius: 0 0.286em 0.286em 0;  /* 4px */
+  border-radius: 0 0.286em 0.286em 0;
   font-size: 0.95em;
 }
 
 .markdown-mini :deep(:not(pre) > code) {
   background: rgba(var(--v-theme-on-surface), 0.08);
   padding: 0.1em 0.35em;
-  border-radius: 0.214em;       /* 3px */
+  border-radius: 0.214em;
   font-size: 0.9em;
   font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
   color: #e06c75;
@@ -343,13 +335,13 @@ onBeforeUnmount(() => {
 
 .markdown-mini :deep(pre) {
   background: #6ce07927;
-  padding: 0.714em 0.857em;     /* 10px 12px */
-  border-radius: 0.429em;       /* 6px */
+  padding: 0.714em 0.857em;
+  border-radius: 0.429em;
   overflow-x: auto;
   margin: 0.5em 0;
-  font-size: 0.857em;           /* 12px */
+  font-size: 0.857em;
   line-height: 1.45;
-  border: 0.071em solid rgba(255, 255, 255, 0.06);  /* 1px */
+  border: 0.071em solid rgba(255, 255, 255, 0.06);
 }
 
 .markdown-mini :deep(pre code),
@@ -362,7 +354,7 @@ onBeforeUnmount(() => {
   font-size: inherit;
 }
 
-.markdown-mini :deep(pre)::-webkit-scrollbar { height: 0.357em; }  /* 5px */
+.markdown-mini :deep(pre)::-webkit-scrollbar { height: 0.357em; }
 .markdown-mini :deep(pre)::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.15);
   border-radius: 0.214em;
@@ -378,7 +370,7 @@ onBeforeUnmount(() => {
 
 .markdown-mini :deep(hr) {
   border: none;
-  border-top: 0.071em solid rgba(var(--v-border-color), 0.2);  /* 1px */
+  border-top: 0.071em solid rgba(var(--v-border-color), 0.2);
   margin: 0.4em 0;
 }
 
@@ -392,13 +384,13 @@ onBeforeUnmount(() => {
 .markdown-mini :deep(th),
 .markdown-mini :deep(td) {
   border: 0.071em solid rgba(var(--v-border-color), 0.2);
-  padding: 0.214em 0.571em;     /* 3px 8px */
+  padding: 0.214em 0.571em;
   text-align: left;
 }
 
 .markdown-mini :deep(img) {
   max-width: 100%;
-  border-radius: 0.429em;       /* 6px */
+  border-radius: 0.429em;
   margin: 0.3em 0;
 }
 </style>

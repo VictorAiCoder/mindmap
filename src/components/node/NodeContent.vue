@@ -1,8 +1,16 @@
 <!-- src/components/node/NodeContent.vue -->
 <template>
   <div class="node-content">
-    <button v-if="hasChildren" class="node-toggle" @click.stop="$emit('toggle')" @mousedown.stop>
-      <v-icon :icon="collapsed ? 'mdi-chevron-right' : 'mdi-chevron-down'" class="node-toggle__icon" />
+    <button
+      v-if="hasChildren"
+      class="node-toggle"
+      @click.stop="$emit('toggle')"
+      @mousedown.stop
+    >
+      <v-icon
+        :icon="collapsed ? 'mdi-chevron-right' : 'mdi-chevron-down'"
+        class="node-toggle__icon"
+      />
     </button>
 
     <span class="node-text" :class="textClasses">{{ text }}</span>
@@ -14,36 +22,62 @@
       :color="isRoot ? 'white' : color"
     />
 
-    <span v-if="collapsed && hasChildren" class="node-badge" :class="{ 'node-badge--root': isRoot }">
+    <span
+      v-if="collapsed && hasChildren"
+      class="node-badge"
+      :class="{ 'node-badge--root': isRoot }"
+    >
       {{ childCount }}
     </span>
 
     <v-icon v-if="pinned" icon="mdi-pin" class="node-pin" color="grey" />
 
-    <div><slot></slot></div>
+    <div><slot /></div>
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
+import type { LayoutPosition } from '@/types/layout'
 
-const props = defineProps({
-  text: { type: String, required: true },
-  color: { type: String, default: '#5C6BC0' },
-  isRoot: { type: Boolean, default: false },
-  isLeaf: { type: Boolean, default: false },
-  hasChildren: { type: Boolean, default: false },
-  hasNotes: { type: Boolean, default: false },
-  collapsed: { type: Boolean, default: false },
-  childCount: { type: Number, default: 0 },
-  pinned: { type: Boolean, default: false }
-})
+// ─── Props / Emits ──────────────────────────
 
-defineEmits(['toggle'])
+interface Props {
+  pos: LayoutPosition
+}
+
+const props = defineProps<Props>()
+
+defineEmits<{
+  toggle: []
+}>()
+
+// ─── Derived state ──────────────────────────
+// TODO(useNodeDisplay): эти же вычисления дублируются в MapNode.vue
+// (isRoot, isLeaf, hasChildren, hasNotes). Кандидат на общий composable
+// useNodeDisplay(pos) в следующем шаге. Сейчас — локально, для самодостаточности.
+
+const node = computed(() => props.pos.node)
+
+const isRoot = computed<boolean>(() => props.pos.depth === 0)
+const isLeaf = computed<boolean>(() => props.pos.depth >= 2)
+
+const hasChildren = computed<boolean>(
+  () => (node.value.children?.length ?? 0) > 0,
+)
+const hasNotes = computed<boolean>(() => !!node.value.notes?.trim())
+const childCount = computed<number>(() => node.value.children?.length ?? 0)
+
+const text = computed<string>(() => node.value.text)
+const color = computed<string>(() => node.value.color || '#5C6BC0')
+const collapsed = computed<boolean>(() => !!node.value.collapsed)
+const pinned = computed<boolean>(() => props.pos.hasCustomPos)
+
+// ─── Classes ────────────────────────────────
 
 const textClasses = computed(() => ({
-  'node-text--root': props.isRoot,
-  'node-text--leaf': props.isLeaf
+  'node-text--root': isRoot.value,
+  'node-text--leaf': isLeaf.value,
 }))
 </script>
 
@@ -57,13 +91,12 @@ const textClasses = computed(() => ({
   align-items: center;
   justify-content: center;
   height: 100%;
-  /* 4px / 12px → em */
   padding: 0.286em 0.857em;
-  gap: 0.429em;  /* 6px */
+  gap: 0.429em;
 }
 
 .node-text {
-  font-size: 0.929em;  /* 13px */
+  font-size: 0.929em;
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
@@ -72,22 +105,21 @@ const textClasses = computed(() => ({
 }
 
 .node-text--root {
-  font-size: 1.143em;  /* 16px */
+  font-size: 1.143em;
   font-weight: 700;
   color: white;
-  max-width: 10em;     /* 140px */
+  max-width: 10em;
 }
 
 .node-text--leaf {
-  font-size: 0.857em;  /* 12px */
+  font-size: 0.857em;
   font-weight: 400;
 }
 
 .node-notes-icon {
   opacity: 0.6;
   flex-shrink: 0;
-  /* ★ v-icon принимает size в px, но можно через CSS */
-  font-size: 0.857em !important;  /* 12px */
+  font-size: 0.857em !important;
 }
 
 .node-toggle {
@@ -104,16 +136,16 @@ const textClasses = computed(() => ({
 .node-toggle:hover { opacity: 1; }
 
 .node-toggle__icon {
-  font-size: 1.143em !important;  /* 16px */
+  font-size: 1.143em !important;
 }
 
 .node-badge {
   background: rgba(0, 0, 0, 0.15);
-  border-radius: 0.714em;  /* 10px */
-  padding: 0 0.429em;      /* 6px */
-  font-size: 0.714em;      /* 10px */
+  border-radius: 0.714em;
+  padding: 0 0.429em;
+  font-size: 0.714em;
   font-weight: 600;
-  min-width: 1.286em;      /* 18px */
+  min-width: 1.286em;
   text-align: center;
 }
 
@@ -124,6 +156,6 @@ const textClasses = computed(() => ({
 
 .node-pin {
   opacity: 0.4;
-  font-size: 0.714em !important;  /* 10px */
+  font-size: 0.714em !important;
 }
 </style>
