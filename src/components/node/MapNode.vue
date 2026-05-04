@@ -109,11 +109,6 @@ const props = withDefaults(defineProps<Props>(), {
   isFocused: false,
 })
 
-// type EmitFn = <K extends keyof NodeImageEmits>(
-//   event: K,
-//   ...args: NodeImageEmits[K]  // ← здесь нужен tuple, не обычный union
-// ) => void
-
 const emit = defineEmits<{
   edit: []
   addChild: []
@@ -146,7 +141,7 @@ const { isRoot, isLeaf, hasNotes } = useNodeDisplay(posRef)
 
 // ─── Image logic (composable) ───────────────
 const {
-  imageInput,
+  
   isImageDragOver,
   resolvedImage,
   hasImage,

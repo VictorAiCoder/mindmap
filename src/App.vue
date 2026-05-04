@@ -54,19 +54,11 @@ import {
   type NotifyFn
 } from './types/injection-keys'
 import type { LayoutType, ExportFormat } from './types/mindmap-api'
-import ImageGalleryPanel from './components/panels/ImageGalleryPanel.vue'
 
 // ─── Core ────────────────────────────────────────────
 
 const mindmap = useMindMap()
 const galleryOpen = ref<boolean>(false)
-
-function handleHighlightNodes(nodeIds: string[]) {
-  // Пока просто лог. Потом можно подключить через inject-ключ
-  // или emit в MindMap.
-  console.log('[Gallery] highlight:', nodeIds)
-  notify(`Использ. в ${nodeIds.length} узел(ах)`, 'info', 'mdi-target')
-}
 
 provide(mindMapKey, mindmap)
 

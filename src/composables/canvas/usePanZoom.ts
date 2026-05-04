@@ -18,8 +18,6 @@ export function usePanZoom() {
   const rootSceneCenter = ref<{ x: number; y: number } | null>(null)
   const wrapperElRef = ref<HTMLElement | null>(null)
 
-  // ★ НОВОЕ: храним bounds, чтобы все формулы согласованно
-  // переводили screen ↔ scene с учётом CSS-смещения left/top.
   const sceneBounds = ref<{ minX: number; minY: number }>({ minX: 0, minY: 0 })
 
   const zoomPercent = computed(() => Math.round(zoom.value * 100))
@@ -29,13 +27,10 @@ export function usePanZoom() {
   }
 
   function setRootSceneCenter(x: number, y: number) {
-    console.log('[ROOT-CENTER-SET]', { x, y, currentBounds: sceneBounds.value })
     rootSceneCenter.value = { x, y }
   }
 
-  // ★ НОВОЕ: вызывается из MindMapCanvas при изменении bounds.
   function setBounds(minX: number, minY: number) {
-    console.log('[BOUNDS-SET]', { minX, minY })
     sceneBounds.value = { minX, minY }
   }
 
@@ -108,14 +103,6 @@ export function usePanZoom() {
       cursorScreenY = e.clientY
     }
 
-    console.log('[WHEEL-IN]', {
-      cursorScreen: { x: cursorScreenX, y: cursorScreenY },
-      panBefore: { x: panX.value, y: panY.value },
-      zoomFromTo: [oldZoom, newZoom],
-      bounds: { ...sceneBounds.value },
-      rootSceneCenter: rootSceneCenter.value ? { ...rootSceneCenter.value } : null,
-    })
-
     const cursorScene = screenToSceneLocal(cursorScreenX, cursorScreenY)
 
     let pivot: { x: number; y: number }
@@ -126,13 +113,6 @@ export function usePanZoom() {
     }
 
     zoomToPivot(pivot.x, pivot.y, oldZoom, newZoom)
-
-    console.log('[WHEEL-OUT]', {
-      cursorScene,
-      pivot,
-      panAfter: { x: panX.value, y: panY.value },
-      zoomNow: zoom.value,
-    })
   }
 
   function zoomIn() { focusedNodeId.value = null; zoomByDelta(0.15) }
@@ -167,16 +147,8 @@ export function usePanZoom() {
         center.x, center.y,
         targetZoom
       )
-      console.log('[RESET-VIEW]', {
-        center,
-        rootSceneCenter: { ...rootSceneCenter.value },
-        bounds: { ...sceneBounds.value },
-        computedPan: target,
-        targetZoom
-      })
       animateTo(target.panX, target.panY, targetZoom)
     } else {
-      console.log('[RESET-VIEW] no rootSceneCenter, going to (0,0,1)')
       animateTo(0, 0, targetZoom)
     }
   }
@@ -237,20 +209,14 @@ export function usePanZoom() {
     bounds: { minX: number; minY: number },
     wrapperEl: HTMLElement | null
   ) {
-    console.log('[FOCUS-IN]', {
-      pos: { x: pos.x, y: pos.y, w: pos.w, h: pos.h },
-      rootPos: rootPos ? { x: rootPos.x, y: rootPos.y, w: rootPos.w, h: rootPos.h } : null,
-      bounds,
-      sceneBounds: { ...sceneBounds.value }
-    })
     if (!wrapperEl || !rootPos) return
     wrapperElRef.value = wrapperEl
 
     const isSameNode = focusedNodeId.value === pos.id
     const isZoomedIn = isSameNode && Math.abs(zoom.value - FOCUS_ZOOM) < 0.01
 
-    const nodeCenter = nodeCenterScene(pos, bounds)
-    const rootCenter = nodeCenterScene(rootPos, bounds)
+    const nodeCenter = nodeCenterScene(pos)
+    const rootCenter = nodeCenterScene(rootPos)
 
     let targetZoom: number
     let targetSceneX: number

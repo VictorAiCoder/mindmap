@@ -25,7 +25,7 @@ type EmitFn = <K extends keyof NodeImageEmits>(
 
 export interface UseNodeImageReturn {
   /** Ref на скрытый <input type="file"> для programmatic click. */
-  imageInput: Ref<HTMLInputElement | null>
+  // imageInput: Ref<HTMLInputElement | null>
   /** Активна ли подсветка "на узел тянут картинку". */
   isImageDragOver: Ref<boolean>
   /** Резолвнутая картинка из storage или null. */
@@ -123,7 +123,7 @@ export function useNodeImage(
   }
 
   return {
-    imageInput,
+    // imageInput,
     isImageDragOver,
     resolvedImage,
     hasImage,
