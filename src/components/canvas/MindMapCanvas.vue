@@ -128,7 +128,7 @@ import { useNodeDrag } from '../../composables/drag/useNodeDrag'
 import { usePanZoom } from '../../composables/canvas/usePanZoom'
 import { useConnections } from '../../composables/canvas/useConnections'
 
-import { injectStrict } from '../../utils/injectStrict'
+import { injectStrict } from '@shared/lib/injectStrict'
 import { mindMapKey, notifyKey } from '../../types/injection-keys'
 
 import type { LayoutPosition, PositionMap } from '../../types/layout'

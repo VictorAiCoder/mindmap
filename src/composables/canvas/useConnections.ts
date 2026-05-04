@@ -2,7 +2,7 @@
 import { computed, type ComputedRef, type Ref } from 'vue'
 import type { MindMapNode } from '@/types/mindmap'
 import type { LayoutData, LayoutPosition } from '@/types/layout'
-import { calcBezierPath, type NodeBox } from '@/utils/bezier'
+import { calcBezierPath, type NodeBox } from '@shared/lib/bezier'
 
 /**
  * Одна соединительная линия между родителем и ребёнком.

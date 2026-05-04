@@ -106,7 +106,7 @@
 import { ref, computed } from 'vue'
 import ImageGalleryCard from './ImageGalleryCard.vue'
 
-import { injectStrict } from '../../utils/injectStrict'
+import { injectStrict } from '@shared/lib/injectStrict'
 import { mindMapKey, notifyKey } from '../../types/injection-keys'
 
 import type { MindMapNode, StoredImage } from '@/types/mindmap'

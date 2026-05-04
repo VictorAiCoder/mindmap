@@ -24,7 +24,7 @@
 
 <script setup lang="ts">
 import { computed, type CSSProperties } from 'vue'
-import { injectStrict } from '../../utils/injectStrict'
+import { injectStrict } from '@shared/lib/injectStrict'
 import { mindMapKey } from '../../types/injection-keys'
 
 const props = withDefaults(defineProps<{
