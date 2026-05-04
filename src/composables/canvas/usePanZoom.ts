@@ -51,7 +51,13 @@ export function usePanZoom() {
     }
   }
 
-  function calcPanForScenePoint(sceneX, sceneY, screenX, screenY, targetZoom) {
+  function calcPanForScenePoint(
+    sceneX: number, 
+    sceneY: number, 
+    screenX: number, 
+    screenY: number, 
+    targetZoom: number
+  ) {
     const z = clamp(targetZoom, 0.2, 3)
     const b = sceneBounds.value
     return {
@@ -60,7 +66,12 @@ export function usePanZoom() {
     }
   }
 
-  function zoomToPivot(pivotSceneX, pivotSceneY, oldZoom, newZoom) {
+  function zoomToPivot(
+    pivotSceneX: number, 
+    pivotSceneY: number, 
+    oldZoom: number, 
+    newZoom: number
+  ) {
     const b = sceneBounds.value
     const pivotScreenX = panX.value - b.minX + pivotSceneX * oldZoom
     const pivotScreenY = panY.value - b.minY + pivotSceneY * oldZoom
