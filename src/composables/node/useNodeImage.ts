@@ -2,7 +2,7 @@ import { ref, computed, type Ref, type ComputedRef } from 'vue'
 import { processImageFile, getImageFromDrop } from '@/composables/useImageHandler'
 import type { LayoutPosition } from '@/types/layout'
 import type { ImageStorageApi } from '@/types/mindmap-api'
-import type { NodeImageEmits } from '@/types/node-image-emits'
+import type { NodeImageEmits } from '@entities/node/model/emits'
 
 /**
  * MIME-тип для drag&drop карточки из внутренней галереи.
