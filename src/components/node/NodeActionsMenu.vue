@@ -104,7 +104,7 @@ import { ref, watch, computed } from 'vue'
 import { useNodeMenu, type NodeMenuHandlers } from '@/composables/useNodeMenu'
 import { injectStrict } from '@shared/lib/injectStrict'
 import { mindMapKey } from '@/types/injection-keys'
-import { NODE_SCALE } from '@/types/mindmap-constants'
+import { NODE_SCALE } from '@/entities/node'
 import type { Center2D } from '@entities/node'
 
 const { 

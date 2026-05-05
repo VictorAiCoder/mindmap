@@ -85,7 +85,7 @@ import { computeEffectiveScale } from '@/composables/node/useNodeScale'
 import { useNodeMenu } from '@/composables/useNodeMenu'
 import { useNodeImage } from '@/composables/node/useNodeImage'
 import { useNodeDisplay } from '@/composables/node/useNodeDisplay'
-import { NODE_SCALE } from '@/types/mindmap-constants'
+import { NODE_SCALE } from '@/entities/node'
 import type { LayoutPosition } from '@/types/layout'
 import type { ImageStorageApi } from '@/types/mindmap-api'
 

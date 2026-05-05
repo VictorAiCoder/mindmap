@@ -17,7 +17,7 @@ import type { MindMapDocument } from '@entities/mindmap'
 import type { HistoryApi, LayoutType } from '@/types/mindmap-api'
 import type { PositionMap } from '@/types/layout'
 
-import { NODE_SCALE } from '@/types/mindmap-constants'
+import { NODE_SCALE } from '@/entities/node'
 import { clampScale, normalizeScale } from '@/composables/node/useNodeScale'
 import { ROOT_W, ROOT_H, NODE_W, NODE_H } from '@/composables/constants'
 

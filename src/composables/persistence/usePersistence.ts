@@ -11,7 +11,7 @@ import type { MindMapDocument } from '@entities/mindmap'
 import type { ImageStorageApi } from '../image/useImageStorage'
 
 import { normalizeScale } from '@/composables/node/useNodeScale'
-import { NODE_SCALE } from '@/types/mindmap-constants'
+import { NODE_SCALE } from '@/entities/node'
 
 export type ExportFormat = 'json' | 'md' | 'markdown'
 
