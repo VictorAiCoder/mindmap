@@ -1,7 +1,7 @@
 // src/types/mindmap-api.ts
 import type { Ref, ComputedRef } from 'vue'
 import type { MindMapNode } from '@entities/node'
-import type { SegmentOperationsApi } from '@/composables/image/useSegmentOperations'
+import type { SegmentOperationsApi } from '@/features/image-gallery/lib/useSegmentOperations'
 
 // Re-exports — единая точка входа в API приложения
 export type { HistoryApi } from '@/composables/useHistory'
@@ -13,7 +13,7 @@ export type { TreeOperationsApi } from '@/composables/tree/useTreeOperations'
 export type {
   ExportFormat,
   PersistenceApi
-} from '@/composables/persistence/usePersistence'
+} from '@/features/persistence/model/usePersistence'
 export type {
   LayoutType
 } from '@features/layout'
@@ -21,7 +21,7 @@ export type {
 // Локальные импорты для композиции MindMapApi
 import type { TreeOperationsApi } from '@/composables/tree/useTreeOperations'
 import type { ImageStorageApi } from '@/composables/image/useImageStorage'
-import type { PersistenceApi } from '@/composables/persistence/usePersistence'
+import type { PersistenceApi } from '@/features/persistence/model/usePersistence'
 
 // ─── Главный фасад приложения ──────────────────────
 

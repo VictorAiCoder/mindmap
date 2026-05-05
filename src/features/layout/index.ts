@@ -13,4 +13,4 @@ export type { LayoutType } from './lib/types'
 
 // Композаблы и константы
 export { useLayout } from './model/useLayout'
-export { useAutoLayout, LAYOUT_TYPES } from './model/useAutoLayout'
+export { resetLayout, applyAutoLayout, LAYOUT_TYPES } from './model/useAutoLayout'

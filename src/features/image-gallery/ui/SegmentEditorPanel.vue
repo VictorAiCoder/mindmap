@@ -98,7 +98,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { useSegmentEditor } from '@/composables/image/useSegmentEditor'
+import { useSegmentEditor } from '@/features/image-gallery/lib/useSegmentEditor'
 import type { MindMapApi } from '@/types/mindmap-api'
 import type { ImageSegment } from '@entities/image'
 import SegmentCanvas from './SegmentCanvas.vue'

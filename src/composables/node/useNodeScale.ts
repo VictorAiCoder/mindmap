@@ -1,5 +1,5 @@
 // src/composables/node/useNodeScale.ts
-import { NODE_SCALE } from '../../types/mindmap-constants'
+import { NODE_SCALE } from '@entities/node'
 
 /**
  * Эффективный масштаб узла с учётом сопротивления global-зуму.

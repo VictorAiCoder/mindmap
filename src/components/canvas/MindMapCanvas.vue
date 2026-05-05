@@ -117,14 +117,14 @@ import { ref, computed, watch, onMounted, nextTick, provide } from 'vue'
 
 import MapNode from '../node/MapNode.vue'
 import NotesPanel from '../panels/NotesPanel.vue'
-import ImageGalleryPanel from '../panels/ImageGalleryPanel.vue'
+import ImageGalleryPanel from '@features/image-gallery/ui/ImageGalleryPanel.vue'
 import DragHint from './DragHint.vue'
 import CanvasControls from './CanvasControls.vue'
-import NodeActionsMenu from '../node/NodeActionsMenu.vue'
-import SegmentEditorPanel from '../panels/segment-editor/SegmentEditorPanel.vue'
+import NodeActionsMenu from '../../features/node-actions/ui/NodeActionsMenu.vue'
+import SegmentEditorPanel from '../../features/image-gallery/ui/SegmentEditorPanel.vue'
 
 import { useLayout } from '@features/layout'
-import { useNodeDrag } from '../../composables/drag/useNodeDrag'
+import { useNodeDrag } from '@features/node-drag'
 import { usePanZoom } from '../../composables/canvas/usePanZoom'
 import { useConnections } from '../../composables/canvas/useConnections'
 

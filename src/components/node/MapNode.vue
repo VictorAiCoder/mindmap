@@ -82,7 +82,7 @@
 <script setup lang="ts">
 import { ref, computed, inject, toRef, type Ref, type CSSProperties } from 'vue'
 import { computeEffectiveScale } from '@/composables/node/useNodeScale'
-import { useNodeMenu } from '@/composables/useNodeMenu'
+import { useNodeMenu } from '@/features/node-actions'
 import { useNodeImage } from '@/composables/node/useNodeImage'
 import { useNodeDisplay } from '@/composables/node/useNodeDisplay'
 import { NODE_SCALE } from '@/entities/node'
@@ -92,7 +92,7 @@ import type { ImageStorageApi } from '@/types/mindmap-api'
 import NodeImage from './NodeImage.vue'
 import NodeContent from './NodeContent.vue'
 import NodeNotesPreview from './NodeNotesPreview.vue'
-import NodeActions from './NodeActions.vue'
+import NodeActions from '../../features/node-actions/ui/NodeActions.vue'
 
 // ─── Props / Emits ──────────────────────────
 import type { NodeDragState } from '@/entities/node'

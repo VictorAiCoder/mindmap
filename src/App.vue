@@ -43,7 +43,7 @@
 import { ref, reactive, provide } from 'vue'
 import ToolbarPanel from './components/panels/ToolbarPanel.vue'
 import MindMap from './components/MindMap.vue'
-import ImportMarkdownHost from './components/node/ImportMarkdownHost.vue'
+import ImportMarkdownHost from './features/persistence/ui/ImportMarkdownHost.vue'
 import { useMindMap } from './composables/useMindMap'
 import { useTheme } from './composables/useTheme'
 import { LAYOUT_TYPES } from '@features/layout'

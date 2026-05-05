@@ -1,12 +1,12 @@
 // src/composables/drag/useNodeDrag.ts
 import { ref, computed, type Ref, type ComputedRef } from 'vue'
-import { findNodeById, collectVisibleDescendantIds } from '../tree/useTreeTraversal'
-import type { MindMapApi } from '../../types/mindmap-api'
+import { findNodeById, collectVisibleDescendantIds } from '../../../composables/tree/useTreeTraversal'
+import type { MindMapApi } from '../../../types/mindmap-api'
 import type { PositionMap } from '@features/layout'
 
 const MOVE_THRESHOLD = 4
 
-interface NodeDragApi {
+export interface NodeDragApi {
   draggingNodeId: Ref<string | null>
   isDraggingNode: ComputedRef<boolean>
   dropTargetId: Ref<string | null>

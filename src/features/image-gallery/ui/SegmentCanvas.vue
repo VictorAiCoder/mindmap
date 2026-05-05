@@ -49,7 +49,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import type { ImageSegment } from '@entities/image'
-import type { Rect, Corner } from '@/composables/image/useSegmentEditor'
+import type { Rect, Corner } from '@/features/image-gallery/lib/useSegmentEditor'
 
 const props = defineProps<{
   imageSrc: string

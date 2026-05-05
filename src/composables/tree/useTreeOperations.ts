@@ -8,7 +8,7 @@ import {
   collectVisibleDescendantIds
 } from './useTreeTraversal'
 import { createNode } from './useNodeFactory'
-import { applyAutoLayout, resetLayout } from '../layout/useAutoLayout'
+import { applyAutoLayout, resetLayout } from '@features/layout'
 
 import type { MindMapNode, ScenePosition, Center2D } from '@entities/node'
 import type { RawImage } from '@entities/image'
@@ -21,7 +21,7 @@ import { NODE_SCALE } from '@/entities/node'
 import { clampScale, normalizeScale } from '@/composables/node/useNodeScale'
 import { ROOT_W, ROOT_H, NODE_W, NODE_H } from '@/composables/constants'
 
-import { parseMarkdownToTree } from '../persistence/importMarkdown'
+import { parseMarkdownToTree } from '@features/persistence'
 
 export interface TreeOperationsApi {
   addChild: (parentId: string, text?: string) => string | null
@@ -55,7 +55,7 @@ export interface TreeOperationsApi {
     dy: number,
     layoutPositions?: PositionMap
   ) => void
-
+}
 // ─── Helpers ────────────────────────────────────────
 
 /**

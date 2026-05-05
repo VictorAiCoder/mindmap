@@ -25,7 +25,7 @@
 <script setup lang="ts">
 import { computed, type CSSProperties } from 'vue'
 import { injectStrict } from '@shared/lib/injectStrict'
-import { mindMapKey } from '../../types/injection-keys'
+import { mindMapKey } from '@/types/injection-keys'
 
 const props = withDefaults(defineProps<{
   /** id картинки (raw или segment) */

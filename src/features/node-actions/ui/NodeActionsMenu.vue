@@ -101,7 +101,7 @@
 
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
-import { useNodeMenu, type NodeMenuHandlers } from '@/composables/useNodeMenu'
+import { useNodeMenu, type NodeMenuHandlers } from '@/features/node-actions'
 import { injectStrict } from '@shared/lib/injectStrict'
 import { mindMapKey } from '@/types/injection-keys'
 import { NODE_SCALE } from '@/entities/node'

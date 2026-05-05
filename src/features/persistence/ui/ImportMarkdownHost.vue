@@ -14,7 +14,7 @@
 <script setup lang="ts">
 import { computed, inject } from 'vue'
 import ImportMarkdownDialog from './ImportMarkdownDialog.vue'
-import { useNodeMenu } from '@/composables/useNodeMenu'
+import { useNodeMenu } from '@/features/node-actions'
 import { injectStrict } from '@shared/lib/injectStrict'
 import { mindMapKey, notifyKey } from '@/types/injection-keys'
 
