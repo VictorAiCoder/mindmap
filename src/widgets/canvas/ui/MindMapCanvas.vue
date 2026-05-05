@@ -115,24 +115,24 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, nextTick, provide } from 'vue'
 
-import MapNode from '../node/MapNode.vue'
-import NotesPanel from '../panels/NotesPanel.vue'
+import MapNode from '../../../entities/node/ui/MapNode.vue'
+import NotesPanel from '../../../features/notes/ui/NotesPanel.vue'
 import ImageGalleryPanel from '@features/image-gallery/ui/ImageGalleryPanel.vue'
 import DragHint from './DragHint.vue'
 import CanvasControls from './CanvasControls.vue'
-import NodeActionsMenu from '../../features/node-actions/ui/NodeActionsMenu.vue'
-import SegmentEditorPanel from '../../features/image-gallery/ui/SegmentEditorPanel.vue'
+import NodeActionsMenu from '../../../features/node-actions/ui/NodeActionsMenu.vue'
+import SegmentEditorPanel from '../../../features/image-gallery/ui/SegmentEditorPanel.vue'
 
 import { useLayout } from '@features/layout'
-import { useNodeDrag } from '@features/node-drag'
-import { usePanZoom } from '../../composables/canvas/usePanZoom'
-import { useConnections } from '../../composables/canvas/useConnections'
+import { useNodeDrag } from '@/widgets/canvas'
+import { usePanZoom } from '../model/usePanZoom'
+import { useConnections } from '../model/useConnections'
 
 import { injectStrict } from '@shared/lib/injectStrict'
-import { mindMapKey, notifyKey } from '../../types/injection-keys'
+import { mindMapKey, notifyKey } from '../../../app/providers/injection-keys'
 
 import type { LayoutPosition, PositionMap } from '@features/layout'
-import type { NodeDragState } from '../../types/node-drag'
+import type { NodeDragState } from '../../../types/node-drag'
 
 // ═══════════════════════════════════════════
 // Props / Emits

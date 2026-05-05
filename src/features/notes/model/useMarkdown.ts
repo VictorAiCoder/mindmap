@@ -1,7 +1,7 @@
 import { marked } from 'marked'
 import { markedHighlight } from 'marked-highlight'
 import DOMPurify from 'dompurify'
-import { hljs } from './notes/hljsSetup'
+import { hljs } from './hljsSetup'
 import type { Config } from 'dompurify'
 
 // ============================================================================

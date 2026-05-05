@@ -1,6 +1,6 @@
 // src/types/injection-keys.ts
 import type { InjectionKey } from 'vue'
-import type { MindMapApi } from './mindmap-api'
+import type { MindMapApi } from '../../types/mindmap-api'
 
 export type NotifyColor = 'success' | 'error' | 'info' | 'warning'
 

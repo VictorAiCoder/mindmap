@@ -1,5 +1,5 @@
 import type { MindMapNode } from '@entities/node'
-import { GAP_H, GAP_V } from '@/composables/constants'
+import { GAP_H, GAP_V } from '@/shared/config/constants'
 import { getNodeWidth, getNodeHeight, calcSubtreeHeight } from './layoutUtils'
 import type { PositionsMap } from './layoutTreeDown'
 

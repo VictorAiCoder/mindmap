@@ -179,7 +179,7 @@
 <script setup lang="ts">
 import { ref, nextTick } from 'vue'
 import { LAYOUT_TYPES } from '@features/layout'
-import type { LayoutType, ExportFormat } from '../../types/mindmap-api'
+import type { LayoutType, ExportFormat } from '../../../types/mindmap-api'
 
 interface Props {
   nodeCount?: number

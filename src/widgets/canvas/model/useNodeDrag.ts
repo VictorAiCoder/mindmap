@@ -1,6 +1,6 @@
 // src/composables/drag/useNodeDrag.ts
 import { ref, computed, type Ref, type ComputedRef } from 'vue'
-import { findNodeById, collectVisibleDescendantIds } from '../../../composables/tree/useTreeTraversal'
+import { findNodeById, collectVisibleDescendantIds } from '@entities/mindmap'
 import type { MindMapApi } from '../../../types/mindmap-api'
 import type { PositionMap } from '@features/layout'
 

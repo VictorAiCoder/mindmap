@@ -1,4 +1,4 @@
-import { ROOT_W, ROOT_H, GAP_H, GAP_V, DEFAULT_CENTER_X } from '@/composables/constants'
+import { ROOT_W, ROOT_H, GAP_H, GAP_V, DEFAULT_CENTER_X } from '@/shared/config/constants'
 import type { MindMapNode, ScenePosition } from '@entities/node'
 import {
   getNodeWidth, getNodeHeight,

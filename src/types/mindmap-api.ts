@@ -4,12 +4,12 @@ import type { MindMapNode } from '@entities/node'
 import type { SegmentOperationsApi } from '@/features/image-gallery/lib/useSegmentOperations'
 
 // Re-exports — единая точка входа в API приложения
-export type { HistoryApi } from '@/composables/useHistory'
+export type { HistoryApi } from '@/app/model/useHistory'
 export type {
   ResolvedImage,
   ImageStorageApi
-} from '@/composables/image/useImageStorage'
-export type { TreeOperationsApi } from '@/composables/tree/useTreeOperations'
+} from '@/app/store/useImageStorage'
+export type { TreeOperationsApi } from '@/entities/mindmap/model/useTreeOperations'
 export type {
   ExportFormat,
   PersistenceApi
@@ -19,8 +19,8 @@ export type {
 } from '@features/layout'
 
 // Локальные импорты для композиции MindMapApi
-import type { TreeOperationsApi } from '@/composables/tree/useTreeOperations'
-import type { ImageStorageApi } from '@/composables/image/useImageStorage'
+import type { TreeOperationsApi } from '@/entities/mindmap/model/useTreeOperations'
+import type { ImageStorageApi } from '@/app/store/useImageStorage'
 import type { PersistenceApi } from '@/features/persistence/model/usePersistence'
 
 // ─── Главный фасад приложения ──────────────────────

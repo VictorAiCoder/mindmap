@@ -87,9 +87,9 @@
 
 <script setup>
 import { ref, computed, watch, nextTick, inject } from 'vue'
-import { renderMarkdown } from '../../composables/useMarkdown'
-import { findNodeById } from '../../composables/tree/useTreeTraversal'
-import { mindMapKey } from '../../types/injection-keys'
+import { renderMarkdown } from '../model/useMarkdown'
+import { findNodeById } from '@entities/mindmap'
+import { mindMapKey } from '@/app/providers/injection-keys'
 import NotesToolbar from './NotesToolbar.vue'
 
 const props = defineProps({

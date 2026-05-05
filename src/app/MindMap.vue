@@ -5,7 +5,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import MindMapCanvas from './canvas/MindMapCanvas.vue'
+import MindMapCanvas from '../widgets/canvas/ui/MindMapCanvas.vue'
 
 const props = withDefaults(defineProps<{
   galleryOpen?: boolean

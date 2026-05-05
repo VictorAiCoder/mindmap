@@ -41,19 +41,19 @@
 
 <script setup lang="ts">
 import { ref, reactive, provide } from 'vue'
-import ToolbarPanel from './components/panels/ToolbarPanel.vue'
-import MindMap from './components/MindMap.vue'
-import ImportMarkdownHost from './features/persistence/ui/ImportMarkdownHost.vue'
-import { useMindMap } from './composables/useMindMap'
-import { useTheme } from './composables/useTheme'
+import ToolbarPanel from '../widgets/toolbar/ui/ToolbarPanel.vue'
+import MindMap from './MindMap.vue'
+import ImportMarkdownHost from '../features/persistence/ui/ImportMarkdownHost.vue'
+import { useMindMap } from './store/useMindMap'
+import { useTheme } from './model/useTheme'
 import { LAYOUT_TYPES } from '@features/layout'
 import {
   mindMapKey,
   notifyKey,
   type NotifyColor,
   type NotifyFn
-} from './types/injection-keys'
-import type { LayoutType, ExportFormat } from './types/mindmap-api'
+} from './providers/injection-keys'
+import type { LayoutType, ExportFormat } from '../types/mindmap-api'
 
 // ─── Core ────────────────────────────────────────────
 

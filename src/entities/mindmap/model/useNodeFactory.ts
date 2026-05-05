@@ -1,5 +1,5 @@
 // src/composables/tree/useNodeFactory.ts
-import { NODE_COLORS, DEFAULT_COLOR } from '../constants'
+import { NODE_COLORS, DEFAULT_COLOR } from '@shared/config/constants'
 import type { MindMapNode } from '@entities/node'
 import type { MindMapDocument } from '@entities/mindmap'
 

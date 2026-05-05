@@ -81,18 +81,18 @@
 
 <script setup lang="ts">
 import { ref, computed, inject, toRef, type Ref, type CSSProperties } from 'vue'
-import { computeEffectiveScale } from '@/composables/node/useNodeScale'
+import { computeEffectiveScale } from '@/entities/node/model/useNodeScale'
 import { useNodeMenu } from '@/features/node-actions'
-import { useNodeImage } from '@/composables/node/useNodeImage'
-import { useNodeDisplay } from '@/composables/node/useNodeDisplay'
+import { useNodeImage } from '@/entities/node/model/useNodeImage'
+import { useNodeDisplay } from '@/entities/node/model/useNodeDisplay'
 import { NODE_SCALE } from '@/entities/node'
 import type { LayoutPosition } from '@/features/layout'
 import type { ImageStorageApi } from '@/types/mindmap-api'
 
-import NodeImage from './NodeImage.vue'
-import NodeContent from './NodeContent.vue'
-import NodeNotesPreview from './NodeNotesPreview.vue'
-import NodeActions from '../../features/node-actions/ui/NodeActions.vue'
+import NodeImage from '@entities/node/ui/NodeImage.vue'
+import NodeContent from '@entities/node/ui/NodeContent.vue'
+import NodeNotesPreview from '@entities/node/ui/NodeNotesPreview.vue'
+import NodeActions from '@features/node-actions/ui/NodeActions.vue'
 
 // ─── Props / Emits ──────────────────────────
 import type { NodeDragState } from '@/entities/node'

@@ -1,16 +1,16 @@
 // src/composables/persistence/usePersistence.ts
 import { watch, type Ref } from 'vue'
-import { STORAGE_KEY, EXPORT_FILENAME_PREFIX } from '../../../composables/constants'
+import { STORAGE_KEY, EXPORT_FILENAME_PREFIX } from '../../../shared/config/constants'
 import { exportToMarkdown } from '../lib/exportMarkdown'
 import { parseMarkdownToTree } from '../lib/importMarkdown'
-import { createDefaultDocument } from '@/composables/tree/useNodeFactory'
+import { createDefaultDocument } from '@entities/mindmap'
 
 import type { MindMapNode } from '@entities/node'
 import type { StoredImage, RawImage, ImageSegment } from '@entities/image'
 import type { MindMapDocument } from '@entities/mindmap'
-import type { ImageStorageApi } from '../../../composables/image/useImageStorage'
+import type { ImageStorageApi } from '@app/store/useImageStorage'
 
-import { normalizeScale } from '@/composables/node/useNodeScale'
+import { normalizeScale } from '@/entities/node/model/useNodeScale'
 import { NODE_SCALE } from '@/entities/node'
 
 export type ExportFormat = 'json' | 'md' | 'markdown'

@@ -73,8 +73,8 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onBeforeUnmount, toRef } from 'vue'
-import { renderMarkdown } from '@/composables/useMarkdown'
-import { useNodeDisplay } from '@/composables/node/useNodeDisplay'
+import { renderMarkdown } from '@/features/notes/model/useMarkdown'
+import { useNodeDisplay } from '@/entities/node/model/useNodeDisplay'
 import type { LayoutPosition } from '@/features/layout'
 
 // ─── Props / Emits ──────────────────────────

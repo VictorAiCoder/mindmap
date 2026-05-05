@@ -1,6 +1,6 @@
 // src/composables/useHistory.ts
 import { ref, type Ref } from 'vue'
-import { MAX_HISTORY } from './constants'
+import { MAX_HISTORY } from '../../shared/config/constants'
 
 export interface HistoryApi {
   save: () => void

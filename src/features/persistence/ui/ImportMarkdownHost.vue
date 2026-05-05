@@ -16,7 +16,7 @@ import { computed, inject } from 'vue'
 import ImportMarkdownDialog from './ImportMarkdownDialog.vue'
 import { useNodeMenu } from '@/features/node-actions'
 import { injectStrict } from '@shared/lib/injectStrict'
-import { mindMapKey, notifyKey } from '@/types/injection-keys'
+import { mindMapKey, notifyKey } from '@/app/providers/injection-keys'
 
 const {
   importDialogOpen,

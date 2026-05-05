@@ -1,5 +1,5 @@
 import { ref, computed, type Ref, type ComputedRef } from 'vue'
-import { processImageFile, getImageFromDrop } from '@/composables/useImageHandler'
+import { processImageFile, getImageFromDrop } from '@/shared/lib/useImageHandler'
 import type { LayoutPosition } from '@/features/layout'
 import type { ImageStorageApi } from '@/types/mindmap-api'
 import type { NodeImageEmits } from '@entities/node/model/emits'

@@ -5,9 +5,10 @@ import {
   findParentOf,
   isDescendantOf,
   detachNode,
-  collectVisibleDescendantIds
-} from './useTreeTraversal'
-import { createNode } from './useNodeFactory'
+  collectVisibleDescendantIds,
+  createNode
+} from '@entities/mindmap'
+
 import { applyAutoLayout, resetLayout } from '@features/layout'
 
 import type { MindMapNode, ScenePosition, Center2D } from '@entities/node'
@@ -18,8 +19,8 @@ import type { HistoryApi, LayoutType } from '@/types/mindmap-api'
 import type { PositionMap } from '@/features/layout'
 
 import { NODE_SCALE } from '@/entities/node'
-import { clampScale, normalizeScale } from '@/composables/node/useNodeScale'
-import { ROOT_W, ROOT_H, NODE_W, NODE_H } from '@/composables/constants'
+import { clampScale, normalizeScale } from '@/entities/node/model/useNodeScale'
+import { ROOT_W, ROOT_H, NODE_W, NODE_H } from '@/shared/config/constants'
 
 import { parseMarkdownToTree } from '@features/persistence'
 

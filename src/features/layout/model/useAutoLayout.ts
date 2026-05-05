@@ -1,5 +1,5 @@
 // src/composables/layout/useAutoLayout.ts
-import { traverseTree } from '@/composables/tree/useTreeTraversal'
+import { traverseTree } from '@entities/mindmap'
 import { layoutMindMap } from '../lib/layoutMindMap'
 import { layoutTreeDown } from '../lib/layoutTreeDown'
 import { layoutTreeRight } from '../lib/layoutTreeRight'

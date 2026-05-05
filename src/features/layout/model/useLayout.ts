@@ -3,9 +3,9 @@ import { computed, type ComputedRef, type Ref } from 'vue'
 import {
   NODE_W, NODE_H, ROOT_W, ROOT_H,
   GAP_H, GAP_V, CANVAS_PADDING
-} from '@/composables/constants'
+} from '@/shared/config/constants'
 import { NODE_SCALE } from '@entities/node'
-import { traverseTree } from '@/composables/tree/useTreeTraversal'
+import { traverseTree } from '@entities/mindmap'
 import type { MindMapNode } from '@entities/node'
 import type { LayoutData, LayoutPosition, LayoutBounds } from './types'
 
