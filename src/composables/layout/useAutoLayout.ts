@@ -11,7 +11,7 @@ import type { MindMapNode } from '@entities/node'
 import type {
   LayoutType,
   LayoutDescriptor
-} from '@/types/mindmap-api'
+} from './types'
 
 /**
  * Реестр всех доступных раскладок.

@@ -13,17 +13,48 @@ import { applyAutoLayout, resetLayout } from '../layout/useAutoLayout'
 import type { MindMapNode, ScenePosition, Center2D } from '@entities/node'
 import type { RawImage } from '@entities/image'
 import type { MindMapDocument } from '@entities/mindmap'
-import type {
-  TreeOperationsApi,
-  HistoryApi,
-  LayoutType
-} from '@/types/mindmap-api'
+
+import type { HistoryApi, LayoutType } from '@/types/mindmap-api'
+import type { PositionMap } from '@/types/layout'
 
 import { NODE_SCALE } from '@/types/mindmap-constants'
 import { clampScale, normalizeScale } from '@/composables/node/useNodeScale'
 import { ROOT_W, ROOT_H, NODE_W, NODE_H } from '@/composables/constants'
 
 import { parseMarkdownToTree } from '../persistence/importMarkdown'
+
+export interface TreeOperationsApi {
+  addChild: (parentId: string, text?: string) => string | null
+  deleteNode: (nodeId: string) => void
+
+  updateText: (nodeId: string, text: string) => void
+  updateColor: (nodeId: string, color: string) => void
+  updateNotes: (nodeId: string, notes: string) => void
+  updateNodePosition: (
+    nodeId: string,
+    x: number | null,
+    y: number | null
+  ) => void
+
+  toggleCollapse: (nodeId: string) => void
+  toggleNotePin: (nodeId: string) => void
+  toggleNotesVisible: (nodeId: string) => void
+
+  setNodeImage: (nodeId: string, dataUrl: string) => void
+  removeNodeImage: (nodeId: string) => void
+  setImageWidth: (nodeId: string, width: number) => void
+  commitImageResize: (nodeId: string, width: number) => void
+
+  resetAllPositions: () => void
+  autoLayout: (type?: LayoutType) => void
+
+  reparentNode: (nodeId: string, newParentId: string) => boolean
+  moveNodeGroup: (
+    nodeId: string,
+    dx: number,
+    dy: number,
+    layoutPositions?: PositionMap
+  ) => void
 
 // ─── Helpers ────────────────────────────────────────
 

@@ -1,7 +1,84 @@
 // src/composables/image/useImageStorage.ts
-import { computed, type Ref } from 'vue'
+import { computed, type Ref, type ComputedRef } from 'vue'
 import type { StoredImage, ImageSegment, Clip } from '@entities/image'  // ★ + Clip
-import type { ImageStorageApi, ResolvedImage } from '@/types/mindmap-api'
+
+export interface ResolvedImage {
+  id: string
+  dataUrl: string
+  /**
+   * Нормализованный прямоугольник обрезки для сегментов.
+   * Для RawImage — undefined (показывать целиком).
+   */
+  clip?: Clip                                             // ★ Clip
+}
+
+export interface ImageStorageApi {
+  /** Read-only представление пула для компонентов */
+  images: Readonly<Ref<readonly StoredImage[]>>
+
+  /**
+   * Находит картинку по id и резолвит её в готовые для рендера данные.
+   * Для сегмента — возвращает dataUrl исходника + clip.
+   */
+  resolve(id: string | null | undefined): ResolvedImage | null
+
+  /**
+   * Добавляет новую сырую картинку в пул.
+   * Возвращает сгенерированный id.
+   *
+   * 💡 Не пишет в историю — вызывающий код должен делать history.save()
+   * до мутации, если хочет undo.
+   */
+  addRaw(dataUrl: string, name?: string): string
+
+  /**
+   * Удаляет картинку из пула безусловно.
+   * ⚠️ Не проверяет использование — узлы с этим imageId потеряют картинку.
+   * ⚠️ Не пишет в историю.
+   */
+  remove(id: string): void
+
+  /**
+   * Переименовывает картинку. Пустое/whitespace имя игнорируется.
+   * ⚠️ Не пишет в историю.
+   */
+  rename(id: string, name: string): void
+
+  /** Количество картинок в пуле (реактивное) */
+  totalCount: ComputedRef<number>
+
+  /**
+   * Создаёт сегмент из существующей RawImage.
+   * ⚠️ sourceId должен указывать на картинку kind === 'raw'.
+   * Сегменты из сегментов не поддерживаются.
+   * ⚠️ Не пишет в историю.
+   * @returns id созданного сегмента или null если sourceId невалидный
+   */
+  addSegment(
+    sourceId: string,
+    clip: Clip,                                           // ★ Clip
+    name?: string
+  ): string | null
+
+  /**
+   * Обновляет прямоугольник и/или имя сегмента.
+   * ⚠️ Не пишет в историю.
+   */
+  updateSegment(
+    id: string,
+    patch: Partial<{
+      clip: Clip                                          // ★ Clip
+      name: string
+    }>
+  ): void
+
+  /**
+   * Возвращает все сегменты, построенные от указанного источника.
+   * (Реактивно через computed в вызывающем коде, если нужно.)
+   */
+  listSegmentsOf(sourceId: string): readonly ImageSegment[]   // ★ убран inline import()
+}
+
 
 /**
  * Генератор ID для картинок.

@@ -1,8 +1,15 @@
 // src/composables/useHistory.ts
 import { ref, type Ref } from 'vue'
 import { MAX_HISTORY } from './constants'
-import type { HistoryApi } from '@/types/mindmap-api'
 
+export interface HistoryApi {
+  save: () => void
+  undo: () => void
+  redo: () => void
+  canUndo: Ref<boolean>
+  canRedo: Ref<boolean>
+  clear: () => void
+}
 /**
  * Generic composable для undo/redo любого состояния.
  *

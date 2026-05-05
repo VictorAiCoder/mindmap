@@ -1,5 +1,5 @@
 // src/types/layout.ts
-import type { MindMapNode } from '@entities/node'
+import type { MindMapNode, ScenePosition } from '@entities/node'
 
 /**
  * Позиция узла на канвасе.
@@ -36,4 +36,4 @@ export interface LayoutData {
 /**
  * Карта координат — используется при drag'е для узлов без customX/Y.
  */
-export type PositionMap = Map<string, { x: number; y: number }>
+export type PositionMap = Map<string, ScenePosition>

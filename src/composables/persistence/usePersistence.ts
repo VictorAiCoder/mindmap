@@ -8,13 +8,17 @@ import { createDefaultDocument } from '@/composables/tree/useNodeFactory'
 import type { MindMapNode } from '@entities/node'
 import type { StoredImage, RawImage, ImageSegment } from '@entities/image'
 import type { MindMapDocument } from '@entities/mindmap'
-import type {
-  PersistenceApi,
-  ExportFormat,
-  ImageStorageApi,
-} from '@/types/mindmap-api'
+import type { ImageStorageApi } from '../image/useImageStorage'
+
 import { normalizeScale } from '@/composables/node/useNodeScale'
 import { NODE_SCALE } from '@/types/mindmap-constants'
+
+export type ExportFormat = 'json' | 'md' | 'markdown'
+
+export interface PersistenceApi {
+  exportTree: (format?: ExportFormat) => string
+  importTree(file: File): Promise<MindMapDocument>
+}
 
 // ════════════════════════════════════════════════════
 // LocalStorage
