@@ -1,17 +1,17 @@
 // src/composables/layout/useAutoLayout.ts
-import { traverseTree } from '../tree/useTreeTraversal'
-import { layoutMindMap } from './layoutMindMap'
-import { layoutTreeDown } from './layoutTreeDown'
-import { layoutTreeRight } from './layoutTreeRight'
-import { layoutRadial } from './layoutRadial'
-import { layoutCompact } from './layoutCompact'
-import { layoutSpacious } from './layoutSpacious'
+import { traverseTree } from '@/composables/tree/useTreeTraversal'
+import { layoutMindMap } from '../lib/layoutMindMap'
+import { layoutTreeDown } from '../lib/layoutTreeDown'
+import { layoutTreeRight } from '../lib/layoutTreeRight'
+import { layoutRadial } from '../lib/layoutRadial'
+import { layoutCompact } from '../lib/layoutCompact'
+import { layoutSpacious } from '../lib/layoutSpacious'
 
 import type { MindMapNode } from '@entities/node'
 import type {
   LayoutType,
   LayoutDescriptor
-} from './types'
+} from '../lib/types'
 
 /**
  * Реестр всех доступных раскладок.

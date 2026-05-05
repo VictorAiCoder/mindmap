@@ -1,5 +1,5 @@
 import type { MindMapNode } from '@entities/node'
-import { GAP_H, DEFAULT_CENTER_X } from '../constants'
+import { GAP_H, DEFAULT_CENTER_X } from '@/composables/constants'
 import { getNodeWidth, getNodeHeight, calcSubtreeWidth } from './layoutUtils'
 
 export interface NodePosition {

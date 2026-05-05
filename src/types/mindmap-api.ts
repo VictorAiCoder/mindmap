@@ -15,11 +15,8 @@ export type {
   PersistenceApi
 } from '@/composables/persistence/usePersistence'
 export type {
-  LayoutType,
-  LayoutPositions,
-  LayoutFn,
-  LayoutDescriptor
-} from '@/composables/layout/types'
+  LayoutType
+} from '@features/layout'
 
 // Локальные импорты для композиции MindMapApi
 import type { TreeOperationsApi } from '@/composables/tree/useTreeOperations'

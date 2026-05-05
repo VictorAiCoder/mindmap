@@ -178,7 +178,7 @@
 
 <script setup lang="ts">
 import { ref, nextTick } from 'vue'
-import { LAYOUT_TYPES } from '../../composables/layout/useAutoLayout'
+import { LAYOUT_TYPES } from '@features/layout'
 import type { LayoutType, ExportFormat } from '../../types/mindmap-api'
 
 interface Props {

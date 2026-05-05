@@ -3,11 +3,11 @@ import { computed, type ComputedRef, type Ref } from 'vue'
 import {
   NODE_W, NODE_H, ROOT_W, ROOT_H,
   GAP_H, GAP_V, CANVAS_PADDING
-} from '../constants'
-import { NODE_SCALE } from '../../types/mindmap-constants'
-import { traverseTree } from '../tree/useTreeTraversal'
+} from '@/composables/constants'
+import { NODE_SCALE } from '@entities/node'
+import { traverseTree } from '@/composables/tree/useTreeTraversal'
 import type { MindMapNode } from '@entities/node'
-import type { LayoutData, LayoutPosition, LayoutBounds } from '../../types/layout'
+import type { LayoutData, LayoutPosition, LayoutBounds } from './types'
 
 export function useLayout(
   rootNode: Ref<MindMapNode>

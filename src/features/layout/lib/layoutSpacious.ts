@@ -1,12 +1,12 @@
-import { ROOT_W, ROOT_H, GAP_H, GAP_V, DEFAULT_CENTER_X } from '../constants'
+import { ROOT_W, ROOT_H, GAP_H, GAP_V, DEFAULT_CENTER_X } from '@/composables/constants'
 import type { MindMapNode, ScenePosition } from '@entities/node'
 import {
   getNodeWidth, getNodeHeight,
   calcSubtreeHeight, splitChildrenLeftRight, calcGroupHeight,
 } from './layoutUtils'
 
-const H_GAP = GAP_H + 40
-const V_GAP = GAP_V + 10
+const H_GAP = GAP_H + 80
+const V_GAP = GAP_V + 30
 
 type Side = 'left' | 'right'
 
@@ -18,8 +18,6 @@ function placeBranch(
   side: Side,
   depth: number,
 ): void {
-  const w = getNodeWidth(depth)
-
   positions.set(node.id, { x, y: yCenter - getNodeHeight(node, depth) / 2 })
 
   if (node.collapsed || !node.children?.length) return
@@ -27,7 +25,7 @@ function placeBranch(
   const childHeights = node.children.map(c => calcSubtreeHeight(c, depth + 1, V_GAP))
   const totalH = childHeights.reduce((s, h) => s + h, 0) + (childHeights.length - 1) * V_GAP
   const childX = side === 'right'
-    ? x + w + H_GAP
+    ? x + getNodeWidth(depth) + H_GAP
     : x - getNodeWidth(depth + 1) - H_GAP
 
   let cy = yCenter - totalH / 2
@@ -38,7 +36,7 @@ function placeBranch(
   })
 }
 
-export function layoutMindMap(root: MindMapNode): Map<string, ScenePosition> {
+export function layoutSpacious(root: MindMapNode): Map<string, ScenePosition> {
   const positions = new Map<string, ScenePosition>()
   const children = root.children || []
   const { right, left } = splitChildrenLeftRight(children)
@@ -48,7 +46,7 @@ export function layoutMindMap(root: MindMapNode): Map<string, ScenePosition> {
   const maxH = Math.max(rightH, leftH, ROOT_H) // ← БЫЛО ROOT_W, исправлена опечатка
 
   const cx = DEFAULT_CENTER_X
-  const cy = maxH / 2 + 100
+  const cy = maxH / 2 + 120
 
   positions.set(root.id, { x: cx - ROOT_W / 2, y: cy - getNodeHeight(root, 0) / 2 })
 

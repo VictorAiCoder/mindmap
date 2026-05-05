@@ -2,7 +2,7 @@
 import { ref, computed, type Ref, type ComputedRef } from 'vue'
 import { findNodeById, collectVisibleDescendantIds } from '../tree/useTreeTraversal'
 import type { MindMapApi } from '../../types/mindmap-api'
-import type { PositionMap } from '../../types/layout'
+import type { PositionMap } from '@features/layout'
 
 const MOVE_THRESHOLD = 4
 

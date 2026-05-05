@@ -123,7 +123,7 @@ import CanvasControls from './CanvasControls.vue'
 import NodeActionsMenu from '../node/NodeActionsMenu.vue'
 import SegmentEditorPanel from '../panels/segment-editor/SegmentEditorPanel.vue'
 
-import { useLayout } from '../../composables/layout/useLayout'
+import { useLayout } from '@features/layout'
 import { useNodeDrag } from '../../composables/drag/useNodeDrag'
 import { usePanZoom } from '../../composables/canvas/usePanZoom'
 import { useConnections } from '../../composables/canvas/useConnections'
@@ -131,7 +131,7 @@ import { useConnections } from '../../composables/canvas/useConnections'
 import { injectStrict } from '@shared/lib/injectStrict'
 import { mindMapKey, notifyKey } from '../../types/injection-keys'
 
-import type { LayoutPosition, PositionMap } from '../../types/layout'
+import type { LayoutPosition, PositionMap } from '@features/layout'
 import type { NodeDragState } from '../../types/node-drag'
 
 // ═══════════════════════════════════════════
