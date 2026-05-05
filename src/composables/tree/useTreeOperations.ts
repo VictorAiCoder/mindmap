@@ -15,7 +15,7 @@ import type { RawImage } from '@entities/image'
 import type { MindMapDocument } from '@entities/mindmap'
 
 import type { HistoryApi, LayoutType } from '@/types/mindmap-api'
-import type { PositionMap } from '@/types/layout'
+import type { PositionMap } from '@/features/layout'
 
 import { NODE_SCALE } from '@/entities/node'
 import { clampScale, normalizeScale } from '@/composables/node/useNodeScale'

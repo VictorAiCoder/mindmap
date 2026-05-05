@@ -38,7 +38,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { LayoutPosition } from '@/types/layout'
+import type { LayoutPosition } from '@/features/layout'
 
 // ─── Props / Emits ──────────────────────────
 

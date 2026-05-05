@@ -75,7 +75,7 @@
 import { ref, computed, watch, onBeforeUnmount, toRef } from 'vue'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import { useNodeDisplay } from '@/composables/node/useNodeDisplay'
-import type { LayoutPosition } from '@/types/layout'
+import type { LayoutPosition } from '@/features/layout'
 
 // ─── Props / Emits ──────────────────────────
 

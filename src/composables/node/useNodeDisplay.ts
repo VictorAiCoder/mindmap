@@ -1,6 +1,6 @@
 // src/composables/node/useNodeDisplay.ts
 import { computed, type Ref, type ComputedRef } from 'vue'
-import type { LayoutPosition } from '@/types/layout'
+import type { LayoutPosition } from '@/features/layout'
 import type { MindMapNode } from '@entities/node'
 
 /**
