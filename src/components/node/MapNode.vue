@@ -95,8 +95,8 @@ import NodeNotesPreview from './NodeNotesPreview.vue'
 import NodeActions from './NodeActions.vue'
 
 // ─── Props / Emits ──────────────────────────
-import type { NodeDragState } from '@/types/node-drag'
-import { DEFAULT_NODE_DRAG_STATE } from '@/types/node-drag'
+import type { NodeDragState } from '@/entities/node'
+import { DEFAULT_NODE_DRAG_STATE } from '@/entities/node'
 
 interface Props {
   pos: LayoutPosition
