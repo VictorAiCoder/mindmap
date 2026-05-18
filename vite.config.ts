@@ -21,4 +21,8 @@ export default defineConfig({
       '@app': fileURLToPath(new URL('./src/app', import.meta.url))
     },
   },
+  server: {
+    host: '192.168.1.110',  // Доступ из локальной сети
+    port: 3000
+  }
 })

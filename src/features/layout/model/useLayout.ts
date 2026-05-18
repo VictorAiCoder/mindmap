@@ -1,12 +1,9 @@
-// src/composables/layout/useLayout.ts
+// src/features/layout/model/useLayout.ts
 import { computed, type ComputedRef, type Ref } from 'vue'
-import {
-  NODE_W, NODE_H, ROOT_W, ROOT_H,
-  GAP_H, GAP_V, CANVAS_PADDING
-} from '@/shared/config/constants'
-import { NODE_SCALE } from '@entities/node'
+import { GAP_H, GAP_V, CANVAS_PADDING } from '@/shared/config/constants'
 import { traverseTree } from '@entities/mindmap'
 import type { MindMapNode } from '@entities/node'
+import { getNodeDimensions } from '@entities/node/model/useNodeDimensions'
 import type { LayoutData, LayoutPosition, LayoutBounds } from './types'
 
 export function useLayout(
@@ -75,10 +72,10 @@ function calcAutoPositions(root: MindMapNode): Map<string, AutoPos> {
   const map = new Map<string, AutoPos>()
 
   function subtreeHeight(node: MindMapNode, depth: number): number {
-    // ★ учитываем персональный scale узла
-    const h = nodeHeight(depth, node)
+    const dims = getNodeDimensions(node, depth)
+    const selfH = dims.totalHeight
 
-    if (node.collapsed || !node.children?.length) return h
+    if (node.collapsed || !node.children?.length) return selfH
 
     const childrenH = node.children.reduce(
       (sum, child) => sum + subtreeHeight(child, depth + 1),
@@ -86,7 +83,7 @@ function calcAutoPositions(root: MindMapNode): Map<string, AutoPos> {
     )
     const gaps = (node.children.length - 1) * GAP_V
 
-    return Math.max(h, childrenH + gaps)
+    return Math.max(selfH, childrenH + gaps)
   }
 
   function placeBranch(
@@ -96,8 +93,9 @@ function calcAutoPositions(root: MindMapNode): Map<string, AutoPos> {
     side: 'left' | 'right',
     depth: number
   ): void {
-    const w = nodeWidth(depth, node)
-    const h = nodeHeight(depth, node)
+    const dims = getNodeDimensions(node, depth)
+    const w = dims.coreWidth
+    const h = dims.coreHeight
 
     const effX = node.customX ?? x
     const effY = node.customY ?? (yCenter - h / 2)
@@ -111,13 +109,11 @@ function calcAutoPositions(root: MindMapNode): Map<string, AutoPos> {
     const totalH = childHeights.reduce((s, v) => s + v, 0)
       + (childHeights.length - 1) * GAP_V
 
-    // ★ Для left стороны: выравниваем по правому краю детей
-    // (т.е. все дети упираются правым краем в одну вертикаль)
     const childX = side === 'right'
-      ? effX + w + GAP_H                               // ★ от effX
+      ? effX + w + GAP_H
       : effX - maxChildWidth(node.children, depth + 1) - GAP_H
 
-    let cy = effYCenter - totalH / 2                   // ★ от effYCenter
+    let cy = effYCenter - totalH / 2
 
     node.children.forEach((child, i) => {
       const ch = childHeights[i]
@@ -133,10 +129,10 @@ function calcAutoPositions(root: MindMapNode): Map<string, AutoPos> {
   const rightH = groupHeight(right, 1, subtreeHeight)
   const leftH = groupHeight(left, 1, subtreeHeight)
 
-  // ★ scaled root размеры
-  const rootW = ROOT_W * scaleOf(root)
-  const rootH = ROOT_H * scaleOf(root)
-  const maxH = Math.max(rightH, leftH, rootH)
+  const rootDims = getNodeDimensions(root, 0)
+  const rootW = rootDims.coreWidth
+  const rootH = rootDims.coreHeight
+  const maxH = Math.max(rightH, leftH, rootDims.totalHeight)
 
   const cx = 800
   const cy = maxH / 2 + CANVAS_PADDING
@@ -160,7 +156,6 @@ function calcAutoPositions(root: MindMapNode): Map<string, AutoPos> {
     })
 
     let ly = cy - leftH / 2
-    // ★ Для левых детей берём максимум их scaled ширин
     const leftOffset = maxChildWidth(left, 1)
     left.forEach(child => {
       const h = subtreeHeight(child, 1)
@@ -203,25 +198,10 @@ function calcBounds(positions: LayoutPosition[]): LayoutBounds {
 
 // ─── Утилиты размеров ──────────────────────
 
-/** ★ Безопасное чтение scale (fallback на 1). */
-function scaleOf(node: MindMapNode): number {
-  return node.scale ?? NODE_SCALE.DEFAULT
-}
-
-function nodeWidth(depth: number, node: MindMapNode): number {
-  const base = depth === 0 ? ROOT_W : NODE_W
-  return base * scaleOf(node)
-}
-
-function nodeHeight(depth: number, node: MindMapNode): number {
-  const base = depth === 0 ? ROOT_H : NODE_H
-  return base * scaleOf(node)
-}
-
-/** ★ Максимальная scaled-ширина среди набора узлов. */
+/** Максимальная scaled-ширина ядра среди набора узлов. */
 function maxChildWidth(children: MindMapNode[], depth: number): number {
   if (!children.length) return 0
-  return Math.max(...children.map(c => nodeWidth(depth, c)))
+  return Math.max(...children.map(c => getNodeDimensions(c, depth).coreWidth))
 }
 
 function groupHeight(

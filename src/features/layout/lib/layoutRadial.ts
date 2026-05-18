@@ -1,18 +1,25 @@
-import { GAP_H, ROOT_W, ROOT_H, DEFAULT_CENTER_X, DEFAULT_CENTER_Y } from '@/shared/config/constants'
+import { GAP_H, DEFAULT_CENTER_X, DEFAULT_CENTER_Y } from '@/shared/config/constants'
 import type { MindMapNode, ScenePosition } from '@entities/node'
-import { getNodeWidth, getNodeHeight } from './layoutUtils'
+import { getNodeDimensions } from '@entities/node/model/useNodeDimensions'
+import { getNodeCoreHeight } from './layoutUtils'
 
-const BASE_RADIUS = 360
+// ★ Увеличен с 360 до 420 чтобы учесть картинки над узлами
+const BASE_RADIUS = 420
 const RADIUS_STEP = GAP_H + 60
 const NOTES_EXTRA_RADIUS = 160
 const SPAN_DECAY = 0.85
+
+function coreWidth(node: MindMapNode, depth: number): number {
+  return getNodeDimensions(node, depth).coreWidth
+}
 
 export function layoutRadial(root: MindMapNode): Map<string, ScenePosition> {
   const positions = new Map<string, ScenePosition>()
   const cx = DEFAULT_CENTER_X
   const cy = DEFAULT_CENTER_Y
 
-  positions.set(root.id, { x: cx - ROOT_W / 2, y: cy - ROOT_H / 2 })
+  const rootDims = getNodeDimensions(root, 0)
+  positions.set(root.id, { x: cx - rootDims.coreWidth / 2, y: cy - rootDims.coreHeight / 2 })
 
   if (root.collapsed || !root.children?.length) return positions
 
@@ -40,8 +47,8 @@ function placeRadial(
   angleSpan: number,
   depth: number,
 ): void {
-  const w = getNodeWidth(depth)
-  const h = getNodeHeight(node, depth)
+  const w = coreWidth(node, depth)
+  const h = getNodeCoreHeight(node, depth)
 
   positions.set(node.id, {
     x: cx + Math.cos(angle) * radius - w / 2,

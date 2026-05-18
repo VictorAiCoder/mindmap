@@ -1,39 +1,34 @@
 import type { MindMapNode } from '@entities/node'
-import {
-  NODE_W, NODE_H, ROOT_W, ROOT_H,
-  NOTE_LINE_HEIGHT, NOTE_PADDING, NOTE_MAX_PREVIEW_LINES,
-} from '@/shared/config/constants'
-
-// TODO: вынести в constants как NODE_WITH_NOTES_MIN_WIDTH
-const NOTES_MIN_WIDTH = 300
+import { getNodeDimensions } from '@entities/node/model/useNodeDimensions'
+import { NODE_NOTES } from '@/shared/config/node-dimensions'
 
 /**
- * Ширина узла по глубине.
+ * Ширина ядра узла по глубине.
  * Корень (depth=0) шире, остальные — стандартной ширины.
+ * Учитывает scale узла.
  */
-export function getNodeWidth(depth: number): number {
-  return depth === 0 ? ROOT_W : NODE_W
+export function getNodeWidth(node: MindMapNode, depth: number): number {
+  return getNodeDimensions(node, depth).coreWidth
 }
 
 /**
- * Высота узла с учётом превью заметок.
- * Если у узла есть заметки — добавляется высота превью (до N строк).
+ * Полная высота узла с учётом картинки, ядра и превью заметок.
+ * Включает все margin'ы.
  */
 export function getNodeHeight(node: MindMapNode, depth: number): number {
-  const baseHeight = depth === 0 ? ROOT_H : NODE_H
+  return getNodeDimensions(node, depth).totalHeight
+}
 
-  if (!node.notes?.trim()) return baseHeight
-
-  const lineCount = node.notes.split('\n').length
-  const previewLines = Math.min(lineCount, NOTE_MAX_PREVIEW_LINES)
-  const previewHeight = previewLines * NOTE_LINE_HEIGHT + NOTE_PADDING
-
-  return baseHeight + previewHeight
+/**
+ * Высота ядра узла (только текстовая часть, без картинки и заметок).
+ */
+export function getNodeCoreHeight(node: MindMapNode, depth: number): number {
+  return getNodeDimensions(node, depth).coreHeight
 }
 
 /**
  * Высота поддерева (для горизонтальных раскладок).
- * Рекурсивно суммирует высоты детей с зазорами, берёт максимум с self-высотой.
+ * Рекурсивно суммирует полные высоты детей с зазорами, берёт максимум с self-высотой.
  */
 export function calcSubtreeHeight(
   node: MindMapNode,
@@ -55,16 +50,15 @@ export function calcSubtreeHeight(
 
 /**
  * Ширина поддерева (для вертикальных раскладок).
- * Узлы с заметками расширяются до NOTES_MIN_WIDTH.
+ * Узлы с заметками расширяются до NOTES_MAX_WIDTH.
  */
 export function calcSubtreeWidth(
   node: MindMapNode,
   depth: number,
   horizontalGap: number,
 ): number {
-  const baseWidth = getNodeWidth(depth)
-  const hasNotes = !!node.notes?.trim()
-  const selfWidth = hasNotes ? Math.max(baseWidth, NOTES_MIN_WIDTH) : baseWidth
+  const dims = getNodeDimensions(node, depth)
+  const selfWidth = dims.totalWidth
 
   if (node.collapsed || !node.children?.length) return selfWidth
 

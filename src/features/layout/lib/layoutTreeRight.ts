@@ -1,10 +1,15 @@
 import type { MindMapNode } from '@entities/node'
 import { GAP_H, GAP_V } from '@/shared/config/constants'
-import { getNodeWidth, getNodeHeight, calcSubtreeHeight } from './layoutUtils'
+import { getNodeDimensions } from '@entities/node/model/useNodeDimensions'
+import { getNodeCoreHeight, calcSubtreeHeight } from './layoutUtils'
 import type { PositionsMap } from './layoutTreeDown'
 
 const H_GAP = GAP_H + 60
 const V_GAP = GAP_V + 10
+
+function coreWidth(node: MindMapNode, depth: number): number {
+  return getNodeDimensions(node, depth).coreWidth
+}
 
 export function layoutTreeRight(root: MindMapNode): PositionsMap {
   const positions: PositionsMap = new Map()
@@ -17,7 +22,7 @@ export function layoutTreeRight(root: MindMapNode): PositionsMap {
   ): void {
     positions.set(node.id, {
       x,
-      y: yCenter - getNodeHeight(node, depth) / 2,
+      y: yCenter - getNodeCoreHeight(node, depth) / 2,
     })
 
     if (node.collapsed || node.children.length === 0) return
@@ -33,7 +38,7 @@ export function layoutTreeRight(root: MindMapNode): PositionsMap {
 
     node.children.forEach((child: MindMapNode, i: number) => {
       const ch = childHeights[i] ?? 0
-      place(child, x + getNodeWidth(depth) + H_GAP, cy + ch / 2, depth + 1)
+      place(child, x + coreWidth(node, depth) + H_GAP, cy + ch / 2, depth + 1)
       cy += ch + V_GAP
     })
   }

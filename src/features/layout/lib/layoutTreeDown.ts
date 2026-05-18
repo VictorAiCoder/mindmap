@@ -1,6 +1,7 @@
 import type { MindMapNode } from '@entities/node'
 import { GAP_H, DEFAULT_CENTER_X } from '@/shared/config/constants'
-import { getNodeWidth, getNodeHeight, calcSubtreeWidth } from './layoutUtils'
+import { getNodeDimensions } from '@entities/node/model/useNodeDimensions'
+import { getNodeCoreHeight, calcSubtreeWidth } from './layoutUtils'
 
 export interface NodePosition {
   x: number
@@ -12,6 +13,10 @@ export type PositionsMap = Map<string, NodePosition>
 const V_GAP = 100
 const H_GAP = GAP_H * 0.6
 
+function coreWidth(node: MindMapNode, depth: number): number {
+  return getNodeDimensions(node, depth).coreWidth
+}
+
 export function layoutTreeDown(root: MindMapNode): PositionsMap {
   const positions: PositionsMap = new Map()
 
@@ -21,8 +26,8 @@ export function layoutTreeDown(root: MindMapNode): PositionsMap {
     y: number,
     depth: number
   ): void {
-    const w = getNodeWidth(depth)
-    const h = getNodeHeight(node, depth)
+    const w = coreWidth(node, depth)
+    const h = getNodeCoreHeight(node, depth)
 
     positions.set(node.id, { x: xCenter - w / 2, y })
 

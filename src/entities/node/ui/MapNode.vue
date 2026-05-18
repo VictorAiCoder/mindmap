@@ -141,7 +141,7 @@ const { isRoot, isLeaf, hasNotes } = useNodeDisplay(posRef)
 
 // ─── Image logic (composable) ───────────────
 const {
-  
+  imageInput,
   isImageDragOver,
   resolvedImage,
   hasImage,

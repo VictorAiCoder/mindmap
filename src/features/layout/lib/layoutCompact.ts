@@ -1,15 +1,21 @@
 import { GAP_H } from '@/shared/config/constants'
 import type { MindMapNode, ScenePosition } from '@entities/node'
-import { getNodeWidth, getNodeHeight, calcSubtreeHeight } from './layoutUtils'
+import { getNodeDimensions } from '@entities/node/model/useNodeDimensions'
+import { getNodeCoreHeight, calcSubtreeHeight } from './layoutUtils'
 
 const V_GAP = 12
 const H_GAP = GAP_H * 0.65
+
+function coreWidth(node: MindMapNode, depth: number): number {
+  return getNodeDimensions(node, depth).coreWidth
+}
 
 export function layoutCompact(root: MindMapNode): Map<string, ScenePosition> {
   const positions = new Map<string, ScenePosition>()
 
   function place(node: MindMapNode, x: number, yCenter: number, depth: number): void {
-    positions.set(node.id, { x, y: yCenter - getNodeHeight(node, depth) / 2 })
+    const cH = getNodeCoreHeight(node, depth)
+    positions.set(node.id, { x, y: yCenter - cH / 2 })
 
     if (node.collapsed || !node.children?.length) return
 
@@ -19,7 +25,7 @@ export function layoutCompact(root: MindMapNode): Map<string, ScenePosition> {
     let cy = yCenter - totalH / 2
 
     node.children.forEach((child, i) => {
-      place(child, x + getNodeWidth(depth) + H_GAP, cy + childHeights[i] / 2, depth + 1)
+      place(child, x + coreWidth(node, depth) + H_GAP, cy + childHeights[i] / 2, depth + 1)
       cy += childHeights[i] + V_GAP
     })
   }

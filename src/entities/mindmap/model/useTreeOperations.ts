@@ -20,7 +20,7 @@ import type { PositionMap } from '@/features/layout'
 
 import { NODE_SCALE } from '@/entities/node'
 import { clampScale, normalizeScale } from '@/entities/node/model/useNodeScale'
-import { ROOT_W, ROOT_H, NODE_W, NODE_H } from '@/shared/config/constants'
+import { NODE_CORE } from '@shared/config/node-dimensions'
 
 import { parseMarkdownToTree } from '@features/persistence'
 
@@ -386,11 +386,11 @@ export function useTreeOperations(
     touch()
   }
 
-  function baseSize(isRoot: boolean): { w: number; h: number } {
-    return isRoot
-      ? { w: ROOT_W, h: ROOT_H }
-      : { w: NODE_W, h: NODE_H }
-  }
+function baseSize(isRoot: boolean): { w: number; h: number } {
+  return isRoot
+    ? { w: NODE_CORE.ROOT_WIDTH, h: NODE_CORE.ROOT_HEIGHT }
+    : { w: NODE_CORE.WIDTH, h: NODE_CORE.HEIGHT }
+}
 
   function updateScale(
     nodeId: string,
