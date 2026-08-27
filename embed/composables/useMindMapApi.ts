@@ -16,7 +16,7 @@ export function useMindMapApi(
   options?: { persistence?: boolean }
 ): MindMapApi {
   const document: Ref<MindMapDocument> = ref(
-    initial ?? createDefaultDocument()
+    initial?.root ? initial : createDefaultDocument()
   )
 
   const rootNode: WritableComputedRef<MindMapNode> = computed({
