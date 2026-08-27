@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 
 export default defineConfig({
   plugins: [vue()],
+  publicDir: false,
   resolve: {
     alias: {
       '@':         fileURLToPath(new URL('./src', import.meta.url)),
@@ -12,8 +13,22 @@ export default defineConfig({
       '@shared':   fileURLToPath(new URL('./src/shared', import.meta.url)),
     },
   },
-  root: '.',
-  server: {
-    port: 5173,
+  build: {
+    lib: {
+      entry: fileURLToPath(new URL('./embed/index.ts', import.meta.url)),
+      formats: ['es'],
+      fileName: () => 'index.js',
+      cssFileName: 'style',
+    },
+    outDir: 'dist/embed',
+    emptyOutDir: true,
+    rollupOptions: {
+      external: ['vue', 'vuetify', '@mdi/font'],
+      output: {
+        globals: { vue: 'Vue', vuetify: 'Vuetify' },
+      },
+    },
+    cssCodeSplit: false,
+    sourcemap: true,
   },
 })

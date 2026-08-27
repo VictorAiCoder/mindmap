@@ -1,1 +1,1 @@
-export { parseMarkdownToTree } from '../src/features/persistence/lib/importMarkdown'
+export { parseMarkdownToTree } from '@features/persistence/lib/importMarkdown'

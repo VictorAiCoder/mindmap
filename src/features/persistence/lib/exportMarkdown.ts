@@ -1,6 +1,6 @@
 // src/composables/persistence/exportMarkdown.ts
 import type { MindMapNode } from '@entities/node'
-import type { ImageStorageApi } from '@/types/mindmap-api'
+import type { ImageStorageApi } from '../../../../embed/types/image-storage'
 
 /**
  * ★ ИЗМЕНЕНО: добавлен imageStorage для резолва imageId → dataUrl.

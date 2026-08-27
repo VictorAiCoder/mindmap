@@ -1,4 +1,4 @@
-<!-- embed/components/EmbedNodeContent.vue — read-only node text + toggle -->
+<!-- embed/components/EmbedNodeContent.vue � read-only node text + toggle + menu trigger -->
 <template>
   <div class="embed-node-content">
     <button
@@ -51,27 +51,45 @@
       </svg>
     </span>
 
+    <button
+      v-if="!previewMode"
+      ref="menuTriggerRef"
+      class="embed-node-content__menu-btn"
+      title="����"
+      @click.stop="emit('menu-toggle', )"
+    >
+      <svg viewBox="0 0 24 24">
+        <circle cx="12" cy="5" r="1.5" fill="currentColor"/>
+        <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+        <circle cx="12" cy="19" r="1.5" fill="currentColor"/>
+      </svg>
+    </button>
+
     <slot />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { LayoutPosition } from '../src/features/layout/model/types'
+import { ref, computed } from 'vue'
+import type { LayoutPosition } from '@features/layout/model/types'
 
-// ─── Props / Emits ────────────────────────────
+// --- Props / Emits ----------------------------
 
 interface Props {
   pos: LayoutPosition
+  previewMode?: boolean
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  previewMode: false,
+})
 
 const emit = defineEmits<{
   toggle: []
+  'menu-toggle': [event: MouseEvent]
 }>()
 
-// ─── Derived state ────────────────────────────
+// --- Derived state ----------------------------
 
 const node = computed(() => props.pos.node)
 const isRoot = computed<boolean>(() => props.pos.depth === 0)
@@ -84,7 +102,7 @@ const hasNotes = computed<boolean>(() => !!node.value.notes?.trim())
 const childCount = computed<number>(() => node.value.children?.length ?? 0)
 
 const text = computed<string>(() => node.value.text)
-const color = computed<string>(() => node.value.color || '#5C6BC0')
+const color = computed<string>(() => node.value.color || '#27b94b')
 const collapsed = computed<boolean>(() => !!node.value.collapsed)
 const pinned = computed<boolean>(() => props.pos.hasCustomPos)
 
@@ -92,12 +110,17 @@ const noteIconColor = computed<string>(() =>
   isRoot.value ? 'rgba(255,255,255,0.6)' : color.value,
 )
 
-// ─── Classes ──────────────────────────────────
+// --- Classes ----------------------------------
 
 const textClasses = computed(() => ({
   'embed-node-content__text--root': isRoot.value,
   'embed-node-content__text--leaf': isLeaf.value,
 }))
+
+// --- Expose trigger ref -----------------------
+
+const menuTriggerRef = ref<HTMLElement | null>(null)
+defineExpose({ menuTriggerRef })
 </script>
 
 <style scoped>
@@ -170,7 +193,7 @@ const textClasses = computed(() => ({
   height: 1.2em;
   padding: 0 0.35em;
   border-radius: 0.6em;
-  background: rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.15);
   font-size: 0.714em;
   font-weight: 600;
   line-height: 1;
@@ -187,5 +210,38 @@ const textClasses = computed(() => ({
   height: 0.714em;
   opacity: 0.4;
   color: grey;
+}
+
+/* -- Menu trigger button -- */
+
+.embed-node-content__menu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.429em;
+  height: 1.429em;
+  padding: 0;
+  border: none;
+  border-radius: 0.357em;
+  background: transparent;
+  color: inherit;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.15s ease, background 0.15s ease;
+  flex-shrink: 0;
+}
+
+.embed-node-content__menu-btn svg {
+  width: 1em;
+  height: 1em;
+}
+
+.embed-node:hover .embed-node-content__menu-btn {
+  opacity: 0.5;
+}
+
+.embed-node-content__menu-btn:hover {
+  opacity: 1 !important;
+  background: rgba(255, 255, 255, 0.1);
 }
 </style>

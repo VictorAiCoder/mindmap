@@ -1,7 +1,7 @@
 import { ref, computed, type Ref, type ComputedRef } from 'vue'
 import { processImageFile, getImageFromDrop } from '@/shared/lib/useImageHandler'
 import type { LayoutPosition } from '@/features/layout'
-import type { ImageStorageApi } from '@/types/mindmap-api'
+import type { ImageStorageApi } from '../../../../embed/types/image-storage'
 import type { NodeImageEmits } from '@entities/node/model/emits'
 
 /**

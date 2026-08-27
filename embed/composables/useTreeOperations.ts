@@ -1,4 +1,3 @@
-// src/composables/tree/useTreeOperations.ts
 import { triggerRef, type Ref } from 'vue'
 import {
   findNodeById,
@@ -15,58 +14,17 @@ import type { MindMapNode, ScenePosition, Center2D } from '@entities/node'
 import type { RawImage } from '@entities/image'
 import type { MindMapDocument } from '@entities/mindmap'
 
-import type { HistoryApi, LayoutType } from '../../../../embed/types/mindmap-api'
-import type { PositionMap } from '@/features/layout'
+import type { TreeOperationsApi } from '../types/tree-operations'
+import type { HistoryApi } from '../types/history'
+import type { LayoutType } from '@features/layout/lib/types'
+import type { PositionMap } from '@features/layout/model/types'
 
-import { NODE_SCALE } from '@/entities/node'
-import { clampScale, normalizeScale } from '@/entities/node/model/useNodeScale'
+import { NODE_SCALE } from '@entities/node'
+import { clampScale, normalizeScale } from '@entities/node/model/useNodeScale'
 import { NODE_CORE } from '@shared/config/node-dimensions'
 
 import { parseMarkdownToTree } from '@features/persistence'
 
-export interface TreeOperationsApi {
-  addChild: (parentId: string, text?: string) => string | null
-  deleteNode: (nodeId: string) => void
-
-  updateText: (nodeId: string, text: string) => void
-  updateColor: (nodeId: string, color: string) => void
-  updateNotes: (nodeId: string, notes: string) => void
-  updateNodePosition: (
-    nodeId: string,
-    x: number | null,
-    y: number | null
-  ) => void
-
-  toggleCollapse: (nodeId: string) => void
-  toggleNotePin: (nodeId: string) => void
-  toggleNotesVisible: (nodeId: string) => void
-
-  setNodeImage: (nodeId: string, dataUrl: string) => void
-  setNodeImageById: (nodeId: string, imageId: string) => void
-  removeNodeImage: (nodeId: string) => void
-  setImageWidth: (nodeId: string, width: number) => void
-  commitImageResize: (nodeId: string, width: number) => void
-
-  resetAllPositions: () => void
-  autoLayout: (type?: LayoutType) => void
-
-  reparentNode: (nodeId: string, newParentId: string) => boolean
-  moveNodeGroup: (
-    nodeId: string,
-    dx: number,
-    dy: number,
-    layoutPositions?: PositionMap
-  ) => void
-
-  updateScale: (nodeId: string, scale: number, savedCenter?: Center2D) => void
-  commitScale: (nodeId: string, scale: number, savedCenter?: Center2D) => void
-  findNode: (id: string) => MindMapNode | null
-  importMarkdownIntoNode: (nodeId: string, markdown: string) => number
-  renameImage: (imageId: string, name: string) => void
-  deleteImageWithDetach: (imageId: string) => number
-  findImageUsages: (imageId: string) => string[]
-  purgeUnusedImages: () => number
-}
 // ─── Helpers ────────────────────────────────────────
 
 /**
@@ -214,7 +172,7 @@ export function useTreeOperations(
   }
 
   /**
-   * ★ НОВОЕ: Цепляет к узлу существующую картинку из пула.
+   * Цепляет к узлу существующую картинку из пула.
    *
    * В отличие от setNodeImage — не создаёт новую запись.
    * Используется галереей при drag'n'drop существующей картинки на узел.
@@ -264,7 +222,7 @@ export function useTreeOperations(
   // ─── Картинки: операции галереи ─────────────────
 
   /**
-   * ★ НОВОЕ: Переименование картинки в пуле с записью в историю.
+   * Переименование картинки в пуле с записью в историю.
    * Пустое имя или такое же — игнорируются (no-op).
    */
   function renameImage(imageId: string, name: string): void {
@@ -297,7 +255,7 @@ export function useTreeOperations(
   }
 
   /**
-   * ★ НОВОЕ: Удаляет неиспользуемые картинки. Если удалять нечего —
+   * Удаляет неиспользуемые картинки. Если удалять нечего —
    *   историю не трогает. Возвращает число удалённых.
    */
   function purgeUnusedImages(): number {
@@ -396,11 +354,11 @@ export function useTreeOperations(
     touch()
   }
 
-function baseSize(isRoot: boolean): { w: number; h: number } {
-  return isRoot
-    ? { w: NODE_CORE.ROOT_WIDTH, h: NODE_CORE.ROOT_HEIGHT }
-    : { w: NODE_CORE.WIDTH, h: NODE_CORE.HEIGHT }
-}
+  function baseSize(isRoot: boolean): { w: number; h: number } {
+    return isRoot
+      ? { w: NODE_CORE.ROOT_WIDTH, h: NODE_CORE.ROOT_HEIGHT }
+      : { w: NODE_CORE.WIDTH, h: NODE_CORE.HEIGHT }
+  }
 
   function updateScale(
     nodeId: string,
@@ -502,7 +460,7 @@ function baseSize(isRoot: boolean): { w: number; h: number } {
     return count
   }
 
-    /**
+  /**
    * Возвращает id узлов, использующих данную картинку.
    * Не мутирует, не пишет в историю.
    */
@@ -530,13 +488,13 @@ function baseSize(isRoot: boolean): { w: number; h: number } {
     toggleNotePin,
     toggleNotesVisible,
     setNodeImage,
-    setNodeImageById,        // ★ новое
+    setNodeImageById,
     removeNodeImage,
     setImageWidth,
     commitImageResize,
-    renameImage,             // ★ новое
-    deleteImageWithDetach,   // ★ новое
-    purgeUnusedImages,       // ★ новое
+    renameImage,
+    deleteImageWithDetach,
+    purgeUnusedImages,
     resetAllPositions,
     autoLayout,
     reparentNode,

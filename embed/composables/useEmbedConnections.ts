@@ -1,1 +1,1 @@
-export { useConnections, type GetLivePosition } from '../../src/widgets/canvas/model/useConnections'
+export { useConnections, type GetLivePosition } from './useConnections'

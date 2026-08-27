@@ -3,12 +3,13 @@
   <ClientOnly>
     <div
       class="embed-canvas"
+      :class="{ 'embed-canvas--preview': previewMode }"
       ref="canvasRef"
-      @wheel.prevent="onWheel"
-      @mousedown="onPanStart"
-      @mousemove="onPanMove"
-      @mouseup="onPanEnd"
-      @mouseleave="onPanEnd"
+      @wheel.prevent="previewMode ? undefined : onWheel"
+      @mousedown="previewMode ? undefined : onPanStart"
+      @mousemove="previewMode ? undefined : onPanMove"
+      @mouseup="previewMode ? undefined : onPanEnd"
+      @mouseleave="previewMode ? undefined : onPanEnd"
     >
       <div
         class="embed-canvas__world"
@@ -46,10 +47,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, type CSSProperties } from 'vue'
-import type { MindMapNode } from '../../src/entities/node'
-import type { LayoutType } from '../../src/features/layout/lib/types'
-import { useLayout } from '../src/features/layout/model/useLayout'
+import { ref, computed, onMounted, onUnmounted, watch, type CSSProperties } from 'vue'
+import type { MindMapNode } from '@entities/node'
+import type { LayoutType } from '@features/layout/lib/types'
+import { useLayout } from '@features/layout/model/useLayout'
 import { usePanZoom } from '../composables/useEmbedPanZoom'
 import { useConnections } from '../composables/useEmbedConnections'
 import EmbedNode from './EmbedNode.vue'
@@ -61,11 +62,13 @@ interface Props {
   layoutType?: LayoutType
   showNotes?: boolean
   showImages?: boolean
+  previewMode?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   showNotes: true,
   showImages: true,
+  previewMode: false,
 })
 
 // ─── Layout ────────────────────────────────────
@@ -153,6 +156,8 @@ const worldStyle = computed<CSSProperties>(() => {
 
 // ─── Init ──────────────────────────────────────
 
+let resizeObserver: ResizeObserver | null = null
+
 onMounted(() => {
   isMounted.value = true
   panZoom.setWrapper(canvasRef.value)
@@ -165,7 +170,27 @@ onMounted(() => {
       b.minY + b.height / 2,
     )
     panZoom.setBounds(b.minX, b.minY)
+
+    // Recalculate on container resize (fullscreen, responsive)
+    resizeObserver = new ResizeObserver(() => {
+      const curBounds = bounds.value
+      panZoom.setRootSceneCenter(
+        curBounds.minX + curBounds.width / 2,
+        curBounds.minY + curBounds.height / 2,
+      )
+      panZoom.setBounds(curBounds.minX, curBounds.minY)
+    })
+    resizeObserver.observe(el)
   }
+
+  if (props.previewMode && el) {
+    const b = bounds.value
+    panZoom.fitToContainer(b.width, b.height, el.clientWidth, el.clientHeight)
+  }
+})
+
+onUnmounted(() => {
+  resizeObserver?.disconnect()
 })
 
 watch(layoutData, (b) => {
@@ -206,5 +231,10 @@ watch(layoutData, (b) => {
 
 .embed-canvas__conn-line {
   transition: d 0.2s ease;
+}
+
+.embed-canvas--preview {
+  cursor: default;
+  pointer-events: none;
 }
 </style>

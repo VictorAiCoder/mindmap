@@ -1,4 +1,4 @@
-<!-- embed/components/EmbedNode.vue — read-only node for embed viewer -->
+<!-- embed/components/EmbedNode.vue � read-only node for embed viewer -->
 <template>
   <div
     class="embed-node"
@@ -7,39 +7,64 @@
     @mouseenter="isHovered = true"
     @mouseleave="isHovered = false"
   >
-    <EmbedNodeImage
+    <!-- Image slot or default -->
+    <component
       v-if="hasImage"
-      :src="imageSrc"
-      :clip="resolvedClip"
-      :is-root="isRoot"
-      :image-width="pos.node.imageWidth"
-      :scale="nodeScale"
+      :is="imageSlot ?? EmbedNodeImage"
+      v-bind="imageSlotProps"
     />
 
     <div class="embed-node__bg" :style="bgStyle" />
 
-    <EmbedNodeContent :pos="pos" @toggle="emit('toggle')" />
-
-    <EmbedNotesPreview
-      v-if="hasNotes && showNotes"
+    <EmbedNodeContent
+      ref="contentRef"
       :pos="pos"
-      :show-notes="showNotes"
+      :preview-mode="false"
+      @toggle="emit('toggle')"
+      @menu-toggle="onMenuToggle"
     />
+
+    <!-- Notes slot or default -->
+    <component
+      v-if="hasNotes && showNotes"
+      :is="notesSlot ?? EmbedNotesPreview"
+      v-bind="notesSlotProps"
+    />
+
+    <!-- Menu: custom slot or default -->
+    <template v-if="menuOpen">
+      <component
+        v-if="menuSlot"
+        :is="menuSlotRenderer"
+      />
+      <EmbedNodeMenu
+        v-else
+        :node="node"
+        :depth="pos.depth"
+        :is-open="menuOpen"
+        :trigger-el="menuTriggerEl"
+        @close="menuOpen = false"
+        @toggle-collapse="emit('toggle')"
+        @toggle-notes="menuOpen = false"
+      />
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, toRef, type CSSProperties } from 'vue'
-import { useNodeDisplay } from '../src/entities/node/model/useNodeDisplay'
-import { NODE_SCALE } from '../src/entities/node/model/constants'
-import type { LayoutPosition } from '../src/features/layout/model/types'
-import type { Clip } from '../src/entities/image/model/types'
+import { ref, computed, inject, toRef, h, type CSSProperties } from 'vue'
+import { useNodeDisplay } from '@entities/node/model/useNodeDisplay'
+import { NODE_SCALE } from '@entities/node/model/constants'
+import type { LayoutPosition } from '@features/layout/model/types'
+import type { Clip } from '@entities/image/model/types'
+import { embedSlotsKey } from '../injection-keys'
 
 import EmbedNodeContent from './EmbedNodeContent.vue'
 import EmbedNodeImage from './EmbedNodeImage.vue'
 import EmbedNotesPreview from './EmbedNotesPreview.vue'
+import EmbedNodeMenu from './EmbedNodeMenu.vue'
 
-// ─── Props / Emits ────────────────────────────
+// --- Props / Emits ----------------------------
 
 interface Props {
   pos: LayoutPosition
@@ -56,37 +81,90 @@ const emit = defineEmits<{
   toggle: []
 }>()
 
-// ─── Display state ────────────────────────────
+// --- Inject slots -----------------------------
+
+const embedSlots = inject(embedSlotsKey, {})
+
+const imageSlot = computed(() => embedSlots?.image)
+const notesSlot = computed(() => embedSlots?.notes)
+const menuSlot = computed(() => embedSlots?.menu)
+
+// --- Display state ----------------------------
 
 const posRef = toRef(props, 'pos')
 const { isRoot, isLeaf, hasNotes, pinned } = useNodeDisplay(posRef)
 
 const isHovered = ref(false)
 
-// ─── Node data ────────────────────────────────
+// --- Node data --------------------------------
 
 const node = computed(() => props.pos.node)
 
-// ─── Image resolution ─────────────────────────
-// In the embed context, imageId references a StoredImage.id.
-// The parent (MindmapViewer) resolves imageId → dataUrl.
-// Here we only need to know if there IS an image and the clip region.
+// --- Image resolution -------------------------
 
 const hasImage = computed<boolean>(() =>
   props.showImages && !!node.value.imageId,
 )
-const imageSrc = computed<string>(() => {
-  // Image data is resolved by the parent viewer and passed via imageMap.
-  // For now, if no imageMap is provided, we use the imageId as a URL hint.
-  return node.value.imageId ?? ''
-})
+const imageSrc = computed<string>(() => node.value.imageId ?? '')
 const resolvedClip = computed<Clip | null>(() => null)
 
-// ─── Scale ────────────────────────────────────
+const imageSlotProps = computed(() => ({
+  node: node.value,
+  src: imageSrc.value,
+  clip: resolvedClip.value,
+  isRoot: isRoot.value,
+  imageWidth: node.value.imageWidth,
+  scale: node.value.scale ?? NODE_SCALE.DEFAULT,
+}))
+
+// --- Notes slot props -------------------------
+
+const notesSlotProps = computed(() => ({
+  node: node.value,
+  notes: node.value.notes ?? '',
+  color: node.value.color || '#27b94b',
+  isExpanded: false,
+  isLong: (node.value.notes ?? '').length > 200 || (node.value.notes ?? '').split('\n').length > 5,
+}))
+
+// --- Menu slot props ---
+
+const menuSlotProps = computed(() => ({
+  node: node.value,
+  isRoot: isRoot.value,
+  isLeaf: isLeaf.value,
+  hasNotes: hasNotes.value,
+  hasChildren: (node.value.children?.length ?? 0) > 0,
+  hasImage: hasImage.value,
+}))
+
+const menuSlotRenderer = computed(() => {
+  if (!menuSlot.value) return null
+  const slotFn = menuSlot.value
+  const props = menuSlotProps.value
+  return { render: () => slotFn(props) }
+})
+
+// --- Scale ------------------------------------
 
 const nodeScale = computed<number>(() => node.value.scale ?? NODE_SCALE.DEFAULT)
 
-// ─── Classes ──────────────────────────────────
+// --- Menu state -------------------------------
+
+const menuOpen = ref(false)
+const menuTriggerEl = ref<HTMLElement | null>(null)
+const contentRef = ref<InstanceType<typeof EmbedNodeContent> | null>(null)
+
+function onMenuToggle(event: MouseEvent) {
+  if (menuSlot.value) {
+    // Custom menu slot � emit event for consumer
+    // For now, just open default menu
+  }
+  menuTriggerEl.value = contentRef.value?.menuTriggerRef ?? null
+  menuOpen.value = !menuOpen.value
+}
+
+// --- Classes ----------------------------------
 
 const nodeClasses = computed(() => ({
   'embed-node--root': isRoot.value,
@@ -95,7 +173,7 @@ const nodeClasses = computed(() => ({
   'embed-node--pinned': pinned.value,
 }))
 
-// ─── Styles ───────────────────────────────────
+// --- Styles -----------------------------------
 
 const nodeStyle = computed<CSSProperties>(() => ({
   position: 'absolute',
@@ -107,7 +185,7 @@ const nodeStyle = computed<CSSProperties>(() => ({
 }))
 
 const bgStyle = computed<CSSProperties>(() => {
-  const color = node.value.color || '#5C6BC0'
+  const color = node.value.color || '#27b94b'
 
   if (isRoot.value) {
     return {

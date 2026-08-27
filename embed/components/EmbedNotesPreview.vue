@@ -20,8 +20,8 @@
 <script setup lang="ts">
 import { ref, computed, onBeforeUnmount, toRef } from 'vue'
 import { renderMarkdown } from '../lib/markdown'
-import { useNodeDisplay } from '../src/entities/node/model/useNodeDisplay'
-import type { LayoutPosition } from '../src/features/layout/model/types'
+import { useNodeDisplay } from '@entities/node/model/useNodeDisplay'
+import type { LayoutPosition } from '@features/layout/model/types'
 
 // ─── Props ────────────────────────────────────
 
@@ -85,7 +85,7 @@ const renderedHtml = computed<string>(() => renderMarkdown(notes.value))
   padding: 0.714em 1em;
   width: max-content;
   max-width: 20em;
-  background: #fff;
+  background: var(--bg-card, #141414);
   border-left: 0.214em solid;
   border-radius: 0 0.571em 0.571em 0;
   box-shadow: 0 0.143em 0.857em rgba(0, 0, 0, 0.1);
@@ -106,7 +106,7 @@ const renderedHtml = computed<string>(() => renderMarkdown(notes.value))
   width: 0.286em;
 }
 .embed-notes-preview--expanded::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.15);
+  background: rgba(255, 255, 255, 0.15);
   border-radius: 0.286em;
 }
 
@@ -118,13 +118,13 @@ const renderedHtml = computed<string>(() => renderMarkdown(notes.value))
   position: relative;
   margin-top: -1.714em;
   padding-top: 1.714em;
-  background: linear-gradient(to bottom, transparent, #fff 70%);
+  background: linear-gradient(to bottom, transparent, var(--bg-card, #141414) 70%);
   text-align: center;
 }
 
 .embed-notes-preview__more {
   font-size: 0.714em;
-  color: rgba(0, 0, 0, 0.4);
+  color: rgba(255, 255, 255, 0.4);
   font-style: italic;
 }
 
@@ -142,25 +142,25 @@ const renderedHtml = computed<string>(() => renderMarkdown(notes.value))
 .embed-notes-preview :deep(li) { margin: 0.1em 0; }
 
 .embed-notes-preview :deep(blockquote) {
-  border-left: 0.143em solid rgba(98, 114, 164, 0.4);
+  border-left: 0.143em solid rgba(39, 185, 75, 0.4);
   padding: 0.2em 0.6em;
   margin: 0.3em 0;
-  background: rgba(98, 114, 164, 0.04);
+  background: rgba(39, 185, 75, 0.04);
   border-radius: 0 0.286em 0.286em 0;
   font-size: 0.95em;
 }
 
 .embed-notes-preview :deep(:not(pre) > code) {
-  background: rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.06);
   padding: 0.1em 0.35em;
   border-radius: 0.214em;
   font-size: 0.9em;
   font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
-  color: #e06c75;
+  color: var(--accent, #27b94b);
 }
 
 .embed-notes-preview :deep(pre) {
-  background: #6ce07927;
+  background: rgba(51, 255, 102, 0.08);
   padding: 0.714em 0.857em;
   border-radius: 0.429em;
   overflow-x: auto;
@@ -174,7 +174,7 @@ const renderedHtml = computed<string>(() => renderMarkdown(notes.value))
 .embed-notes-preview :deep(pre code.hljs) {
   background: transparent;
   padding: 0;
-  color: #abb2bf;
+  color: var(--text, #c8c8c8cc);
   font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
   font-feature-settings: 'liga' 1, 'calt' 1;
   font-size: inherit;
@@ -189,14 +189,14 @@ const renderedHtml = computed<string>(() => renderMarkdown(notes.value))
   background: rgba(255, 255, 255, 0.25);
 }
 
-.embed-notes-preview :deep(a) { color: #6272a4; text-decoration: none; }
+.embed-notes-preview :deep(a) { color: var(--accent, #27b94b); text-decoration: none; }
 .embed-notes-preview :deep(a:hover) { text-decoration: underline; }
 .embed-notes-preview :deep(strong) { font-weight: 700; }
 .embed-notes-preview :deep(em) { font-style: italic; }
 
 .embed-notes-preview :deep(hr) {
   border: none;
-  border-top: 0.071em solid rgba(0, 0, 0, 0.1);
+  border-top: 0.071em solid rgba(255, 255, 255, 0.1);
   margin: 0.4em 0;
 }
 
@@ -209,7 +209,7 @@ const renderedHtml = computed<string>(() => renderMarkdown(notes.value))
 
 .embed-notes-preview :deep(th),
 .embed-notes-preview :deep(td) {
-  border: 0.071em solid rgba(0, 0, 0, 0.1);
+  border: 0.071em solid rgba(255, 255, 255, 0.1);
   padding: 0.214em 0.571em;
   text-align: left;
 }

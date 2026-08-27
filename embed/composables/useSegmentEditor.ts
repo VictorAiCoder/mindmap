@@ -1,7 +1,7 @@
-// src/composables/image/useSegmentEditor.ts
+// embed/composables/useSegmentEditor.ts
 import { ref, computed, type Ref } from 'vue'
 import type { ImageSegment } from '@entities/image'
-import type { MindMapApi } from '../../../../embed/types/mindmap-api'
+import type { MindMapApi } from '../types/mindmap-api'
 
 // ─── Public types ─────────────────────────────────
 

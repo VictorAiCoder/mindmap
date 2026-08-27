@@ -2,16 +2,30 @@
   "name": "mindmap",
   "version": "0.0.0",
   "private": true,
+  "main": "./dist/embed/index.js",
+  "types": "./dist/embed/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/embed/index.js",
+      "types": "./dist/embed/index.d.ts"
+    },
+    "./style.css": "./dist/embed/style.css"
+  },
+  "files": ["dist/embed"],
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --config vite.config.ts",
+    "dev:embed": "vite --config vite.config.ts",
     "build": "run-p type-check \"build-only {@}\" --",
     "test": "vitest run",
     "test:watch": "vitest",
     "preview": "vite preview",
-    "build-only": "vite build",
+    "build-only": "vite build --config vite.config.ts",
     "type-check": "vue-tsc --build",
-    "prepare": "husky"
+    "prepare": "husky",
+    "build:embed": "vite build --config vite.embed.ts",
+    "build:embed:types": "vue-tsc --noEmit --project tsconfig.embed.json",
+    "build:embed:all": "npm run build:embed && npm run build:embed:types"
   },
   "dependencies": {
     "@mdi/font": "^7.4.47",

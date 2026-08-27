@@ -1,24 +1,18 @@
-// src/composables/persistence/usePersistence.ts
-import { watch, triggerRef, type Ref } from 'vue'
-import { STORAGE_KEY, EXPORT_FILENAME_PREFIX } from '../../../shared/config/constants'
-import { exportToMarkdown } from '../lib/exportMarkdown'
-import { parseMarkdownToTree } from '../lib/importMarkdown'
+import { triggerRef, type Ref } from 'vue'
+import { exportToMarkdown } from '@features/persistence/lib/exportMarkdown'
+import { parseMarkdownToTree } from '@features/persistence/lib/importMarkdown'
 import { createDefaultDocument } from '@entities/mindmap'
 
 import type { MindMapNode } from '@entities/node'
 import type { StoredImage, RawImage, ImageSegment } from '@entities/image'
 import type { MindMapDocument } from '@entities/mindmap'
-import type { ImageStorageApi } from '../../../../embed/types/image-storage'
+import type { ImageStorageApi } from '../types/image-storage'
 
-import { normalizeScale } from '@/entities/node/model/useNodeScale'
-import { NODE_SCALE } from '@/entities/node'
+import { normalizeScale } from '@entities/node/model/useNodeScale'
+import { NODE_SCALE } from '@entities/node'
+import { STORAGE_KEY, EXPORT_FILENAME_PREFIX } from '@shared/config/constants'
 
-export type ExportFormat = 'json' | 'md' | 'markdown'
-
-export interface PersistenceApi {
-  exportTree: (format?: ExportFormat) => string
-  importTree(file: File): Promise<MindMapDocument>
-}
+import type { PersistenceApi, ExportFormat } from '../types/persistence'
 
 // ════════════════════════════════════════════════════
 // LocalStorage
@@ -32,16 +26,6 @@ export function loadFromStorage(): MindMapDocument | null {
     return normalizeDocument(data)
   } catch {
     return null
-  }
-}
-
-function saveToStorage(doc: MindMapDocument): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(doc))
-  } catch (e) {
-    // ⚠️ Частая причина — переполнение квоты из-за dataUrl картинок.
-    //    В Коммите 3 (галерея) добавим UI для очистки неиспользуемых.
-    console.warn('localStorage save failed:', e)
   }
 }
 
@@ -143,7 +127,7 @@ function normalizeImages(raw: unknown): StoredImage[] {
 
 /**
  * Нормализует узел v2-формата.
- * 
+ *
  * Принцип: необязательные поля (notesPinned, notesVisible, scale)
  * НЕ записываем, если их нет в JSON — оставляем undefined.
  * Это совпадает с поведением createNode и даёт компактный JSON.
@@ -300,7 +284,7 @@ function cleanImageForExport(img: StoredImage): SerializedImage {
  * тех, что не используются ни одним узлом и не являются источником
  * для используемых сегментов.
  *
- * 💡 Причина: в текущей политике старые картинки накапливаются в пуле
+ * Причина: в текущей политике старые картинки накапливаются в пуле
  *    при замене (setNodeImage). Экспорт — хорошая точка для чистки.
  */
 function pruneUnusedImages(doc: MindMapDocument): StoredImage[] {
@@ -390,21 +374,13 @@ function parseMarkdownFileToDocument(content: string): MindMapDocument {
 }
 
 // ════════════════════════════════════════════════════
-// Composable
+// Composable — NO auto-save to localStorage
 // ════════════════════════════════════════════════════
 
 export function usePersistence(
   document: Ref<MindMapDocument>,
   imageStorage: ImageStorageApi
 ): PersistenceApi {
-  // Автосохранение при любых изменениях документа
-  watch(
-    document,
-    (doc) => {
-      if (doc) saveToStorage(doc)
-    },
-    { deep: true }
-  )
 
   function exportTree(format: ExportFormat = 'json'): string {
     const ts = buildTimestamp()

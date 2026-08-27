@@ -1,8 +1,11 @@
-// src/composables/image/useSegmentOperations.ts
 import type { Ref } from 'vue'
 import { triggerRef } from 'vue'
+import type { SegmentOperationsApi } from '../types/segment-operations'
+import type { HistoryApi } from '../types/history'
+import type { ImageStorageApi } from '../types/image-storage'
 import type { MindMapDocument } from '@entities/mindmap'
-import type { HistoryApi, ImageStorageApi } from '../../../../embed/types/mindmap-api'
+
+const MIN_CLIP = 0.01
 
 /**
  * History-aware операции над сегментами.
@@ -11,35 +14,6 @@ import type { HistoryApi, ImageStorageApi } from '../../../../embed/types/mindma
  * live-операции мутируют состояние без истории (для drag-preview),
  * commit-операции пишут историю один раз — в конце жеста.
  */
-export interface SegmentOperationsApi {
-  addSegment(
-    sourceId: string,
-    clip: { x: number; y: number; w: number; h: number },
-    name?: string
-  ): string | null
-
-  updateSegmentLive(
-    id: string,
-    patch: Partial<{
-      clip: { x: number; y: number; w: number; h: number }
-      name: string
-    }>
-  ): void
-
-  commitSegment(
-    id: string,
-    patch: Partial<{
-      clip: { x: number; y: number; w: number; h: number }
-      name: string
-    }>
-  ): void
-
-  deleteSegment(id: string): void
-  renameSegment(id: string, name: string): void
-}
-
-const MIN_CLIP = 0.01
-
 export function useSegmentOperations(
   document: Ref<MindMapDocument>,
   history: HistoryApi,
