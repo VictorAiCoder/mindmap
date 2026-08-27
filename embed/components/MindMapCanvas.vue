@@ -129,6 +129,7 @@ import { usePanZoom } from '../composables/usePanZoom'
 import { useConnections } from '../composables/useConnections'
 
 import type { MindMapApi, NotifyFn } from '../types/mindmap-api'
+import { mindMapKey, notifyKey } from '../injection-keys'
 import type { LayoutPosition, PositionMap } from '@features/layout'
 import type { NodeDragState } from '../types/node-drag'
 
@@ -157,6 +158,10 @@ const mindmap = props.api
 const notify: NotifyFn = props.notify ?? ((text, _color = 'success', _icon = 'mdi-check') => {
   console.log(`[MindMapCanvas] ${text}`)
 })
+
+// Provide API to child components that use injectStrict(mindMapKey/notifyKey)
+provide(mindMapKey, mindmap)
+provide(notifyKey, notify)
 
 // ═══════════════════════════════════════════
 // DOM refs
