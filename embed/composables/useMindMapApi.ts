@@ -19,14 +19,10 @@ export function useMindMapApi(
     initial?.root ? initial : createDefaultDocument()
   )
 
-  // DEBUG
-  console.log('[useMindMapApi] document root:', !!document.value.root, 'root.id:', document.value.root?.id)
-
   const rootNode: WritableComputedRef<MindMapNode> = computed({
     get: () => document.value.root,
     set: (v) => { document.value.root = v },
   })
-
   const images: WritableComputedRef<StoredImage[]> = computed({
     get: () => document.value.images,
     set: (v) => { document.value.images = v },
