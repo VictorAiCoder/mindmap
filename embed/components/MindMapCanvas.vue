@@ -176,7 +176,7 @@ const editFieldRef = ref<{ focus: () => void } | null>(null)
 
 // Vue unwraps refs in provide/inject — mindmap.rootNode is a plain object.
 // Wrap in computed so useLayout and useConnections get a proper Ref.
-const rootNodeRef = computed(() => mindmap.rootNode.value)
+const rootNodeRef = computed(() => mindmap.rootNode)
 
 const { layoutData } = useLayout(rootNodeRef)
 
