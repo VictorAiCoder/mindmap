@@ -526,12 +526,13 @@ function closeSegmentEditor() {
 
 <style scoped>
 .canvas-wrapper {
+  --enc-background:rgb(49 52 51 / 28%);
   width: 100%;
   height: calc(100vh - 64px);
   overflow: hidden;
   position: relative;
   cursor: grab;
-  background: rgb(var(--v-theme-background));
+  background: var(--enc-background);
 }
 
 .canvas-wrapper:active { cursor: grabbing; }

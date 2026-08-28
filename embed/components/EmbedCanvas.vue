@@ -39,6 +39,7 @@
           :pos="pos"
           :show-notes="showNotes"
           :show-images="showImages"
+          :image-pool="imagePool"
           @toggle="onToggleNode"
         />
       </div>
@@ -50,6 +51,7 @@
 import { ref, computed, onMounted, onUnmounted, watch, type CSSProperties } from 'vue'
 import type { MindMapNode } from '@entities/node'
 import type { LayoutType } from '@features/layout/lib/types'
+import type { StoredImage } from '@entities/image'
 import { useLayout } from '@features/layout/model/useLayout'
 import { usePanZoom } from '../composables/useEmbedPanZoom'
 import { useConnections } from '../composables/useEmbedConnections'
@@ -63,12 +65,14 @@ interface Props {
   showNotes?: boolean
   showImages?: boolean
   previewMode?: boolean
+  imagePool?: StoredImage[] | null
 }
 
 const props = withDefaults(defineProps<Props>(), {
   showNotes: true,
   showImages: true,
   previewMode: false,
+  imagePool: null,
 })
 
 // ─── Layout ────────────────────────────────────
@@ -99,6 +103,13 @@ const canvasRef = ref<HTMLElement | null>(null)
 
 const positions = computed(() => layoutData.value.positions)
 const bounds = computed(() => layoutData.value.bounds)
+
+watch(() => props.imagePool, (pool) => {
+  console.log('[IMG-DEBUG] EmbedCanvas imagePool prop:', {
+    hasPool: !!pool,
+    poolLength: pool?.length ?? 0,
+  })
+}, { immediate: true })
 
 const sceneWidth = computed(() => bounds.value.width)
 const sceneHeight = computed(() => bounds.value.height)

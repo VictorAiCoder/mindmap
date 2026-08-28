@@ -206,11 +206,12 @@ onBeforeUnmount(() => {
 
 /* ── Развёрнутый режим ── */
 .notes-preview:not(.notes-preview--collapsed) {
+  --enc-background: rgb(43 41 41 / 88%);
   padding: 0.714em 1em;
   padding-right: 3.714em;
   width: max-content;
   max-width: 20em;
-  background: rgb(var(--v-theme-surface));
+  background: var(--enc-background);
   border-left: 0.214em solid;
   border-radius: 0 0.571em 0.571em 0;
   box-shadow: 0 0.143em 0.857em rgba(0, 0, 0, 0.1);

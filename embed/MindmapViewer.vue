@@ -28,8 +28,9 @@
       :root-node="rootNode"
       :layout-type="layout"
       :show-notes="showNotes && !previewMode"
-      :show-images="showImages && !previewMode"
+      :show-images="showImages"
       :preview-mode="previewMode"
+      :image-pool="imagePool"
     />
   </div>
 
@@ -43,6 +44,7 @@
           :layout-type="layout"
           :show-notes="showNotes"
           :show-images="showImages"
+          :image-pool="imagePool"
         />
       </div>
       <button class="mindmap-viewer__close-btn" title="Закрыть (Esc)" @click="exitFullscreen">
@@ -83,6 +85,7 @@ interface Props {
   previewMode?: boolean
   api?: MindMapApi
   editMode?: boolean
+  maxDepth?: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -150,6 +153,11 @@ onUnmounted(() => {
 // ─── Load mindmap data ─────────────────────────
 
 const imagePool = ref<StoredImage[]>([])
+
+watch(imagePool, (val) => {
+  console.log('[IMG-DEBUG] imagePool changed:', val.length, 'images')
+}, { immediate: true })
+
 const rootNode = ref<MindMapNode | null>(null)
 
 const ENC_ACCENT = '#27b94b'
@@ -162,6 +170,15 @@ function applyAccentColor(root: MindMapNode): void {
   })
 }
 
+function collapseBeyondDepth(node: MindMapNode, depth: number, max: number): void {
+  if (depth >= max && node.children.length > 0) {
+    node.collapsed = true
+  }
+  if (!node.collapsed) {
+    node.children.forEach(child => collapseBeyondDepth(child, depth + 1, max))
+  }
+}
+
 function parseMarkdown(value: string): void {
   if (!value?.trim()) {
     rootNode.value = null
@@ -172,17 +189,38 @@ function parseMarkdown(value: string): void {
     applyAccentColor(tree)
   }
   rootNode.value = tree
+  if (tree && props.maxDepth !== undefined) {
+    collapseBeyondDepth(tree, 0, props.maxDepth)
+  }
 }
 
 async function loadFromApi(slug: string): Promise<boolean> {
   try {
-    const doc = await $fetch<{ root?: MindMapNode }>(`/api/mindmap/${slug}`)
+    const doc = await $fetch<{ root?: MindMapNode; images?: StoredImage[] }>(`/api/mindmap/${slug}`)
+    console.log('[IMG-DEBUG] MindmapViewer.loadFromApi:', {
+      slug,
+      hasRoot: !!doc?.root,
+      hasImages: !!doc?.images,
+      imagesLength: doc?.images?.length ?? 0,
+      docKeys: doc ? Object.keys(doc) : [],
+    })
     if (doc?.root) {
+      if (doc.images?.length) {
+        imagePool.value = doc.images
+        console.log('[IMG-DEBUG] imagePool populated:', imagePool.value.length, 'images')
+      } else {
+        console.log('[IMG-DEBUG] NO images in API response')
+      }
       applyAccentColor(doc.root)
       rootNode.value = doc.root
+      if (props.maxDepth !== undefined) {
+        collapseBeyondDepth(doc.root, 0, props.maxDepth)
+      }
       return true
     }
-  } catch {}
+  } catch (err) {
+    console.log('[IMG-DEBUG] loadFromApi ERROR:', err)
+  }
   return false
 }
 

@@ -52,11 +52,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, inject, toRef, h, type CSSProperties } from 'vue'
+import { ref, computed, inject, toRef, h, onMounted, type CSSProperties } from 'vue'
 import { useNodeDisplay } from '@entities/node/model/useNodeDisplay'
 import { NODE_SCALE } from '@entities/node/model/constants'
 import type { LayoutPosition } from '@features/layout/model/types'
 import type { Clip } from '@entities/image/model/types'
+import type { StoredImage } from '@entities/image/model/types'
 import { embedSlotsKey } from '../injection-keys'
 
 import EmbedNodeContent from './EmbedNodeContent.vue'
@@ -70,11 +71,13 @@ interface Props {
   pos: LayoutPosition
   showNotes?: boolean
   showImages?: boolean
+  imagePool?: StoredImage[] | null
 }
 
 const props = withDefaults(defineProps<Props>(), {
   showNotes: true,
   showImages: true,
+  imagePool: null,
 })
 
 const emit = defineEmits<{
@@ -102,10 +105,40 @@ const node = computed(() => props.pos.node)
 
 // --- Image resolution -------------------------
 
-const hasImage = computed<boolean>(() =>
-  props.showImages && !!node.value.imageId,
-)
-const imageSrc = computed<string>(() => node.value.imageId ?? '')
+const hasImage = computed<boolean>(() => {
+  const result = props.showImages && !!node.value.imageId
+  console.log('[IMG-DEBUG] hasImage:', {
+    nodeId: node.value.id?.substring(0, 20),
+    showImages: props.showImages,
+    imageId: node.value.imageId,
+    result,
+  })
+  return result
+})
+const imageSrc = computed<string>(() => {
+  if (!node.value.imageId || !props.imagePool) {
+    console.log('[IMG-DEBUG] imageSrc: SKIP', {
+      imageId: node.value.imageId,
+      hasPool: !!props.imagePool,
+      poolLength: props.imagePool?.length ?? 0,
+    })
+    return ''
+  }
+  const img = props.imagePool.find(i => i.id === node.value.imageId)
+  if (!img) {
+    console.log('[IMG-DEBUG] imageSrc: NOT FOUND in pool', {
+      imageId: node.value.imageId,
+      poolIds: props.imagePool.map(i => i.id),
+    })
+    return ''
+  }
+  const result = img.kind === 'raw' ? img.dataUrl : ''
+  console.log('[IMG-DEBUG] imageSrc: RESOLVED', {
+    kind: img.kind,
+    dataUrlPrefix: result.substring(0, 60),
+  })
+  return result
+})
 const resolvedClip = computed<Clip | null>(() => null)
 
 const imageSlotProps = computed(() => ({
@@ -137,6 +170,17 @@ const menuSlotProps = computed(() => ({
   hasChildren: (node.value.children?.length ?? 0) > 0,
   hasImage: hasImage.value,
 }))
+
+onMounted(() => {
+  console.log('[IMG-DEBUG] EmbedNode mounted:', {
+    nodeId: props.pos.node.id,
+    nodeText: props.pos.node.text?.substring(0, 30),
+    imageId: props.pos.node.imageId,
+    showImages: props.showImages,
+    hasImagePool: !!props.imagePool,
+    imagePoolLength: props.imagePool?.length ?? 0,
+  })
+})
 
 const menuSlotRenderer = computed(() => {
   if (!menuSlot.value) return null
