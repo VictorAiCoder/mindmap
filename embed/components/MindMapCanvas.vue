@@ -148,6 +148,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   'update:galleryOpen': [value: boolean]
   'notes-visible-change': [payload: { nodeId: string; visible: boolean }]
+  'pin-change': [payload: { nodeId: string; pinned: boolean }]
 }>()
 
 // ═══════════════════════════════════════════
@@ -439,6 +440,13 @@ const notesNodeId = ref<string | null>(null)
 
 function handleToggleNotePin(nodeId: string) {
   mindmap.toggleNotePin(nodeId)
+  const node = mindmap.findNode(nodeId)
+  if (node) {
+    emit('pin-change', {
+      nodeId,
+      pinned: !!node.notesPinned
+    })
+  }
 }
 
 function handleToggleNotesVisible(nodeId: string) {
