@@ -147,6 +147,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   'update:galleryOpen': [value: boolean]
+  'notes-visible-change': [payload: { nodeId: string; visible: boolean }]
 }>()
 
 // ═══════════════════════════════════════════
@@ -442,6 +443,13 @@ function handleToggleNotePin(nodeId: string) {
 
 function handleToggleNotesVisible(nodeId: string) {
   mindmap.toggleNotesVisible(nodeId)
+  const node = mindmap.findNode(nodeId)
+  if (node) {
+    emit('notes-visible-change', {
+      nodeId,
+      visible: node.notesVisible !== false
+    })
+  }
 }
 
 // ═══════════════════════════════════════════
