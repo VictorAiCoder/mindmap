@@ -12,6 +12,30 @@ import markdown from 'highlight.js/lib/languages/markdown'
 let configured = false
 
 // ============================================================================
+// Mermaid extension — intercepts ```mermaid blocks before hljs
+// ============================================================================
+
+const mermaidExtension = {
+  name: 'mermaid',
+  level: 'block' as const,
+  start(src: string) { return src.match(/^```mermaid/m)?.index },
+  tokenizer(src: string) {
+    const match = src.match(/^```mermaid\n([\s\S]*?)^```/m)
+    if (match) {
+      return {
+        type: 'mermaid',
+        raw: match[0],
+        text: match[1].trim()
+      }
+    }
+  },
+  renderer(token: any) {
+    // Output a marker that renderMermaidInHtml will find
+    return `<pre><code class="language-mermaid">${token.text}</code></pre>`
+  }
+}
+
+// ============================================================================
 // Configuration (call once before first render)
 // ============================================================================
 
@@ -26,9 +50,12 @@ export function configureMarkdown(): void {
   hljs.registerLanguage('markdown', markdown)
 
   marked.use(
+    { extensions: [mermaidExtension] },
     markedHighlight({
       langPrefix: 'hljs language-',
       highlight(code: string, lang: string) {
+        // Skip mermaid blocks — they're handled by renderMermaidInHtml
+        if (lang === 'mermaid') return code
         const language = lang && hljs.getLanguage(lang) ? lang : 'plaintext'
         try {
           return hljs.highlight(code, { language, ignoreIllegals: true }).value
@@ -54,7 +81,7 @@ export function configureMarkdown(): void {
 }
 
 // ============================================================================
-// Sanitize config
+// Sanitize config — allow <div> for mermaid SVG containers
 // ============================================================================
 
 const SANITIZE_CONFIG: Config = {
@@ -68,12 +95,16 @@ const SANITIZE_CONFIG: Config = {
     'a', 'img',
     'table', 'thead', 'tbody', 'tr', 'th', 'td',
     'input',
+    'div', // mermaid SVG container
   ],
   ALLOWED_ATTR: [
     'href', 'src', 'alt', 'title',
     'class',
     'target', 'rel',
     'type', 'checked', 'disabled',
+    'viewBox', 'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', // SVG
+    'd', 'x', 'y', 'width', 'height', 'rx', 'ry', 'transform', 'style',
+    'id',
   ],
   ALLOWED_URI_REGEXP:
     /^(?:(?:https?|mailto|tel|data:image\/[a-z]+;base64):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,

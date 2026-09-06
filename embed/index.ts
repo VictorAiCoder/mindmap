@@ -19,7 +19,9 @@ export { useConnections } from './composables/useConnections'
 export { useLayout } from './lib/layout'
 export { LAYOUT_TYPES } from '@features/layout'
 export { parseMarkdownToTree } from './lib/parse'
+export { exportToMarkdown } from './lib/export'
 export { renderMarkdown, configureMarkdown } from './lib/markdown'
+export { renderMermaidInHtml } from './lib/mermaid'
 
 // ─── Types ───────────────────────────────────────
 export type { MindMapApi, NotifyFn, NotifyColor } from './types/mindmap-api'

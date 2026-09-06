@@ -74,6 +74,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onBeforeUnmount, toRef } from 'vue'
 import { renderMarkdown } from '@features/notes/model/useMarkdown'
+import { renderMermaidInHtml } from '../lib/mermaid'
 import { useNodeDisplay } from '@entities/node/model/useNodeDisplay'
 import type { LayoutPosition } from '@features/layout'
 
@@ -126,7 +127,18 @@ const previewStyle = computed(() => {
   return { borderLeftColor: color.value }
 })
 
-const renderedHtml = computed<string>(() => renderMarkdown(notes.value))
+const renderedHtml = ref<string>('')
+
+async function updateRenderedHtml(val: string) {
+  const md = renderMarkdown(val)
+  renderedHtml.value = await renderMermaidInHtml(md)
+}
+
+// Initial render
+updateRenderedHtml(notes.value)
+
+// Re-render when notes change
+watch(notes, (val) => updateRenderedHtml(val))
 
 // ─── Handlers ───────────────────────────────
 
@@ -393,5 +405,24 @@ onBeforeUnmount(() => {
   max-width: 100%;
   border-radius: 0.429em;
   margin: 0.3em 0;
+}
+
+/* ── Mermaid diagram blocks ── */
+.markdown-mini :deep(.mermaid) {
+  background: #6ce07927;
+  border: 0.071em solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.429em;
+  padding: 0.5em;
+  margin: 0.5em 0;
+  overflow-x: auto;
+}
+
+.markdown-mini :deep(.mermaid svg) {
+  max-width: 100%;
+  height: auto;
+}
+
+.markdown-mini :deep(pre:has(code.language-mermaid)) {
+  display: none;
 }
 </style>
