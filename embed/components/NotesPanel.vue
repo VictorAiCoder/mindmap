@@ -87,7 +87,7 @@
 
 <script setup>
 import { ref, computed, watch, nextTick, inject } from 'vue'
-import { renderMarkdown } from '../lib/markdown'
+import { renderMarkdown, renderMermaidInHtml } from '@features/notes/model/useMarkdown'
 import { findNodeById } from '@entities/mindmap'
 import { mindMapKey } from '../injection-keys'
 import NotesToolbar from './NotesToolbar.vue'
@@ -128,7 +128,14 @@ watch(node, (n) => {
 
 // --- Рендер ---
 
-const renderedHtml = computed(() => renderMarkdown(localNotes.value))
+const renderedHtml = ref('')
+
+async function updateRenderedHtml(val) {
+  const md = renderMarkdown(val)
+  renderedHtml.value = await renderMermaidInHtml(md)
+}
+
+watch(localNotes, (val) => updateRenderedHtml(val), { immediate: true })
 
 // --- Обновление ---
 

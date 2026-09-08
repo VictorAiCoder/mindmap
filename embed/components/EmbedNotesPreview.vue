@@ -18,8 +18,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onBeforeUnmount, toRef } from 'vue'
-import { renderMarkdown } from '../lib/markdown'
+import { ref, computed, watch, onBeforeUnmount, toRef } from 'vue'
+import { renderMarkdown, renderMermaidInHtml } from '@features/notes/model/useMarkdown'
 import { useNodeDisplay } from '@entities/node/model/useNodeDisplay'
 import type { LayoutPosition } from '@features/layout/model/types'
 
@@ -70,7 +70,14 @@ const previewStyle = computed(() => ({
   borderLeftColor: color.value,
 }))
 
-const renderedHtml = computed<string>(() => renderMarkdown(notes.value))
+const renderedHtml = ref<string>('')
+
+async function updateRenderedHtml(val) {
+  const md = renderMarkdown(val)
+  renderedHtml.value = await renderMermaidInHtml(md)
+}
+
+watch(notes, (val) => updateRenderedHtml(val), { immediate: true })
 </script>
 
 <style scoped>
