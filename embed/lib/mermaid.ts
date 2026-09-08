@@ -73,9 +73,11 @@ export async function renderMermaidInHtml(html: string): Promise<string> {
     const id = `mermaid-${++idCounter}`
     try {
       const { svg } = await mermaid.render(id, code)
+      // Strip inline max-width from SVG — let CSS control sizing
+      const cleanedSvg = svg.replace(/style="([^"]*?)max-width:\s*\d+px;?([^"]*?)"/g, 'style="$1$2"').replace(/style="\s*"/g, '')
       replacements.push({
         original,
-        replacement: `<div class="mermaid">${svg}</div>`
+        replacement: `<div class="mermaid">${cleanedSvg}</div>`
       })
     } catch {
       // Keep original code block on render error
