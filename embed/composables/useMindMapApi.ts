@@ -69,6 +69,11 @@ export function useMindMapApi(
     return imported
   }
 
+  function getMarkdown(hiddenSections?: string[]): string {
+    if (!persistence) throw new Error('Persistence not enabled')
+    return persistence.getMarkdown(hiddenSections)
+  }
+
   return {
     rootNode,
     imageStorage,
@@ -83,6 +88,7 @@ export function useMindMapApi(
 
     exportTree,
     importTree,
+    getMarkdown,
 
     resetToDefault,
     nodeCount,

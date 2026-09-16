@@ -33,6 +33,28 @@ const mindmap = injectStrict(mindMapKey)
 // notify опционален — если не предоставлен, молча пишем в console
 const notify = inject(notifyKey, null)
 
+const emit = defineEmits<{
+  'sections-imported': [payload: { targetId: string; sections: Array<{ heading: string; content: string }> }]
+}>()
+
+function parseSectionsFromMarkdown(markdown: string): Array<{ heading: string; content: string }> {
+  const lines = markdown.split(/\r?\n/)
+  const sections: Array<{ heading: string; content: string }> = []
+  let current: { heading: string; content: string[] } | null = null
+
+  for (const line of lines) {
+    const match = line.match(/^(#{1,6})\s+(.+?)\s*$/)
+    if (match) {
+      if (current) sections.push({ heading: current.heading, content: current.content.join('\n').trim() })
+      current = { heading: match[2], content: [] }
+    } else if (current) {
+      current.content.push(line)
+    }
+  }
+  if (current) sections.push({ heading: current.heading, content: current.content.join('\n').trim() })
+  return sections
+}
+
 const dialogOpen = computed<boolean>({
   get: () => importDialogOpen.value,
   set: (v) => {
@@ -47,6 +69,7 @@ function onConfirm(markdown: string) {
     return
   }
 
+  const sections = parseSectionsFromMarkdown(markdown)
   const count = mindmap.importMarkdownIntoNode(targetId, markdown)
 
   if (count > 0) {
@@ -55,6 +78,7 @@ function onConfirm(markdown: string) {
       'success',
       'mdi-language-markdown'
     )
+    emit('sections-imported', { targetId, sections })
   } else {
     notify?.(
       'Не удалось импортировать — проверьте формат Markdown',

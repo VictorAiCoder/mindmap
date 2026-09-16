@@ -104,12 +104,6 @@ const canvasRef = ref<HTMLElement | null>(null)
 const positions = computed(() => layoutData.value.positions)
 const bounds = computed(() => layoutData.value.bounds)
 
-watch(() => props.imagePool, (pool) => {
-  console.log('[IMG-DEBUG] EmbedCanvas imagePool prop:', {
-    hasPool: !!pool,
-    poolLength: pool?.length ?? 0,
-  })
-}, { immediate: true })
 
 const sceneWidth = computed(() => bounds.value.width)
 const sceneHeight = computed(() => bounds.value.height)

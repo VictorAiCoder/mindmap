@@ -1,4 +1,25 @@
-// embed/composables/useNodeMenu.ts
+/**
+ * @module useNodeMenu
+ *
+ * Singleton composable for context menu state across all MapNode instances.
+ *
+ * ## Architecture
+ * - **Module-level state**: refs/reactives live at module scope, NOT inside the composable.
+ *   All MapNode components share one menu instance (one menu open at a time).
+ * - **Inversion of control**: Menu (NodeActionsMenu) calls `runAction('onAddChild')`,
+ *   MapNode provides the actual handler via `openMenu(triggerEl, ctx, handlers)`.
+ *   Menu never knows what actions do.
+ *
+ * ## Limitations
+ * - **One menu at a time**: Opening a menu on node B closes menu on node A.
+ * - **Not SSR-safe**: Module-level refs are shared across requests.
+ * - **Not multi-instance safe**: Cannot run two MindMapCanvas with independent menus.
+ * - **Not unit-testable in isolation**: State persists between tests.
+ *   Use `resetMenuState()` in beforeEach/afterEach to clear.
+ *
+ * ## Testing
+ * Call `resetMenuState()` to reset all module-level refs before each test.
+ */
 import { ref, reactive, nextTick } from 'vue'
 
 // ═══════════════════════════════════════════════════════════════
@@ -246,6 +267,42 @@ function closeSegmentEditor(): void {
   segmentEditorNodeId.value = null
 }
 
+/**
+ * Resets all module-level menu state. Use in test setup/teardown.
+ *
+ * @example
+ *   beforeEach(() => { resetMenuState() })
+ */
+export function resetMenuState(): void {
+  activeMenuId.value = null
+  isOpen.value = false
+  importDialogOpen.value = false
+  importDialogTargetId.value = null
+  menuPosition.position = 'fixed'
+  menuPosition.left = '0px'
+  menuPosition.top = '0px'
+  menuPosition.zIndex = 9999
+  menuPosition.visibility = 'hidden'
+  Object.assign(activeNodeProps, {
+    nodeId: '',
+    isRoot: false,
+    hasImage: false,
+    hasNotes: false,
+    pinned: false,
+    w: 0,
+    h: 0,
+  })
+  activeHandlers = null
+  if (cleanupFn) {
+    cleanupFn()
+    cleanupFn = null
+  }
+  activeTriggerEl = null
+  segmentEditorOpen.value = false
+  segmentEditorSourceId.value = null
+  segmentEditorNodeId.value = null
+}
+
 // ═══════════════════════════════════════════════════════════════
 // Public API
 // ═══════════════════════════════════════════════════════════════
@@ -268,6 +325,7 @@ export function useNodeMenu() {
     segmentEditorSourceId,
     segmentEditorNodeId,
     openSegmentEditor,
-    closeSegmentEditor
+    closeSegmentEditor,
+    resetMenuState,
   }
 }

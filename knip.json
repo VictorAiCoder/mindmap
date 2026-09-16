@@ -1,4 +1,4 @@
 {
-    "entry": ["src/main.ts", "src/types/mindmap-api.ts!"],
+    "entry": ["src/main.ts", "embed/types/mindmap-api.ts!"],
     "ignore": ["env.d.ts", "*.config.d.ts"]
 }

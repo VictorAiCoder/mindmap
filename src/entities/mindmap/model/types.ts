@@ -10,4 +10,6 @@ export interface MindMapDocument {
   version: 2
   root: MindMapNode
   images: StoredImage[]
+  /** Тексты скрытых секций (node.text) — при сохранении удаляются из markdown */
+  hiddenSections?: string[]
 }

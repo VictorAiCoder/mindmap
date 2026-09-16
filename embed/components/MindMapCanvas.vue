@@ -54,6 +54,7 @@
           @edit-segments="handleEditSegment(pos.id)"
         />
         <NodeActionsMenu />
+        <ImportMarkdownHost @sections-imported="onSectionsImported" />
       </div>
     </template>
 
@@ -121,6 +122,7 @@ import ImageGalleryPanel from './ImageGalleryPanel.vue'
 import DragHint from './DragHint.vue'
 import CanvasControls from './CanvasControls.vue'
 import NodeActionsMenu from './NodeActionsMenu.vue'
+import ImportMarkdownHost from './ImportMarkdownHost.vue'
 import SegmentEditorPanel from './SegmentEditorPanel.vue'
 
 import { useLayout } from '@features/layout'
@@ -129,7 +131,7 @@ import { usePanZoom } from '../composables/usePanZoom'
 import { useConnections } from '../composables/useConnections'
 
 import type { MindMapApi, NotifyFn } from '../types/mindmap-api'
-import { mindMapKey, notifyKey } from '../injection-keys'
+import { mindMapKey, notifyKey, globalZoomKey, imageStorageKey } from '../injection-keys'
 import type { LayoutPosition, PositionMap } from '@features/layout'
 import type { NodeDragState } from '../types/node-drag'
 
@@ -149,6 +151,11 @@ const emit = defineEmits<{
   'update:galleryOpen': [value: boolean]
   'notes-visible-change': [payload: { nodeId: string; visible: boolean }]
   'pin-change': [payload: { nodeId: string; pinned: boolean }]
+  'child-added': [payload: { parentId: string; nodeId: string; nodeText: string }]
+  'sections-imported': [payload: { targetId: string; sections: Array<{ heading: string; content: string }> }]
+  'node-image-set': [payload: { nodeId: string; dataUrl: string }]
+  'node-image-removed': [payload: { nodeId: string }]
+  'node-deleted': [payload: { nodeId: string; nodeText: string }]
 }>()
 
 // ═══════════════════════════════════════════
@@ -208,8 +215,8 @@ const rootPos = computed<LayoutPosition | null>(() => {
 
 const panZoom = usePanZoom()
 
-provide('globalZoom', panZoom.zoom)
-provide('imageStorage', props.api.imageStorage)
+provide(globalZoomKey, panZoom.zoom)
+provide(imageStorageKey, props.api.imageStorage)
 
 onMounted(async () => {
   panZoom.setWrapper(wrapperRef.value)
@@ -386,10 +393,38 @@ function startEdit(nodeId: string) {
   nextTick(() => editFieldRef.value?.focus())
 }
 
+import type { MindMapNode } from '@entities/node'
+
+function findParentId(targetId: string): string | null {
+  function walk(node: MindMapNode): string | null {
+    for (const child of node.children) {
+      if (child.id === targetId) return node.id
+      const found = walk(child)
+      if (found) return found
+    }
+    return null
+  }
+  return walk(mindmap.rootNode.value)
+}
+
+function onSectionsImported(payload: { targetId: string; sections: Array<{ heading: string; content: string }> }) {
+  emit('sections-imported', payload)
+}
+
 function finishEdit() {
   if (!editingId.value) return
   const trimmed = editText.value.trim()
-  if (trimmed) mindmap.updateText(editingId.value, trimmed)
+  if (trimmed) {
+    mindmap.updateText(editingId.value, trimmed)
+    const parentId = findParentId(editingId.value)
+    if (parentId) {
+      emit('child-added', {
+        parentId,
+        nodeId: editingId.value,
+        nodeText: trimmed
+      })
+    }
+  }
   editingId.value = null
 }
 
@@ -408,8 +443,10 @@ function handleAddChild(parentId: string) {
 
 function handleDelete(nodeId: string) {
   const pos = posById.value.get(nodeId)
+  const nodeText = pos?.node.text ?? ''
   mindmap.deleteNode(nodeId)
-  if (pos) notify(`Узел «${pos.node.text}» удалён`, 'error', 'mdi-delete')
+  if (pos) notify(`Узел «${nodeText}» удалён`, 'error', 'mdi-delete')
+  emit('node-deleted', { nodeId, nodeText })
 }
 
 function handleResetPosition(nodeId: string) {
@@ -420,6 +457,7 @@ function handleResetPosition(nodeId: string) {
 function handleSetImage(nodeId: string, dataUrl: string) {
   mindmap.setNodeImage(nodeId, dataUrl)
   notify('Картинка добавлена', 'success', 'mdi-image')
+  emit('node-image-set', { nodeId, dataUrl })
 }
 
 function handleSetImageById(nodeId: string, imageId: string) {
@@ -430,6 +468,7 @@ function handleSetImageById(nodeId: string, imageId: string) {
 function handleRemoveImage(nodeId: string) {
   mindmap.removeNodeImage(nodeId)
   notify('Картинка удалена', 'info', 'mdi-image-off')
+  emit('node-image-removed', { nodeId })
 }
 
 // ═══════════════════════════════════════════

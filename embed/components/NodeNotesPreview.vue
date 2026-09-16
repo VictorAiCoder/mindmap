@@ -18,15 +18,7 @@
       @click.stop="$emit('toggleVisible')"
       title="Показать заметку"
     >
-      <svg
-        class="icon-eye-crossed"
-        viewBox="0 0 24 24" fill="none" stroke="currentColor"
-        stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-      >
-        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
-        <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
-        <line x1="1" y1="1" x2="23" y2="23"/>
-      </svg>
+      <IconEyeCrossed />
     </div>
 
     <!-- ═══ Развёрнутое состояние ═══ -->
@@ -38,14 +30,7 @@
           title="Свернуть заметку"
           @click.stop="$emit('toggleVisible')"
         >
-          <svg
-            class="icon-eye"
-            viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-          >
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-            <circle cx="12" cy="12" r="3"/>
-          </svg>
+          <IconEye />
         </button>
 
         <button
@@ -72,10 +57,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onBeforeUnmount, toRef } from 'vue'
-import { renderMarkdown } from '@features/notes/model/useMarkdown'
-import { renderMermaidInHtml } from '../lib/mermaid'
+import { computed, toRef } from 'vue'
 import { useNodeDisplay } from '@entities/node/model/useNodeDisplay'
+import { useHoverExpansion } from '../composables/useHoverExpansion'
+import { useAsyncMarkdown } from '../composables/useAsyncMarkdown'
+import IconEyeCrossed from './icons/IconEyeCrossed.vue'
+import IconEye from './icons/IconEye.vue'
 import type { LayoutPosition } from '@features/layout'
 
 // ─── Props / Emits ──────────────────────────
@@ -96,25 +83,11 @@ const emit = defineEmits<{
 
 const { node, color } = useNodeDisplay(toRef(props, 'pos'))
 
-// ─── Local-only state ──────────────────────
+// ─── Local state ────────────────────────────
 
 const pinned = computed<boolean>(() => !!node.value.notesPinned)
 const notes = computed<string>(() => node.value.notes ?? '')
 const visible = computed<boolean>(() => node.value.notesVisible !== false)
-
-// ─── Expanded state (sync with pinned/visible) ──
-
-const isExpanded = ref<boolean>(pinned.value)
-
-watch(pinned, (val) => {
-  if (val) isExpanded.value = true
-})
-
-watch(visible, (val) => {
-  if (val && pinned.value) {
-    isExpanded.value = true
-  }
-})
 
 // ─── Computed display ───────────────────────
 
@@ -127,47 +100,24 @@ const previewStyle = computed(() => {
   return { borderLeftColor: color.value }
 })
 
-const renderedHtml = ref<string>('')
+// ─── Composables ────────────────────────────
 
-async function updateRenderedHtml(val: string) {
-  const md = renderMarkdown(val)
-  renderedHtml.value = await renderMermaidInHtml(md)
-}
+const { isExpanded, onMouseEnter, onMouseLeave } = useHoverExpansion({
+  enabled: visible,
+  pinned,
+})
 
-// Initial render
-updateRenderedHtml(notes.value)
-
-// Re-render when notes change
-watch(notes, (val) => updateRenderedHtml(val))
+const { renderedHtml } = useAsyncMarkdown(notes)
 
 // ─── Handlers ───────────────────────────────
 
 function onTogglePin(): void {
-  if (!pinned.value) {
-    isExpanded.value = true
-  }
   emit('togglePin')
 }
 
-// ─── Hover logic ────────────────────────────
-
-let hoverTimer: ReturnType<typeof setTimeout> | null = null
-
-function onMouseEnter(): void {
-  if (!visible.value || pinned.value) return
-  hoverTimer = setTimeout(() => {
-    isExpanded.value = true
-  }, 300)
+function onToggleVisible(): void {
+  emit('toggleVisible')
 }
-
-function onMouseLeave(): void {
-  if (hoverTimer) clearTimeout(hoverTimer)
-  if (!pinned.value) isExpanded.value = false
-}
-
-onBeforeUnmount(() => {
-  if (hoverTimer) clearTimeout(hoverTimer)
-})
 </script>
 <style scoped>
 /* ── Корневой контейнер ── */
@@ -205,11 +155,6 @@ onBeforeUnmount(() => {
   transition: all 0.2s ease;
 }
 
-.icon-eye-crossed {
-  width: 1.429em;
-  height: 1.429em;
-}
-
 .notes-collapsed-indicator:hover {
   color: rgba(var(--v-theme-on-surface), 0.7);
   box-shadow: 0 0.214em 0.857em rgba(0, 0, 0, 0.15);
@@ -220,7 +165,7 @@ onBeforeUnmount(() => {
 .notes-preview:not(.notes-preview--collapsed) {
   --enc-background: rgb(43 41 41 / 88%);
   padding: 0.714em 1em;
-  padding-right: 3.714em;
+  padding-right: 1.714em;
   width: max-content;
   max-width: 20em;
   background: var(--enc-background);
@@ -232,8 +177,8 @@ onBeforeUnmount(() => {
 }
 
 .notes-preview--expanded {
-  max-width: 27.143em !important;
-  max-height: 35.714em !important;
+  max-width: 45em !important;
+  max-height: 40em !important;
   overflow-y: auto !important;
   z-index: 50 !important;
   box-shadow: 0 0.571em 2.286em rgba(0, 0, 0, 0.18) !important;
@@ -274,7 +219,6 @@ onBeforeUnmount(() => {
   padding: 0;
 }
 
-.icon-eye { width: 1em; height: 1em; }
 .icon-pin { width: 0.857em; height: 0.857em; }
 
 .notes-btn:hover {
@@ -307,6 +251,7 @@ onBeforeUnmount(() => {
   font-size: 0.714em;
   color: rgba(var(--v-theme-on-surface), 0.4);
   font-style: italic;
+
 }
 
 /* ── Markdown мини-стили ── */
@@ -315,6 +260,7 @@ onBeforeUnmount(() => {
   line-height: 1.5;
   color: rgba(var(--v-theme-on-surface), 0.8);
   word-break: break-word;
+  width: 45em;
 }
 
 .markdown-mini :deep(h1) { font-size: 1.15em; font-weight: 700; margin: 0.3em 0; }
@@ -415,6 +361,7 @@ onBeforeUnmount(() => {
   padding: 0.5em;
   margin: 0.5em 0;
   overflow-x: auto;
+  font-size: 1.2em;
 }
 
 .markdown-mini :deep(.mermaid svg) {

@@ -115,7 +115,7 @@ export async function renderMermaidInHtml(html: string): Promise<string> {
         primaryTextColor: '#c8c8c8',
         primaryBorderColor: '#27b94b',
         lineColor: '#27b94b',
-        fontSize: '14px',
+        fontSize: '1.5em',
         noteBkgColor: '#141414',
         noteTextColor: '#c8c8c8',
         noteBorderColor: '#27b94b',

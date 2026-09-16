@@ -3,18 +3,21 @@ import type { MindMapNode } from '@entities/node'
 import type { ImageStorageApi } from '../../../../embed/types/image-storage'
 
 /**
- * ★ ИЗМЕНЕНО: добавлен imageStorage для резолва imageId → dataUrl.
+ * Экспорт дерева mindmap в markdown.
  *
- * ⚠️ Для ImageSegment экспортируется dataUrl исходника целиком (clip игнорируется).
- *    Это "lossy" экспорт — семантика сегмента теряется, но сам снимок
- *    остаётся в markdown. Решим в Коммите 3 (рендер сегмента в canvas → dataUrl).
+ * @param root Корневой узел дерева
+ * @param imageStorage Пул картинок для резолва imageId → dataUrl
+ * @param hiddenSections Тексты узлов, которые нужно исключить из экспорта
+ *                        (скрытые секции — не попадают в markdown)
  */
 export function exportToMarkdown(
   root: MindMapNode,
-  imageStorage: ImageStorageApi
+  imageStorage: ImageStorageApi,
+  hiddenSections?: string[]
 ): string {
+  const hidden = new Set(hiddenSections ?? [])
   const lines: string[] = []
-  renderNode(root, 1, lines, imageStorage)
+  renderNode(root, 1, lines, imageStorage, hidden)
   return lines.join('\n')
 }
 
@@ -27,14 +30,18 @@ function renderNode(
   node: MindMapNode,
   level: number,
   lines: string[],
-  imageStorage: ImageStorageApi
+  imageStorage: ImageStorageApi,
+  hidden: Set<string>
 ): void {
+  // Пропуск скрытых секций — узел и все его потомки не попадают в markdown
+  if (hidden.has(node.text)) return
+
   renderNodeHeader(node, level, lines)
   renderNodeBody(node, lines, imageStorage)
 
   for (const child of node.children) {
     lines.push('')
-    renderNode(child, level + 1, lines, imageStorage)
+    renderNode(child, level + 1, lines, imageStorage, hidden)
   }
 }
 
@@ -57,8 +64,6 @@ function renderNodeBody(
   lines: string[],
   imageStorage: ImageStorageApi
 ): void {
-  // ★ БЫЛО: if (node.image) { ... node.image ... }
-  // ★ СТАЛО: резолв через пул
   const resolved = imageStorage.resolve(node.imageId)
   if (resolved) {
     lines.push('')

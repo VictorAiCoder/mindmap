@@ -6,7 +6,11 @@
         v-if="isOpen"
         ref="menuRef"
         class="node-actions-menu"
+        role="menu"
+        aria-orientation="vertical"
         :style="menuPosition"
+        tabindex="-1"
+        @keydown.esc="closeMenu"
         @mousedown.stop.prevent
         @click.stop
       >
@@ -100,17 +104,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed, inject, type InjectionKey } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useNodeMenu, type NodeMenuHandlers } from '../composables/useNodeMenu'
+import { useScaleSlider } from '../composables/useScaleSlider'
 import { mindMapKey } from '../injection-keys'
-import { NODE_SCALE } from '@/entities/node'
-import type { Center2D } from '@entities/node'
-
-function injectStrict<T>(key: InjectionKey<T>): T {
-  const value = inject(key)
-  if (value === undefined) throw new Error(`Missing provide for injection key: ${String(key)}`)
-  return value
-}
+import { injectStrict } from '@shared/lib/injectStrict'
 
 const {
   isOpen,
@@ -130,6 +128,32 @@ watch(menuRef, (el) => {
   registerMenuEl(el)
 }, { flush: 'post' })
 
+onMounted(() => {
+  menuRef.value?.focus()
+})
+
+// ─── Scale slider ────────────────────────────
+
+const {
+  liveScale,
+  scalePercent,
+  isDefaultScale,
+  onSliderStart,
+  onSliderInput,
+  onSliderCommit,
+  resetScale,
+  cleanup: cleanupScale,
+} = useScaleSlider({
+  activeMenuId,
+  isOpen,
+  findNode: mindmap.findNode,
+  activeNodeProps: p,
+  updateScale: mindmap.updateScale,
+  commitScale: mindmap.commitScale,
+})
+
+// ─── Actions ─────────────────────────────────
+
 function act(action: keyof NodeMenuHandlers) {
   runAction(action)
 }
@@ -143,119 +167,7 @@ function onImportMarkdownClick() {
 
 function onAfterLeave() {
   registerMenuEl(null)
-  // Сбрасываем локальный state слайдера при закрытии меню
-  dragSession.value = null
-}
-
-// ═══════════════════════════════════════════════════════════════
-// ★ Управление масштабом узла
-// ═══════════════════════════════════════════════════════════════
-
-const SCALE_MIN = NODE_SCALE.MIN
-const SCALE_MAX = NODE_SCALE.MAX
-const SCALE_STEP = NODE_SCALE.STEP
-
-/**
- * Сессия drag'а слайдера. Запоминаем "центр" узла в момент начала,
- * чтобы при изменении scale узел визуально оставался на месте
- * (актуально только для закреплённых узлов).
- */
-interface DragSession {
-  nodeId: string
-  liveValue: number
-  savedCenter: Center2D | null
-}
-
-const dragSession = ref<DragSession | null>(null)
-
-/**
- * Вычисляет центр активного узла, если он закреплён.
- * Использует w/h из activeNodeProps (снимок LayoutPosition на момент открытия меню).
- *
- * Возвращает null, если узел не закреплён (тогда keepCenter не нужен —
- * узел позиционируется layout-алгоритмом).
- */
-function computeCenterForActiveNode(): Center2D | null {
-  const nodeId = activeMenuId.value
-  if (!nodeId) return null
-
-  const node = mindmap.findNode(nodeId)
-  if (!node) return null
-
-  if (node.customX == null || node.customY == null) return null
-
-  const { w, h } = p  // activeNodeProps
-  if (w <= 0 || h <= 0) return null
-
-  return {
-    cx: node.customX + w / 2,
-    cy: node.customY + h / 2
-  }
-}
-
-const liveScale = computed<number>(() => {
-  if (dragSession.value) return dragSession.value.liveValue
-
-  const nodeId = activeMenuId.value
-  if (!nodeId) return NODE_SCALE.DEFAULT
-
-  const node = mindmap.findNode(nodeId)
-  return node?.scale ?? NODE_SCALE.DEFAULT
-})
-
-const scalePercent = computed<number>(() => Math.round(liveScale.value * 100))
-const isDefaultScale = computed<boolean>(
-  () => Math.abs(liveScale.value - NODE_SCALE.DEFAULT) < 0.001
-)
-
-function onSliderStart(_e: PointerEvent): void {
-  const nodeId = activeMenuId.value
-  if (!nodeId) return
-
-  const node = mindmap.findNode(nodeId)
-  if (!node) return
-
-  dragSession.value = {
-    nodeId,
-    liveValue: node.scale ?? NODE_SCALE.DEFAULT,
-    savedCenter: computeCenterForActiveNode()
-  }
-}
-
-function onSliderInput(e: Event): void {
-  const session = dragSession.value
-  if (!session) return
-
-  const target = e.target as HTMLInputElement
-  const value = parseFloat(target.value)
-  if (!Number.isFinite(value)) return
-
-  session.liveValue = value
-  mindmap.updateScale(session.nodeId, value, session.savedCenter ?? undefined)
-}
-
-function onSliderCommit(): void {
-  const session = dragSession.value
-  if (!session) return
-
-  mindmap.commitScale(
-    session.nodeId,
-    session.liveValue,
-    session.savedCenter ?? undefined
-  )
-
-  dragSession.value = null
-}
-
-function resetScale(): void {
-  const nodeId = activeMenuId.value
-  if (!nodeId) return
-
-  mindmap.commitScale(
-    nodeId,
-    NODE_SCALE.DEFAULT,
-    computeCenterForActiveNode() ?? undefined
-  )
+  cleanupScale()
 }
 </script>
 

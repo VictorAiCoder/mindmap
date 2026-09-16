@@ -5,8 +5,8 @@
     :style="nodeStyle"
     @dblclick.stop="emit('edit')"
     @mousedown.stop="onMouseDown"
-    @mouseenter="isHovered = true"
-    @mouseleave="isHovered = false"
+    @mouseenter="onMouseEnter"
+    @mouseleave="onMouseLeave"
     @dragover.prevent.stop="onImageDragOver"
     @dragleave.stop="isImageDragOver = false"
     @drop.prevent.stop="onImageDrop"
@@ -35,24 +35,7 @@
         @click.stop="emit('focusNode')"
         @mousedown.stop
       >
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <circle cx="11" cy="11" r="7" />
-          <g v-if="!isFocused">
-            <line x1="8" y1="11" x2="14" y2="11" />
-            <line x1="11" y1="8" x2="11" y2="14" />
-          </g>
-          <g v-else>
-            <line x1="8" y1="11" x2="14" y2="11" />
-          </g>
-          <line x1="16.5" y1="16.5" x2="21" y2="21" />
-        </svg>
+        <IconFocus :focused="isFocused" />
       </button>
     </Transition>
 
@@ -79,26 +62,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, inject, toRef, type Ref, type CSSProperties, type InjectionKey } from 'vue'
-
-function injectStrict<T>(key: InjectionKey<T>): T {
-  const value = inject(key)
-  if (value === undefined) throw new Error(`Missing provide for injection key: ${String(key)}`)
-  return value
-}
+import { ref, computed, inject, toRef, type CSSProperties } from 'vue'
+import { injectStrict } from '@shared/lib/injectStrict'
 
 import { computeEffectiveScale } from '@entities/node/model/useNodeScale'
 import { useNodeMenu } from '../composables/useNodeMenu'
 import { useNodeImage } from '@entities/node/model/useNodeImage'
 import { useNodeDisplay } from '@entities/node/model/useNodeDisplay'
+import { useMapNodeDrag } from '../composables/useMapNodeDrag'
+import { useMapNodeHover } from '../composables/useMapNodeHover'
 import { NODE_SCALE } from '@entities/node'
 import type { LayoutPosition } from '@features/layout'
-import type { ImageStorageApi } from '../types/image-storage'
+
+import { globalZoomKey, imageStorageKey } from '../injection-keys'
 
 import NodeImage from './NodeImage.vue'
 import NodeContent from './NodeContent.vue'
 import NodeNotesPreview from './NodeNotesPreview.vue'
 import NodeActions from './NodeActions.vue'
+import IconFocus from './icons/IconFocus.vue'
 
 // ─── Props / Emits ──────────────────────────
 import type { NodeDragState } from '@entities/node'
@@ -135,15 +117,19 @@ const emit = defineEmits<{
 }>()
 
 // ─── Inject ─────────────────────────────────
-const globalZoom = inject<Ref<number>>('globalZoom', ref(1))
-const imageStorage = inject<ImageStorageApi | null>('imageStorage', null)
-
-// ─── Refs / State ───────────────────────────
-const isHovered = ref(false)
+const globalZoom = injectStrict(globalZoomKey)
+const imageStorage = inject(imageStorageKey, null)
 
 // ─── Shared display state ───────────────────
 const posRef = toRef(props, 'pos')
 const { isRoot, isLeaf, hasNotes } = useNodeDisplay(posRef)
+
+// ─── Composables ────────────────────────────
+const { isDragging, onMouseDown } = useMapNodeDrag(emit)
+
+const { isHovered, onMouseEnter, onMouseLeave } = useMapNodeHover({
+  isMenuOpen: computed(() => isMenuActive.value),
+})
 
 // ─── Image logic (composable) ───────────────
 const {
@@ -190,10 +176,6 @@ function onActionsClick({ triggerEl }: { triggerEl: HTMLElement }): void {
 }
 
 // ─── Computed: drag / scale ─────────────────
-const isDragging = computed<boolean>(
-  () => props.drag.isBeingDragged || props.drag.isInDragGroup,
-)
-
 const nodeScale = computed<number>(
   () => props.pos.node.scale ?? NODE_SCALE.DEFAULT,
 )
@@ -246,11 +228,6 @@ const bgStyle = computed<CSSProperties>(() => {
     borderRadius: '1.429em',
   }
 })
-
-// ─── Handlers ───────────────────────────────
-function onMouseDown(e: MouseEvent): void {
-  if (e.button === 0) emit('startDrag', e)
-}
 </script>
 
 <style scoped>

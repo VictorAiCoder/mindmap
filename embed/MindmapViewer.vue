@@ -154,10 +154,6 @@ onUnmounted(() => {
 
 const imagePool = ref<StoredImage[]>([])
 
-watch(imagePool, (val) => {
-  console.log('[IMG-DEBUG] imagePool changed:', val.length, 'images')
-}, { immediate: true })
-
 const rootNode = ref<MindMapNode | null>(null)
 
 const ENC_ACCENT = '#27b94b'
@@ -197,19 +193,9 @@ function parseMarkdown(value: string): void {
 async function loadFromApi(slug: string): Promise<boolean> {
   try {
     const doc = await $fetch<{ root?: MindMapNode; images?: StoredImage[] }>(`/api/mindmap/${slug}`)
-    console.log('[IMG-DEBUG] MindmapViewer.loadFromApi:', {
-      slug,
-      hasRoot: !!doc?.root,
-      hasImages: !!doc?.images,
-      imagesLength: doc?.images?.length ?? 0,
-      docKeys: doc ? Object.keys(doc) : [],
-    })
     if (doc?.root) {
       if (doc.images?.length) {
         imagePool.value = doc.images
-        console.log('[IMG-DEBUG] imagePool populated:', imagePool.value.length, 'images')
-      } else {
-        console.log('[IMG-DEBUG] NO images in API response')
       }
       applyAccentColor(doc.root)
       rootNode.value = doc.root
@@ -219,7 +205,7 @@ async function loadFromApi(slug: string): Promise<boolean> {
       return true
     }
   } catch (err) {
-    console.log('[IMG-DEBUG] loadFromApi ERROR:', err)
+    console.error('[MindmapViewer] loadFromApi error:', err)
   }
   return false
 }

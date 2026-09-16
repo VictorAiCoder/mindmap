@@ -3,6 +3,7 @@
     class="node-image-float"
     :class="{ 'node-image-float--resizing': isResizing }"
     :style="containerStyle"
+    @mouseleave="onMouseLeave"
   >
     <img
       ref="imgEl"
@@ -25,13 +26,10 @@
 
     <div
       class="node-image-resize"
-      @mousedown.stop.prevent="startResize"
-      @touchstart.stop.prevent="startResizeTouch"
+      @mousedown.stop.prevent="onMouseDown"
+      @touchstart.stop.prevent="onTouchStart"
     >
-      <svg width="10" height="10" viewBox="0 0 10 10">
-        <path d="M 9 1 L 1 9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
-        <path d="M 9 5 L 5 9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
-      </svg>
+      <IconResize />
     </div>
 
     <button
@@ -51,15 +49,17 @@
 
     <Transition name="size-fade">
       <div v-if="isResizing" class="node-image-size">
-        {{ Math.round(liveWidth * scale) }} × {{ Math.round(liveHeight * scale) }}
+        {{ Math.round(liveWidth * scale) }} × {{ Math.round(displayHeight * scale) }}
       </div>
     </Transition>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onBeforeUnmount, type CSSProperties } from 'vue'
+import { ref, computed, watch, toRef, type CSSProperties } from 'vue'
 import type { Clip } from '@entities/image'
+import { useImageResize } from '../composables/useImageResize'
+import IconResize from './icons/IconResize.vue'
 
 // ─── Props / Emits ──────────────────────────
 
@@ -68,10 +68,6 @@ interface Props {
   isRoot?: boolean
   imageWidth?: number | null
   scale?: number
-  /**
-   * Нормализованный прямоугольник вырезки [0..1].
-   * null = показываем картинку целиком (RawImage).
-   */
   clip?: Clip | null
 }
 
@@ -89,24 +85,11 @@ const emit = defineEmits<{
   editSegments: []
 }>()
 
-// ─── Константы ──────────────────────────────
-
-const MIN_WIDTH = 100
-const MAX_WIDTH = 1000
-const DEFAULT_WIDTH = 160
-
 // ─── State ──────────────────────────────────
 
 const imgEl = ref<HTMLImageElement | null>(null)
-
 const naturalW = ref(0)
 const naturalH = ref(0)
-const isResizing = ref(false)
-const liveWidth = ref<number>(props.imageWidth ?? DEFAULT_WIDTH)
-
-const startX = ref(0)
-const startY = ref(0)
-const startWidth = ref(0)
 
 // ─── Computed ───────────────────────────────
 
@@ -123,14 +106,23 @@ const aspectRatio = computed<number>(() => {
   return naturalH.value / naturalW.value
 })
 
+// ─── Resize composable ──────────────────────
+
+const { liveWidth, isResizing, onMouseDown, onTouchStart, onMouseLeave } = useImageResize(
+  {
+    imageWidth: toRef(props, 'imageWidth'),
+    scale: toRef(props, 'scale'),
+    aspectRatio,
+  },
+  emit
+)
+
 const displayWidth = computed<number>(() => {
   if (isResizing.value) return liveWidth.value
-  return props.imageWidth ?? DEFAULT_WIDTH
+  return props.imageWidth ?? 160
 })
 
-const liveHeight = computed<number>(() => liveWidth.value * aspectRatio.value)
 const displayHeight = computed<number>(() => displayWidth.value * aspectRatio.value)
-
 const visualWidth = computed<number>(() => displayWidth.value * props.scale)
 const visualHeight = computed<number>(() => displayHeight.value * props.scale)
 
@@ -157,21 +149,10 @@ const clipStyle = computed<CSSProperties>(() => {
   }
 })
 
-// ─── Синхронизация props → liveWidth ────────
-
-watch(() => props.imageWidth, (val) => {
-  if (!isResizing.value) {
-    liveWidth.value = val ?? DEFAULT_WIDTH
-  }
-})
-
-watch(() => props.clip, () => {
-  if (props.imageWidth === null && naturalW.value) {
-    applyAutoWidth()
-  }
-}, { deep: true })
-
 // ─── Image Events ───────────────────────────
+
+const MIN_WIDTH = 100
+const DEFAULT_WIDTH = 160
 
 function applyAutoWidth(): void {
   const nw = props.clip
@@ -194,87 +175,12 @@ function onError(): void {
   if (imgEl.value) imgEl.value.style.display = 'none'
 }
 
-// ─── Resize: Mouse ──────────────────────────
-
-function startResize(e: MouseEvent): void {
-  isResizing.value = true
-  startX.value = e.clientX
-  startY.value = e.clientY
-  startWidth.value = displayWidth.value
-
-  window.addEventListener('mousemove', onMouseMove)
-  window.addEventListener('mouseup', onMouseUp)
-}
-
-function onMouseMove(e: MouseEvent): void {
-  updateSize(e.clientX, e.clientY)
-}
-
-function onMouseUp(): void {
-  window.removeEventListener('mousemove', onMouseMove)
-  window.removeEventListener('mouseup', onMouseUp)
-  commit()
-}
-
-// ─── Resize: Touch ──────────────────────────
-
-function startResizeTouch(e: TouchEvent): void {
-  if (!e.touches.length) return
-  isResizing.value = true
-  startX.value = e.touches[0].clientX
-  startY.value = e.touches[0].clientY
-  startWidth.value = displayWidth.value
-
-  window.addEventListener('touchmove', onTouchMove, { passive: false })
-  window.addEventListener('touchend', onTouchEnd)
-  window.addEventListener('touchcancel', onTouchEnd)
-}
-
-function onTouchMove(e: TouchEvent): void {
-  e.preventDefault()
-  if (!e.touches.length) return
-  updateSize(e.touches[0].clientX, e.touches[0].clientY)
-}
-
-function onTouchEnd(): void {
-  window.removeEventListener('touchmove', onTouchMove)
-  window.removeEventListener('touchend', onTouchEnd)
-  window.removeEventListener('touchcancel', onTouchEnd)
-  commit()
-}
-
-// ─── Resize: Core Logic ─────────────────────
-
-function updateSize(clientX: number, clientY: number): void {
-  const dx = clientX - startX.value
-  const dy = clientY - startY.value
-  const ratio = aspectRatio.value || 0.75
-  const scaleVal = props.scale || 1
-
-  const delta = (dx + dy / ratio) / 2 / scaleVal
-
-  let newW = startWidth.value + delta
-  newW = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, Math.round(newW)))
-
-  liveWidth.value = newW
-  emit('resize', newW)
-}
-
-function commit(): void {
-  isResizing.value = false
-  const finalWidth = Math.round(liveWidth.value)
-  emit('resize-commit', finalWidth)
-}
-
-// ─── Cleanup ────────────────────────────────
-
-onBeforeUnmount(() => {
-  window.removeEventListener('mousemove', onMouseMove)
-  window.removeEventListener('mouseup', onMouseUp)
-  window.removeEventListener('touchmove', onTouchMove)
-  window.removeEventListener('touchend', onTouchEnd)
-  window.removeEventListener('touchcancel', onTouchEnd)
-})
+// Sync clip changes → auto width
+watch(() => props.clip, () => {
+  if (props.imageWidth === null && naturalW.value) {
+    applyAutoWidth()
+  }
+}, { deep: true })
 </script>
 
 <style scoped>
