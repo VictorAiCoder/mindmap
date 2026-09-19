@@ -3,7 +3,6 @@
 // ─── Components ──────────────────────────────────
 export { default as MindmapViewer } from './MindmapViewer.vue'
 export { default as MindMapCanvas } from './components/MindMapCanvas.vue'
-export { default as EmbedCanvas } from './components/EmbedCanvas.vue'
 export { default as EmbedNode } from './components/EmbedNode.vue'
 
 // ─── Composables ─────────────────────────────────

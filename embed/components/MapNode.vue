@@ -3,7 +3,7 @@
     class="map-node"
     :class="nodeClasses"
     :style="nodeStyle"
-    @dblclick.stop="emit('edit')"
+    @dblclick.stop="command({ type: 'edit' })"
     @mousedown.stop="onMouseDown"
     @mouseenter="onMouseEnter"
     @mouseleave="onMouseLeave"
@@ -18,10 +18,10 @@
       :is-root="isRoot"
       :image-width="pos.node.imageWidth"
       :scale="effectiveScale"
-      @remove="emit('removeImage')"
-      @resize="(w) => emit('resizeImage', w)"
-      @resize-commit="(w) => emit('resizeImageCommit', w)"
-      @edit-segments="emit('editSegments', pos.id)"
+      @remove="command({ type: 'removeImage' })"
+      @resize="(w: number) => command({ type: 'resizeImage', width: w })"
+      @resize-commit="(w: number) => command({ type: 'resizeImageCommit', width: w })"
+      @edit-segments="command({ type: 'editSegments', nodeId: pos.id })"
     />
 
     <div class="map-node__bg" :style="bgStyle" />
@@ -32,23 +32,23 @@
         class="map-node__focus-btn"
         :class="{ 'map-node__focus-btn--active': isFocused }"
         :title="isFocused ? 'Вернуть масштаб 100%' : 'Фокус на узле (125%)'"
-        @click.stop="emit('focusNode')"
+        @click.stop="command({ type: 'focusNode' })"
         @mousedown.stop
       >
         <IconFocus :focused="isFocused" />
       </button>
     </Transition>
 
-    <NodeContent :pos="pos" @toggle="emit('toggle')">
+    <NodeContent :pos="pos" @toggle="command({ type: 'toggle' })">
       <NodeActions :active="isMenuActive" @click="onActionsClick" />
     </NodeContent>
 
     <NodeNotesPreview
       v-if="hasNotes"
       :pos="pos"
-      @open-notes="emit('openNotes')"
-      @toggle-pin="emit('toggleNotePin')"
-      @toggle-visible="emit('toggleNotesVisible')"
+      @open-notes="command({ type: 'openNotes' })"
+      @toggle-pin="command({ type: 'toggleNotePin' })"
+      @toggle-visible="command({ type: 'toggleNotesVisible' })"
     />
 
     <input
@@ -75,6 +75,7 @@ import { NODE_SCALE } from '@entities/node'
 import type { LayoutPosition } from '@features/layout'
 
 import { globalZoomKey, imageStorageKey } from '../injection-keys'
+import type { NodeCommand } from '../types/node-command'
 
 import NodeImage from './NodeImage.vue'
 import NodeContent from './NodeContent.vue'
@@ -97,24 +98,11 @@ const props = withDefaults(defineProps<Props>(), {
   isFocused: false,
 })
 
-const emit = defineEmits<{
-  edit: []
-  addChild: []
-  delete: []
-  toggle: []
-  resetPosition: []
-  startDrag: [event: MouseEvent]
-  setImage: [dataUrl: string]
-  setImageById: [imageId: string]
-  removeImage: []
-  resizeImage: [width: number]
-  resizeImageCommit: [width: number]
-  openNotes: []
-  toggleNotePin: []
-  toggleNotesVisible: []
-  focusNode: []
-  editSegments: [nodeId: string]
-}>()
+const emit = defineEmits<{ command: [cmd: NodeCommand] }>()
+
+function command(cmd: NodeCommand) {
+  emit('command', cmd)
+}
 
 // ─── Inject ─────────────────────────────────
 const globalZoom = injectStrict(globalZoomKey)
@@ -125,7 +113,7 @@ const posRef = toRef(props, 'pos')
 const { isRoot, isLeaf, hasNotes } = useNodeDisplay(posRef)
 
 // ─── Composables ────────────────────────────
-const { isDragging, onMouseDown } = useMapNodeDrag(emit)
+const { isDragging, onMouseDown } = useMapNodeDrag(command)
 
 const { isHovered, onMouseEnter, onMouseLeave } = useMapNodeHover({
   isMenuOpen: computed(() => isMenuActive.value),
@@ -142,7 +130,7 @@ const {
   onImageSelected,
   onImageDragOver,
   onImageDrop,
-} = useNodeImage(posRef, imageStorage, emit)
+} = useNodeImage(posRef, imageStorage, command)
 
 // ─── Menu coordination ─────────────────────
 const { activeMenuId, openMenu } = useNodeMenu()
@@ -165,12 +153,12 @@ function onActionsClick({ triggerEl }: { triggerEl: HTMLElement }): void {
     },
     {
       onAddImage: triggerImageUpload,
-      onOpenNotes: () => emit('openNotes'),
-      onAddChild: () => emit('addChild'),
-      onEdit: () => emit('edit'),
-      onResetPosition: () => emit('resetPosition'),
-      onDelete: () => emit('delete'),
-      onEditSegments: () => emit('editSegments', props.pos.id),
+      onOpenNotes: () => command({ type: 'openNotes' }),
+      onAddChild: () => command({ type: 'addChild' }),
+      onEdit: () => command({ type: 'edit' }),
+      onResetPosition: () => command({ type: 'resetPosition' }),
+      onDelete: () => command({ type: 'delete' }),
+      onEditSegments: () => command({ type: 'editSegments', nodeId: props.pos.id }),
     },
   )
 }

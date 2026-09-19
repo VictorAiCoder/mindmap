@@ -1,37 +1,37 @@
-<!-- src/editor/App.vue — thin shell: wires embed composables to widgets -->
+<!-- src/editor/App.vue — thin shell: wires composables to widgets -->
 <template>
   <v-app :theme="theme">
     <ToolbarPanel
-      :node-count="nodeCount"
-      :depth="treeDepth"
-      :can-undo="canUndo"
-      :can-redo="canRedo"
+      :node-count="editor.nodeCount"
+      :depth="editor.treeDepth"
+      :can-undo="editor.canUndo"
+      :can-redo="editor.canRedo"
       :is-dark="isDark"
       @toggle-gallery="galleryOpen = !galleryOpen"
-      @export="handleExport"
-      @import="handleImport"
-      @reset="resetToDefault"
-      @undo="undo"
-      @redo="redo"
+      @export="editor.handleExport"
+      @import="editor.handleImport"
+      @reset="editor.resetToDefault"
+      @undo="editor.undo"
+      @redo="editor.redo"
       @toggle-theme="toggleTheme"
-      @auto-layout="handleAutoLayout"
-      @reset-layout="handleResetLayout"
-      @toggle-embed="toggleEmbedMode"
+      @auto-layout="editor.handleAutoLayout"
+      @reset-layout="editor.handleResetLayout"
+      @toggle-embed="embed.toggle"
     />
 
     <v-main>
-      <MindMapCanvas
-        v-if="mindmap && !isEmbedMode"
-        :api="mindmap"
-        :gallery-open="galleryOpen"
-        :notify="notify"
-      />
       <MindmapViewer
-        v-else-if="isEmbedMode"
-        :markdown="embedMarkdown"
-        height="100vh"
-        class="mindmap-embed-fullscreen"
-      />
+        :api="mindmap"
+        :markdown="embed.embedMarkdown"
+        :height="embed.isEmbedMode ? '100vh' : 'auto'"
+        :class="{ 'mindmap-embed-fullscreen': embed.isEmbedMode }"
+      >
+        <MindMapCanvas
+          :api="mindmap"
+          :embed="embed.isEmbedMode"
+          :gallery-open="embed.isEmbedMode ? false : galleryOpen"
+        />
+      </MindmapViewer>
     </v-main>
 
     <v-snackbar
@@ -46,10 +46,10 @@
 
     <button
       class="embed-toggle-btn"
-      :title="isEmbedMode ? 'Режим редактирования' : 'Режим просмотра'"
-      @click="toggleEmbedMode"
+      :title="embed.isEmbedMode ? 'Режим редактирования' : 'Режим просмотра'"
+      @click="embed.toggle"
     >
-      <v-icon :icon="isEmbedMode ? 'mdi-pencil' : 'mdi-eye'" />
+      <v-icon :icon="embed.isEmbedMode ? 'mdi-pencil' : 'mdi-eye'" />
     </button>
   </v-app>
 </template>
@@ -59,14 +59,11 @@ import { ref, provide, defineAsyncComponent } from 'vue'
 import ToolbarPanel from './toolbar/ToolbarPanel.vue'
 import { useMindMapApi } from '../../embed/composables/useMindMapApi'
 import { useTheme } from '../app/model/useTheme'
-import { LAYOUT_TYPES } from '@features/layout'
-import {
-  mindMapKey,
-  notifyKey,
-  type NotifyFn,
-  type NotifyColor,
-} from '../../embed/injection-keys'
-import type { LayoutType, ExportFormat } from '../../embed/types/mindmap-api'
+import { mindMapKey } from '../../embed/injection-keys'
+
+import { useNotification } from './composables/useNotification'
+import { useEditorActions } from './composables/useEditorActions'
+import { useEmbedMode } from './composables/useEmbedMode'
 
 const MindMapCanvas = defineAsyncComponent(() =>
   import('../../embed/components/MindMapCanvas.vue').then(m => m.default)
@@ -78,94 +75,14 @@ const MindmapViewer = defineAsyncComponent(() =>
 
 // ─── Core ────────────────────────────────────────
 const mindmap = useMindMapApi(null, { persistence: true })
-const galleryOpen = ref(false)
-const isEmbedMode = ref(false)
-const embedMarkdown = ref('')
-
 provide(mindMapKey, mindmap)
 
-const {
-  nodeCount, treeDepth, canUndo, canRedo,
-  undo, redo, resetToDefault, autoLayout, resetAllPositions, exportTree,
-} = mindmap
-
-// ─── Theme ───────────────────────────────────────
+// ─── Composables ─────────────────────────────────
+const { notify, snackbar } = useNotification()
+const editor = useEditorActions(mindmap, notify)
+const embed = useEmbedMode(mindmap)
 const { theme, isDark, toggle: toggleTheme } = useTheme()
-
-// ─── Snackbar ────────────────────────────────────
-interface SnackbarState {
-  show: boolean
-  text: string
-  color: NotifyColor
-  icon: string
-}
-
-const snackbar = ref<SnackbarState>({
-  show: false,
-  text: '',
-  color: 'success',
-  icon: 'mdi-check',
-})
-
-const notify: NotifyFn = (text, color = 'success', icon = 'mdi-check') => {
-  snackbar.value = { show: true, text, color, icon }
-}
-provide(notifyKey, notify)
-
-// ─── Export ──────────────────────────────────────
-const EXPORT_LABELS: Record<ExportFormat, { text: string; icon: string }> = {
-  json: { text: 'Экспорт в JSON', icon: 'mdi-code-json' },
-  md: { text: 'Экспорт в Markdown', icon: 'mdi-language-markdown' },
-  markdown: { text: 'Экспорт в Markdown', icon: 'mdi-language-markdown' },
-}
-
-function handleExport(format: ExportFormat = 'json'): void {
-  exportTree(format)
-  const label = EXPORT_LABELS[format]
-  notify(label.text, 'success', label.icon)
-}
-
-// ─── Import ──────────────────────────────────────
-async function handleImport(file: File): Promise<void> {
-  try {
-    await mindmap.importTree(file)
-    const isMd = /\.(md|markdown)$/i.test(file.name)
-    notify(`Импорт из ${isMd ? 'Markdown' : 'JSON'}`, 'success', 'mdi-upload')
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Ошибка импорта'
-    notify(message, 'error', 'mdi-alert')
-  }
-}
-
-// ─── Layout ──────────────────────────────────────
-function handleAutoLayout(type: LayoutType): void {
-  autoLayout(type)
-  const layout = LAYOUT_TYPES[type]
-  notify(`Раскладка: ${layout.label}`, 'success', layout.icon)
-}
-
-function handleResetLayout(): void {
-  resetAllPositions()
-  notify('Позиции сброшены', 'info', 'mdi-pin-off-outline')
-}
-
-// ─── Embed mode ──────────────────────────────────
-function suppressDownload(fn: () => string): string {
-  const orig = URL.createObjectURL
-  URL.createObjectURL = () => ''
-  try {
-    return fn()
-  } finally {
-    URL.createObjectURL = orig
-  }
-}
-
-function toggleEmbedMode(): void {
-  if (!isEmbedMode.value) {
-    embedMarkdown.value = suppressDownload(() => mindmap.exportTree('markdown'))
-  }
-  isEmbedMode.value = !isEmbedMode.value
-}
+const galleryOpen = ref(false)
 </script>
 
 <style>

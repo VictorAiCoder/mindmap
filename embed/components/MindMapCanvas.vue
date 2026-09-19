@@ -2,8 +2,9 @@
 <template>
   <div
     class="canvas-wrapper"
+    :class="{ 'canvas-wrapper--embed': isEmbed, 'canvas-wrapper--preview': previewMode }"
     ref="wrapperRef"
-    @wheel.prevent="(e: WheelEvent) => panZoom.onWheel(e, wrapperRef)"
+    @wheel.prevent="handleWheel"
     @mousedown="onCanvasMouseDown"
     @mousemove="onCanvasMouseMove"
     @mouseup="panZoom.endPan"
@@ -12,12 +13,12 @@
     <template v-if="layoutData.positions.length">
       <div class="canvas-scene" :style="sceneStyle">
         <svg class="scene-svg">
-          <defs>
+          <defs v-if="!isEmbed">
             <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
               <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(0,0,0,0.06)" stroke-width="0.5" />
             </pattern>
           </defs>
-          <rect x="0" y="0" width="100%" height="100%" fill="url(#grid)" />
+          <rect v-if="!isEmbed" x="0" y="0" width="100%" height="100%" fill="url(#grid)" />
           <path
             v-for="conn in liveConnections"
             :key="conn.id"
@@ -30,31 +31,33 @@
           />
         </svg>
 
+        <!-- Edit mode: MapNode -->
         <MapNode
+          v-if="!isEmbed"
           v-for="pos in layoutData.positions"
           :key="pos.id"
           :pos="pos"
           :drag="dragStates.get(pos.id)"
           :is-focused="panZoom.focusedNodeId.value === pos.id"
-          @edit="startEdit(pos.id)"
-          @add-child="handleAddChild(pos.id)"
-          @delete="handleDelete(pos.id)"
-          @toggle="mindmap.toggleCollapse(pos.id)"
-          @reset-position="handleResetPosition(pos.id)"
-          @start-drag="(e: MouseEvent) => nodeDrag.startNodeDrag(e, pos.id, pos.x, pos.y)"
-          @set-image="(url: string) => handleSetImage(pos.id, url)"
-          @set-image-by-id="(imageId: string) => handleSetImageById(pos.id, imageId)"
-          @remove-image="handleRemoveImage(pos.id)"
-          @resize-image="(w: number) => mindmap.setImageWidth(pos.id, w)"
-          @resize-image-commit="(w: number) => mindmap.commitImageResize(pos.id, w)"
-          @open-notes="notesNodeId = pos.id"
-          @toggle-note-pin="handleToggleNotePin(pos.id)"
-          @toggle-notes-visible="handleToggleNotesVisible(pos.id)"
-          @focus-node="handleFocusNode(pos)"
-          @edit-segments="handleEditSegment(pos.id)"
+          @command="(cmd) => handleNodeCommand(cmd, pos)"
         />
-        <NodeActionsMenu />
-        <ImportMarkdownHost @sections-imported="onSectionsImported" />
+
+        <!-- Embed mode: EmbedNode -->
+        <EmbedNode
+          v-if="isEmbed"
+          v-for="pos in layoutData.positions"
+          :key="pos.id"
+          :pos="pos"
+          :show-notes="showNotes"
+          :show-images="showImages"
+          :image-pool="imagePool"
+          @toggle="mindmap.toggleCollapse(pos.id)"
+        />
+
+        <template v-if="!isEmbed">
+          <NodeActionsMenu />
+          <ImportMarkdownHost @sections-imported="onSectionsImported" />
+        </template>
       </div>
     </template>
 
@@ -62,54 +65,56 @@
       <v-progress-circular indeterminate color="primary" />
     </div>
 
-    <!-- Редактирование текста -->
-    <div v-if="editingId" class="edit-overlay" @click.self="finishEdit">
-      <div class="edit-popup">
-        <v-text-field
-          ref="editFieldRef"
-          v-model="editText"
-          variant="outlined"
-          density="compact"
-          hide-details
-          autofocus
-          label="Текст узла"
-          @keydown.enter="finishEdit"
-          @keydown.esc="cancelEdit"
-        />
-        <div class="d-flex justify-end mt-2 ga-2">
-          <v-btn size="small" variant="text" @click="cancelEdit">Отмена</v-btn>
-          <v-btn size="small" color="primary" variant="flat" @click="finishEdit">Сохранить</v-btn>
+    <!-- Edit-only panels -->
+    <template v-if="!isEmbed">
+      <!-- Редактирование текста -->
+      <div v-if="editingId" class="edit-overlay" @click.self="finishEdit">
+        <div class="edit-popup">
+          <v-text-field
+            ref="editFieldRef"
+            v-model="editText"
+            variant="outlined"
+            density="compact"
+            hide-details
+            autofocus
+            label="Текст узла"
+            @keydown.enter="finishEdit"
+            @keydown.esc="cancelEdit"
+          />
+          <div class="d-flex justify-end mt-2 ga-2">
+            <v-btn size="small" variant="text" @click="cancelEdit">Отмена</v-btn>
+            <v-btn size="small" color="primary" variant="flat" @click="finishEdit">Сохранить</v-btn>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- Панель заметок (справа) -->
-    <NotesPanel :node-id="notesNodeId" @close="notesNodeId = null" />
+      <NotesPanel :node-id="notesNodeId" @close="notesNodeId = null" />
 
-    <SegmentEditorPanel
-      :open="segmentEditorOpen"
-      :source-id="segmentEditorSourceId"
-      :mindmap="mindmap"
-      @close="closeSegmentEditor"
-    />
+      <SegmentEditorPanel
+        :open="segmentEditorOpen"
+        :source-id="segmentEditorSourceId"
+        :mindmap="mindmap"
+        @close="closeSegmentEditor"
+      />
 
-    <ImageGalleryPanel
-      v-model="galleryOpenLocal"
-      @highlight-nodes="handleHighlightFromGallery"
-      @dropped="handleGalleryDropped"
-    />
+      <ImageGalleryPanel
+        v-model="galleryOpenLocal"
+        @highlight-nodes="handleHighlightFromGallery"
+        @dropped="handleGalleryDropped"
+      />
 
-    <DragHint
-      :is-dragging="nodeDrag.isDraggingNode.value"
-      :has-target="!!nodeDrag.dropTargetId.value"
-    />
+      <DragHint
+        :is-dragging="nodeDrag.isDraggingNode.value"
+        :has-target="!!nodeDrag.dropTargetId.value"
+      />
 
-    <CanvasControls
-      :zoom-percent="panZoom.zoomPercent.value"
-      @zoom-in="panZoom.zoomIn"
-      @zoom-out="panZoom.zoomOut"
-      @reset-view="panZoom.resetView"
-    />
+      <CanvasControls
+        :zoom-percent="panZoom.zoomPercent.value"
+        @zoom-in="panZoom.zoomIn"
+        @zoom-out="panZoom.zoomOut"
+        @reset-view="panZoom.resetView"
+      />
+    </template>
   </div>
 </template>
 
@@ -124,16 +129,23 @@ import CanvasControls from './CanvasControls.vue'
 import NodeActionsMenu from './NodeActionsMenu.vue'
 import ImportMarkdownHost from './ImportMarkdownHost.vue'
 import SegmentEditorPanel from './SegmentEditorPanel.vue'
+import EmbedNode from './EmbedNode.vue'
 
 import { useLayout } from '@features/layout'
 import { useNodeDrag } from '../composables/useNodeDrag'
 import { usePanZoom } from '../composables/usePanZoom'
 import { useConnections } from '../composables/useConnections'
+import { usePositionIndex } from '../composables/usePositionIndex'
+import { useHitTest } from '../composables/useHitTest'
+import { useTextEditor } from '../composables/useTextEditor'
+import type { NodeCommand } from '../types/node-command'
+import { useNodeOperations } from '../composables/useNodeOperations'
 
 import type { MindMapApi, NotifyFn } from '../types/mindmap-api'
 import { mindMapKey, notifyKey, globalZoomKey, imageStorageKey } from '../injection-keys'
-import type { LayoutPosition, PositionMap } from '@features/layout'
+import type { LayoutPosition } from '@features/layout'
 import type { NodeDragState } from '../types/node-drag'
+import type { StoredImage } from '@entities/image'
 
 // ═══════════════════════════════════════════
 // Props / Emits
@@ -143,8 +155,18 @@ const props = withDefaults(defineProps<{
   api: MindMapApi
   notify?: NotifyFn
   galleryOpen?: boolean
+  embed?: boolean
+  imagePool?: StoredImage[] | null
+  showNotes?: boolean
+  showImages?: boolean
+  previewMode?: boolean
 }>(), {
-  galleryOpen: false
+  galleryOpen: false,
+  embed: false,
+  imagePool: null,
+  showNotes: true,
+  showImages: true,
+  previewMode: false,
 })
 
 const emit = defineEmits<{
@@ -163,21 +185,23 @@ const emit = defineEmits<{
 // ═══════════════════════════════════════════
 
 const mindmap = props.api
+const isEmbed = computed(() => props.embed)
 
 const notify: NotifyFn = props.notify ?? ((text, _color = 'success', _icon = 'mdi-check') => {
   console.log(`[MindMapCanvas] ${text}`)
 })
 
 // Provide API to child components that use injectStrict(mindMapKey/notifyKey)
-provide(mindMapKey, mindmap)
-provide(notifyKey, notify)
+if (!isEmbed.value) {
+  provide(mindMapKey, mindmap)
+  provide(notifyKey, notify)
+}
 
 // ═══════════════════════════════════════════
 // DOM refs
 // ═══════════════════════════════════════════
 
 const wrapperRef = ref<HTMLElement | null>(null)
-const editFieldRef = ref<{ focus: () => void } | null>(null)
 
 // ═══════════════════════════════════════════
 // Layout — базовый источник позиций
@@ -189,25 +213,24 @@ const rootNodeRef = computed(() => mindmap.rootNode)
 
 const { layoutData } = useLayout(rootNodeRef)
 
-/**
- * Индекс позиций по id для O(1) поиска.
- * Используется при handleDelete / startEdit / handleHighlightFromGallery.
- * Пересобирается при каждом изменении layoutData — обычно редко.
- */
-const posById = computed<Map<string, LayoutPosition>>(() => {
-  const map = new Map<string, LayoutPosition>()
-  for (const pos of layoutData.value.positions) {
-    map.set(pos.id, pos)
-  }
-  return map
-})
+const { posById, rootPos, toPositionMap } = usePositionIndex(layoutData)
 
-const rootPos = computed<LayoutPosition | null>(() => {
-  for (const pos of layoutData.value.positions) {
-    if (pos.depth === 0) return pos
-  }
-  return null
-})
+const { editingId, editText, editFieldRef, startEdit, finishEdit, cancelEdit } =
+  isEmbed.value
+    ? { editingId: ref(null), editText: ref(''), editFieldRef: ref(null), startEdit: () => {}, finishEdit: () => {}, cancelEdit: () => {} }
+    : useTextEditor({ mindmap, posById, emit })
+
+const {
+  handleDelete,
+  handleResetPosition,
+  handleSetImage,
+  handleSetImageById,
+  handleRemoveImage,
+  handleToggleNotePin,
+  handleToggleNotesVisible,
+} = isEmbed.value
+  ? { handleDelete: () => {}, handleResetPosition: () => {}, handleSetImage: () => {}, handleSetImageById: () => {}, handleRemoveImage: () => {}, handleToggleNotePin: () => {}, handleToggleNotesVisible: () => {} }
+  : useNodeOperations({ mindmap, notify, emit, posById })
 
 // ═══════════════════════════════════════════
 // Pan & Zoom
@@ -215,13 +238,15 @@ const rootPos = computed<LayoutPosition | null>(() => {
 
 const panZoom = usePanZoom()
 
-provide(globalZoomKey, panZoom.zoom)
-provide(imageStorageKey, props.api.imageStorage)
+if (!isEmbed.value) {
+  provide(globalZoomKey, panZoom.zoom)
+  provide(imageStorageKey, props.api.imageStorage)
+}
 
 onMounted(async () => {
   panZoom.setWrapper(wrapperRef.value)
   await nextTick()
-  panZoom.resetView()
+  if (!isEmbed.value) panZoom.resetView()
 })
 
 const sceneStyle = computed(() => {
@@ -262,19 +287,13 @@ function handleFocusNode(pos: LayoutPosition) {
 // Node Drag
 // ═══════════════════════════════════════════
 
-function buildLayoutPositionMap(): PositionMap {
-  const map: PositionMap = new Map()
-  for (const pos of layoutData.value.positions) {
-    map.set(pos.id, { x: pos.x, y: pos.y })
-  }
-  return map
-}
+// buildLayoutPositionMap replaced by usePositionIndex.toPositionMap()
 
-const nodeDrag = useNodeDrag(
-  mindmap,
-  panZoom.zoom,
-  buildLayoutPositionMap
-)
+const nodeDrag = isEmbed.value
+  ? { isDraggingNode: computed(() => false), dropTargetId: ref(null), draggingNodeId: ref(null), dragGroupIds: ref(new Set<string>()), dragDeltaX: computed(() => 0), dragDeltaY: computed(() => 0), getLivePosition: () => null, isInDragGroup: () => false, setDropTarget: () => {}, clearDropTarget: () => {}, startNodeDrag: () => {} }
+  : useNodeDrag(mindmap, panZoom.zoom, toPositionMap)
+
+const updateDropTarget = isEmbed.value ? () => {} : useHitTest(layoutData, panZoom, nodeDrag, wrapperRef).updateDropTarget
 
 // ═══════════════════════════════════════════
 // Live-состояние узлов при drag'е
@@ -318,47 +337,17 @@ const liveConnections = useConnections(
   nodeDrag.getLivePosition
 )
 
-// ═══════════════════════════════════════════
-// Drop Target Detection (hit-test на mousemove)
-// ═══════════════════════════════════════════
-
-/** Толерантность прицела при поиске drop-target'а (в координатах сцены, px). */
-const HIT_PADDING = 8
-
-function updateDropTarget(e: MouseEvent) {
-  const wrapper = wrapperRef.value
-  if (!wrapper) return
-
-  const rect = wrapper.getBoundingClientRect()
-  const bounds = layoutData.value.bounds
-  const world = panZoom.screenToScene(e.clientX, e.clientY, rect, bounds)
-
-  let found: string | null = null
-
-  // Hit-test остаётся O(N) — пространственный индекс пока не оправдан.
-  for (const pos of layoutData.value.positions) {
-    if (nodeDrag.isInDragGroup(pos.id)) continue
-
-    if (
-      world.x >= pos.x - HIT_PADDING &&
-      world.x <= pos.x + pos.w + HIT_PADDING &&
-      world.y >= pos.y - HIT_PADDING &&
-      world.y <= pos.y + pos.h + HIT_PADDING
-    ) {
-      found = pos.id
-      break
-    }
-  }
-
-  if (found) nodeDrag.setDropTarget(found)
-  else nodeDrag.clearDropTarget()
-}
+// Hit-test — delegated to useHitTest
 
 // ═══════════════════════════════════════════
 // Canvas Mouse Events (pan + drop-target tracking)
 // ═══════════════════════════════════════════
 
 function onCanvasMouseDown(e: MouseEvent) {
+  if (isEmbed.value) {
+    if (!props.previewMode) panZoom.startPan(e)
+    return
+  }
   if (nodeDrag.isDraggingNode.value) return
 
   const target = e.target as HTMLElement | null
@@ -373,102 +362,52 @@ function onCanvasMouseMove(e: MouseEvent) {
     panZoom.movePan(e)
     return
   }
-  if (nodeDrag.isDraggingNode.value) {
+  if (!isEmbed.value && nodeDrag.isDraggingNode.value) {
     updateDropTarget(e)
   }
 }
 
-// ═══════════════════════════════════════════
-// Inline text editor
-// ═══════════════════════════════════════════
-
-const editingId = ref<string | null>(null)
-const editText = ref<string>('')
-
-function startEdit(nodeId: string) {
-  const pos = posById.value.get(nodeId)
-  if (!pos) return
-  editingId.value = nodeId
-  editText.value = pos.node.text
-  nextTick(() => editFieldRef.value?.focus())
+function handleWheel(e: WheelEvent) {
+  if (props.previewMode) return
+  panZoom.onWheel(e, wrapperRef.value)
 }
 
-import type { MindMapNode } from '@entities/node'
-
-function findParentId(targetId: string): string | null {
-  function walk(node: MindMapNode): string | null {
-    for (const child of node.children) {
-      if (child.id === targetId) return node.id
-      const found = walk(child)
-      if (found) return found
-    }
-    return null
-  }
-  return walk(mindmap.rootNode.value)
-}
+// ═══════════════════════════════════════════
+// Inline text editor — delegated to useTextEditor
+// ═══════════════════════════════════════════
 
 function onSectionsImported(payload: { targetId: string; sections: Array<{ heading: string; content: string }> }) {
   emit('sections-imported', payload)
 }
 
-function finishEdit() {
-  if (!editingId.value) return
-  const trimmed = editText.value.trim()
-  if (trimmed) {
-    mindmap.updateText(editingId.value, trimmed)
-    const parentId = findParentId(editingId.value)
-    if (parentId) {
-      emit('child-added', {
-        parentId,
-        nodeId: editingId.value,
-        nodeText: trimmed
-      })
-    }
+// ═══════════════════════════════════════════
+// CRUD Handlers — delegated to useNodeOperations
+// ═══════════════════════════════════════════
+
+function handleNodeCommand(cmd: NodeCommand, pos: LayoutPosition) {
+  switch (cmd.type) {
+    case 'edit': startEdit(pos.id); break
+    case 'addChild': handleAddChild(pos.id); break
+    case 'delete': handleDelete(pos.id); break
+    case 'toggle': mindmap.toggleCollapse(pos.id); break
+    case 'resetPosition': handleResetPosition(pos.id); break
+    case 'startDrag': nodeDrag.startNodeDrag(cmd.event, pos.id, pos.x, pos.y); break
+    case 'setImage': handleSetImage(pos.id, cmd.dataUrl); break
+    case 'setImageById': handleSetImageById(pos.id, cmd.imageId); break
+    case 'removeImage': handleRemoveImage(pos.id); break
+    case 'resizeImage': mindmap.setImageWidth(pos.id, cmd.width); break
+    case 'resizeImageCommit': mindmap.commitImageResize(pos.id, cmd.width); break
+    case 'openNotes': notesNodeId.value = pos.id; break
+    case 'toggleNotePin': handleToggleNotePin(pos.id); break
+    case 'toggleNotesVisible': handleToggleNotesVisible(pos.id); break
+    case 'focusNode': handleFocusNode(pos); break
+    case 'editSegments': handleEditSegment(pos.id); break
   }
-  editingId.value = null
 }
-
-function cancelEdit() {
-  editingId.value = null
-}
-
-// ═══════════════════════════════════════════
-// CRUD Handlers (с уведомлениями)
-// ═══════════════════════════════════════════
 
 function handleAddChild(parentId: string) {
   const newId = mindmap.addChild(parentId)
   if (newId) nextTick(() => startEdit(newId))
-}
-
-function handleDelete(nodeId: string) {
-  const pos = posById.value.get(nodeId)
-  const nodeText = pos?.node.text ?? ''
-  mindmap.deleteNode(nodeId)
-  if (pos) notify(`Узел «${nodeText}» удалён`, 'error', 'mdi-delete')
-  emit('node-deleted', { nodeId, nodeText })
-}
-
-function handleResetPosition(nodeId: string) {
-  mindmap.updateNodePosition(nodeId, null, null)
-  notify('Позиция сброшена', 'info', 'mdi-pin-off')
-}
-
-function handleSetImage(nodeId: string, dataUrl: string) {
-  mindmap.setNodeImage(nodeId, dataUrl)
-  notify('Картинка добавлена', 'success', 'mdi-image')
-  emit('node-image-set', { nodeId, dataUrl })
-}
-
-function handleSetImageById(nodeId: string, imageId: string) {
-  mindmap.setNodeImageById(nodeId, imageId)
-  notify('Картинка прикреплена', 'success', 'mdi-image-check')
-}
-
-function handleRemoveImage(nodeId: string) {
-  mindmap.removeNodeImage(nodeId)
-  notify('Картинка удалена', 'info', 'mdi-image-off')
-  emit('node-image-removed', { nodeId })
 }
 
 // ═══════════════════════════════════════════
@@ -476,28 +415,6 @@ function handleRemoveImage(nodeId: string) {
 // ═══════════════════════════════════════════
 
 const notesNodeId = ref<string | null>(null)
-
-function handleToggleNotePin(nodeId: string) {
-  mindmap.toggleNotePin(nodeId)
-  const node = mindmap.findNode(nodeId)
-  if (node) {
-    emit('pin-change', {
-      nodeId,
-      pinned: !!node.notesPinned
-    })
-  }
-}
-
-function handleToggleNotesVisible(nodeId: string) {
-  mindmap.toggleNotesVisible(nodeId)
-  const node = mindmap.findNode(nodeId)
-  if (node) {
-    emit('notes-visible-change', {
-      nodeId,
-      visible: node.notesVisible !== false
-    })
-  }
-}
 
 // ═══════════════════════════════════════════
 // Gallery Panel
@@ -622,5 +539,17 @@ function closeSegmentEditor() {
   padding: 16px;
   min-width: 300px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+/* Embed mode */
+.canvas-wrapper--embed {
+  cursor: default;
+}
+.canvas-wrapper--embed:active {
+  cursor: default;
+}
+.canvas-wrapper--preview {
+  cursor: default;
+  pointer-events: none;
 }
 </style>

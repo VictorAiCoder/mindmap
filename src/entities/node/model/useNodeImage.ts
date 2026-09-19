@@ -2,7 +2,7 @@ import { ref, computed, type Ref, type ComputedRef } from 'vue'
 import { processImageFile, getImageFromDrop } from '@/shared/lib/useImageHandler'
 import type { LayoutPosition } from '@/features/layout'
 import type { ImageStorageApi } from '../../../../embed/types/image-storage'
-import type { NodeImageEmits } from '@entities/node/model/emits'
+import type { CommandEmitter } from '../../../../embed/types/node-command'
 
 /**
  * MIME-тип для drag&drop карточки из внутренней галереи.
@@ -17,11 +17,8 @@ const GALLERY_DND_MIME = 'application/x-mindmap-image-id'
  */
 type ResolvedImage = ReturnType<ImageStorageApi['resolve']>
 
-/** Тип emit-функции, сгенерированный defineEmits. */
-type EmitFn = <K extends keyof NodeImageEmits>(
-  event: K,
-  ...args: NodeImageEmits[K]
-) => void
+/** Тип emit-функции — discriminated union команд. */
+type EmitFn = CommandEmitter
 
 export interface UseNodeImageReturn {
   /** Ref на скрытый <input type="file"> для programmatic click. */
@@ -52,12 +49,12 @@ export interface UseNodeImageReturn {
  *
  * @param pos     - Реактивный ref на LayoutPosition узла (через toRef)
  * @param storage - ImageStorageApi (nullable для совместимости со старым inject)
- * @param emit    - emit-функция с узким типом NodeImageEmits
+ * @param command - command-функция (CommandEmitter) для отправки команд
  */
 export function useNodeImage(
   pos: Ref<LayoutPosition>,
   storage: ImageStorageApi | null,
-  emit: EmitFn,
+  command: EmitFn,
 ): UseNodeImageReturn {
   const imageInput = ref<HTMLInputElement | null>(null)
   const isImageDragOver = ref<boolean>(false)
@@ -82,7 +79,7 @@ export function useNodeImage(
     if (!file) return
     input.value = ''
     try {
-      emit('setImage', await processImageFile(file))
+      command({ type: 'setImage', dataUrl: await processImageFile(file) })
     } catch (err) {
       console.warn(
         'Image upload error:',
@@ -105,7 +102,7 @@ export function useNodeImage(
     // 1) Drop карточки из внутренней галереи
     const galleryImageId = e.dataTransfer?.getData(GALLERY_DND_MIME)
     if (galleryImageId) {
-      emit('setImageById', galleryImageId)
+      command({ type: 'setImageById', imageId: galleryImageId })
       return
     }
 
@@ -113,7 +110,7 @@ export function useNodeImage(
     const file = getImageFromDrop(e)
     if (!file) return
     try {
-      emit('setImage', await processImageFile(file))
+      command({ type: 'setImage', dataUrl: await processImageFile(file) })
     } catch (err) {
       console.warn(
         'Image drop error:',

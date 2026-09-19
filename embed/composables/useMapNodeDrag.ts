@@ -1,4 +1,5 @@
 import { ref, onBeforeUnmount } from 'vue'
+import type { CommandEmitter } from '../types/node-command'
 
 /**
  * Encapsulates drag initiation for MapNode with unmount safety.
@@ -8,12 +9,10 @@ import { ref, onBeforeUnmount } from 'vue'
  * - Guard against events after unmount
  *
  * @example
- * const { isDragging, onMouseDown } = useMapNodeDrag(emit)
+ * const { isDragging, onMouseDown } = useMapNodeDrag(command)
  * // template: @mousedown.stop="onMouseDown"
  */
-export function useMapNodeDrag(emit: {
-  (e: 'startDrag', event: MouseEvent): void
-}): {
+export function useMapNodeDrag(command: CommandEmitter): {
   isDragging: import('vue').Ref<boolean>
   onMouseDown: (e: MouseEvent) => void
 } {
@@ -23,7 +22,7 @@ export function useMapNodeDrag(emit: {
   function onMouseDown(e: MouseEvent): void {
     if (isUnmounted || e.button !== 0) return
     isDragging.value = true
-    emit('startDrag', e)
+    command({ type: 'startDrag', event: e })
   }
 
   onBeforeUnmount(() => {

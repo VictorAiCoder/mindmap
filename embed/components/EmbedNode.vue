@@ -24,28 +24,17 @@
       @menu-toggle="onMenuToggle"
     />
 
-    <!-- Notes slot or default -->
+    <!-- Notes slot (no default — consumer must provide via embedSlots) -->
     <component
-      v-if="hasNotes && showNotes"
-      :is="notesSlot ?? EmbedNotesPreview"
+      v-if="hasNotes && showNotes && notesSlot"
+      :is="notesSlot"
       v-bind="notesSlotProps"
     />
 
-    <!-- Menu: custom slot or default -->
-    <template v-if="menuOpen">
+    <!-- Menu: custom slot only (no default) -->
+    <template v-if="menuOpen && menuSlot">
       <component
-        v-if="menuSlot"
         :is="menuSlotRenderer"
-      />
-      <EmbedNodeMenu
-        v-else
-        :node="node"
-        :depth="pos.depth"
-        :is-open="menuOpen"
-        :trigger-el="menuTriggerEl"
-        @close="menuOpen = false"
-        @toggle-collapse="emit('toggle')"
-        @toggle-notes="menuOpen = false"
       />
     </template>
   </div>
@@ -62,8 +51,6 @@ import { embedSlotsKey } from '../injection-keys'
 
 import EmbedNodeContent from './EmbedNodeContent.vue'
 import EmbedNodeImage from './EmbedNodeImage.vue'
-import EmbedNotesPreview from './EmbedNotesPreview.vue'
-import EmbedNodeMenu from './EmbedNodeMenu.vue'
 
 // --- Props / Emits ----------------------------
 
