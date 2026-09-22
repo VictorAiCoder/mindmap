@@ -1,14 +1,12 @@
+import type { Clip } from '@entities/image'
+
 export interface SegmentOperationsApi {
-  addSegment(
-    sourceId: string,
-    clip: { x: number; y: number; w: number; h: number },
-    name?: string
-  ): string | null
+  addSegment(sourceId: string, clip: Clip, name?: string): string | null
 
   updateSegmentLive(
     id: string,
     patch: Partial<{
-      clip: { x: number; y: number; w: number; h: number }
+      clip: Clip
       name: string
     }>
   ): void
@@ -16,7 +14,7 @@ export interface SegmentOperationsApi {
   commitSegment(
     id: string,
     patch: Partial<{
-      clip: { x: number; y: number; w: number; h: number }
+      clip: Clip
       name: string
     }>
   ): void
