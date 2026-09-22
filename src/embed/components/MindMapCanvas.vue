@@ -146,7 +146,7 @@ import { useNodeOperations } from '../composables/useNodeOperations'
 import type { MindMapApi, NotifyFn } from '../types/mindmap-api'
 import { mindMapKey, notifyKey, globalZoomKey, imageStorageKey } from '../injection-keys'
 import type { LayoutPosition } from '@features/layout'
-import type { NodeDragState } from '../types/node-drag'
+import type { NodeDragState } from '@entities/node'
 import type { StoredImage } from '@entities/image'
 
 // ═══════════════════════════════════════════
