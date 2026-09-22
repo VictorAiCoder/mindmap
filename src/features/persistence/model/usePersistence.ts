@@ -2,7 +2,7 @@ import { watch, triggerRef, type Ref } from 'vue'
 import { STORAGE_KEY, EXPORT_FILENAME_PREFIX } from '../../../shared/config/constants'
 import { exportToMarkdown } from '../lib/exportMarkdown'
 import type { MindMapDocument } from '@entities/mindmap'
-import type { ImageStorageApi } from '../../../../embed/types/image-storage'
+import type { ImageStorageApi } from '../../../embed/types/image-storage'
 import {
   normalizeDocument,
   buildTimestamp,

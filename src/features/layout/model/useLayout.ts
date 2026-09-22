@@ -16,6 +16,9 @@ export function useLayout(
     const positions = calcPositions(root)
     const bounds = calcBounds(positions)
 
+    // DEBUG: diagnostic logging for layout
+    console.log('[useLayout] positions count:', positions.length, '| root collapsed:', root.collapsed, '| children:', root.children?.length ?? 0)
+
     return { positions, bounds }
   })
 

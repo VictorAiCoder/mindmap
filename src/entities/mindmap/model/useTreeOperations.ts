@@ -15,7 +15,7 @@ import type { MindMapNode, ScenePosition, Center2D } from '@entities/node'
 import type { RawImage } from '@entities/image'
 import type { MindMapDocument } from '@entities/mindmap'
 
-import type { HistoryApi, LayoutType } from '../../../../embed/types/mindmap-api'
+import type { HistoryApi, LayoutType } from '../../../embed/types/mindmap-api'
 import type { PositionMap } from '@/features/layout'
 
 import { NODE_SCALE } from '@/entities/node'

@@ -1,4 +1,4 @@
-<!-- embed/components/EmbedNodeContent.vue — read-only node text + toggle + menu trigger -->
+<!-- embed/components/EmbedNodeContent.vue ï¿½ read-only node text + toggle + menu trigger -->
 <template>
   <div class="embed-node-content">
     <button
@@ -55,8 +55,8 @@
       v-if="!previewMode"
       ref="menuTriggerRef"
       class="embed-node-content__menu-btn"
-      title="Ìåíþ"
-      @click.stop="emit('menu-toggle', )"
+      title="ï¿½ï¿½ï¿½ï¿½"
+      @click.stop="emit('menu-toggle', $event)"
     >
       <svg viewBox="0 0 24 24">
         <circle cx="12" cy="5" r="1.5" fill="currentColor"/>

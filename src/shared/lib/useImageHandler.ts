@@ -102,7 +102,8 @@ export function getImageFromDrop(event: DragEvent): File | null {
   const files = event.dataTransfer?.files
   if (!files || files.length === 0) return null
 
-  for (const file of files) {
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i]
     if (file.type.startsWith(ACCEPTED_MIME_PREFIX)) {
       return file
     }

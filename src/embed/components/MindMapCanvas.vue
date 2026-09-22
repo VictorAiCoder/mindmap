@@ -31,29 +31,31 @@
           />
         </svg>
 
-        <!-- Edit mode: MapNode -->
-        <MapNode
-          v-if="!isEmbed"
-          v-for="pos in layoutData.positions"
-          :key="pos.id"
-          :pos="pos"
-          :drag="dragStates.get(pos.id)"
-          :is-focused="panZoom.focusedNodeId.value === pos.id"
-          @command="(cmd) => handleNodeCommand(cmd, pos)"
-        />
-
-        <!-- Embed mode: EmbedNode -->
-        <EmbedNode
-          v-if="isEmbed"
-          v-for="pos in layoutData.positions"
-          :key="pos.id"
-          :pos="pos"
-          :show-notes="showNotes"
-          :show-images="showImages"
-          :image-pool="imagePool"
-          @toggle="mindmap.toggleCollapse(pos.id)"
-        />
-
+        <div v-if="!isEmbed">
+          <!-- Edit mode: MapNode -->
+          <MapNode
+            
+            v-for="pos in layoutData.positions"
+            :key="pos.id"
+            :pos="pos"
+            :drag="dragStates.get(pos.id)"
+            :is-focused="panZoom.focusedNodeId.value === pos.id"
+            @command="(cmd) => handleNodeCommand(cmd, pos)"
+          />
+        </div>
+        <div v-else>
+          <!-- Embed mode: EmbedNode -->
+          <EmbedNode
+            
+            v-for="pos in layoutData.positions"
+            :key="pos.id"
+            :pos="pos"
+            :show-notes="showNotes"
+            :show-images="showImages"
+            :image-pool="imagePool"
+            @toggle="mindmap.toggleCollapse(pos.id)"
+          />
+        </div>
         <template v-if="!isEmbed">
           <NodeActionsMenu />
           <ImportMarkdownHost @sections-imported="onSectionsImported" />
@@ -209,7 +211,7 @@ const wrapperRef = ref<HTMLElement | null>(null)
 
 // Vue unwraps refs in provide/inject — mindmap.rootNode is a plain object.
 // Wrap in computed so useLayout and useConnections get a proper Ref.
-const rootNodeRef = computed(() => mindmap.rootNode)
+const rootNodeRef = computed(() => mindmap.rootNode.value)
 
 const { layoutData } = useLayout(rootNodeRef)
 

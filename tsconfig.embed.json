@@ -15,7 +15,7 @@
     "noEmit": true,
     "types": ["node"],
     "paths": {
-      "@embed/*": ["./embed/*"],
+      "@embed/*": ["./src/embed/*"],
       "@entities/*": ["./src/entities/*"],
       "@features/*": ["./src/features/*"],
       "@shared/*": ["./src/shared/*"],
@@ -24,8 +24,8 @@
   },
   "include": [
     "env.d.ts",
-    "embed/**/*.ts",
-    "embed/**/*.vue",
+    "src/embed/**/*.ts",
+    "src/embed/**/*.vue",
     "src/entities/**/*.ts",
     "src/features/**/*.ts",
     "src/shared/**/*.ts"

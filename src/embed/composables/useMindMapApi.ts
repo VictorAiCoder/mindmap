@@ -3,7 +3,7 @@ import { useHistory } from './useHistory'
 import { useTreeOperations } from './useTreeOperations'
 import { useImageStorage } from './useImageStorage'
 import { useSegmentOperations } from './useSegmentOperations'
-import { usePersistence } from './usePersistence'
+import { loadFromStorage, usePersistence } from './usePersistence'
 import { createDefaultDocument, countNodes, getDepth } from '@entities/mindmap'
 import type { MindMapNode } from '@entities/node'
 import type { StoredImage } from '@entities/image'
@@ -15,9 +15,13 @@ export function useMindMapApi(
   initial: MindMapDocument | null,
   options?: { persistence?: boolean }
 ): MindMapApi {
+  const loaded = initial?.root ? initial : (options?.persistence ? loadFromStorage() : null)
   const document: Ref<MindMapDocument> = ref(
-    initial?.root ? initial : createDefaultDocument()
+    loaded ?? createDefaultDocument()
   )
+
+  // DEBUG: diagnostic logging for standalone mode
+  console.log('[useMindMapApi] loaded from storage:', !!loaded, '| root children:', document.value.root?.children?.length ?? 0, '| text:', document.value.root?.text)
 
   const rootNode: WritableComputedRef<MindMapNode> = computed({
     get: () => document.value.root,

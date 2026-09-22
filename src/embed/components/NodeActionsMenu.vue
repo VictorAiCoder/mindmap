@@ -107,8 +107,13 @@
 import { ref, watch, onMounted } from 'vue'
 import { useNodeMenu, type NodeMenuHandlers } from '../composables/useNodeMenu'
 import { useScaleSlider } from '../composables/useScaleSlider'
+import { NODE_SCALE } from '@entities/node'
 import { mindMapKey } from '../injection-keys'
 import { injectStrict } from '@shared/lib/injectStrict'
+
+const SCALE_MIN = NODE_SCALE.MIN
+const SCALE_MAX = NODE_SCALE.MAX
+const SCALE_STEP = NODE_SCALE.STEP
 
 const {
   isOpen,

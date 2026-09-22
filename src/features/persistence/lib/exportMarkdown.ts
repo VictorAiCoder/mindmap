@@ -1,6 +1,6 @@
 // src/composables/persistence/exportMarkdown.ts
 import type { MindMapNode } from '@entities/node'
-import type { ImageStorageApi } from '../../../../embed/types/image-storage'
+import type { ImageStorageApi } from '../../../embed/types/image-storage'
 
 /**
  * Экспорт дерева mindmap в markdown.

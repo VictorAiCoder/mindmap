@@ -15,7 +15,7 @@ export default defineConfig({
   },
   build: {
     lib: {
-      entry: fileURLToPath(new URL('./embed/index.ts', import.meta.url)),
+      entry: fileURLToPath(new URL('./src/embed/index.ts', import.meta.url)),
       formats: ['es'],
       fileName: () => 'index.js',
       cssFileName: 'style',
