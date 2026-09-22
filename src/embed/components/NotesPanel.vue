@@ -87,7 +87,8 @@
 
 <script setup>
 import { ref, computed, watch, nextTick, inject } from 'vue'
-import { renderMarkdown, renderMermaidInHtml } from '@features/notes/model/useMarkdown'
+import { renderMarkdown } from '../lib/markdown'
+import { renderMermaidInHtml } from '../lib/mermaid'
 import { findNodeById } from '@entities/mindmap'
 import { mindMapKey } from '../injection-keys'
 import NotesToolbar from './NotesToolbar.vue'

@@ -1,9 +1,8 @@
-import { triggerRef, type Ref } from 'vue'
+import { watch, triggerRef, type Ref } from 'vue'
 import { exportToMarkdown } from '@features/persistence/lib/exportMarkdown'
-import { createDefaultDocument } from '@entities/mindmap'
 import type { MindMapDocument } from '@entities/mindmap'
 import type { ImageStorageApi } from '../types/image-storage'
-import { EXPORT_FILENAME_PREFIX } from '@shared/config/constants'
+import { EXPORT_FILENAME_PREFIX, STORAGE_KEY } from '@shared/config/constants'
 import type { PersistenceApi, ExportFormat } from '../types/persistence'
 import {
   normalizeDocument,
@@ -18,7 +17,7 @@ import {
 
 export function loadFromStorage(): MindMapDocument | null {
   try {
-    const raw = localStorage.getItem('mindmap-data')
+    const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
     const data: unknown = JSON.parse(raw)
     return normalizeDocument(data)
@@ -27,10 +26,28 @@ export function loadFromStorage(): MindMapDocument | null {
   }
 }
 
+function saveToStorage(doc: MindMapDocument): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(doc))
+  } catch (e) {
+    // Частая причина — переполнение квоты из-за dataUrl картинок.
+    console.warn('localStorage save failed:', e)
+  }
+}
+
 export function usePersistence(
   document: Ref<MindMapDocument>,
   imageStorage: ImageStorageApi
 ): PersistenceApi {
+
+  // Автосохранение при любых изменениях документа
+  watch(
+    document,
+    (doc) => {
+      if (doc) saveToStorage(doc)
+    },
+    { deep: true }
+  )
 
   function exportTree(format: ExportFormat = 'json'): string {
     const ts = buildTimestamp()

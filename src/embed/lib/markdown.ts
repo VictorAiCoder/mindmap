@@ -2,12 +2,7 @@ import { marked } from 'marked'
 import { markedHighlight } from 'marked-highlight'
 import DOMPurify from 'dompurify'
 import type { Config } from 'dompurify'
-import hljs from 'highlight.js/lib/core'
-import javascript from 'highlight.js/lib/languages/javascript'
-import typescript from 'highlight.js/lib/languages/typescript'
-import xml from 'highlight.js/lib/languages/xml'
-import bash from 'highlight.js/lib/languages/bash'
-import markdown from 'highlight.js/lib/languages/markdown'
+import { hljs } from './hljsSetup'
 
 let configured = false
 
@@ -43,12 +38,6 @@ export function configureMarkdown(): void {
   if (configured) return
   configured = true
 
-  hljs.registerLanguage('javascript', javascript)
-  hljs.registerLanguage('typescript', typescript)
-  hljs.registerLanguage('xml', xml)
-  hljs.registerLanguage('bash', bash)
-  hljs.registerLanguage('markdown', markdown)
-
   marked.use(
     { extensions: [mermaidExtension] },
     markedHighlight({
@@ -69,7 +58,7 @@ export function configureMarkdown(): void {
   marked.setOptions({
     async: false,
     gfm: true,
-    breaks: false,
+    breaks: true,
   })
 
   DOMPurify.addHook('afterSanitizeAttributes', (node) => {
@@ -118,7 +107,8 @@ const SANITIZE_CONFIG: Config = {
  * Render markdown string to sanitized HTML.
  * Calls configureMarkdown() lazily on first invocation.
  */
-export function renderMarkdown(source: string): string {
+export function renderMarkdown(source: string | null | undefined): string {
+  if (!source) return ''
   configureMarkdown()
   const rawHtml = marked.parse(source) as string
   return DOMPurify.sanitize(rawHtml, SANITIZE_CONFIG) as unknown as string

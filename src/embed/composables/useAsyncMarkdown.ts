@@ -1,5 +1,5 @@
 import { ref, watch, onBeforeUnmount, type Ref } from 'vue'
-import { renderMarkdown } from '@features/notes/model/useMarkdown'
+import { renderMarkdown } from '../lib/markdown'
 import { renderMermaidInHtml } from '../lib/mermaid'
 
 /**
