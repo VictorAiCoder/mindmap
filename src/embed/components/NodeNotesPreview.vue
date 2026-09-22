@@ -4,7 +4,8 @@
     :class="{
       'notes-preview--collapsed': !visible,
       'notes-preview--expanded': visible && isExpanded,
-      'notes-preview--pinned': visible && pinned
+      'notes-preview--pinned': visible && pinned,
+      'notes-preview--dark': isDark
     }"
     :style="previewStyle"
     @mouseenter="onMouseEnter"
@@ -58,6 +59,7 @@
 
 <script setup lang="ts">
 import { computed, toRef } from 'vue'
+import { useTheme } from '@/app/model/useTheme'
 import { useNodeDisplay } from '@entities/node/model/useNodeDisplay'
 import { useHoverExpansion } from '../composables/useHoverExpansion'
 import { useAsyncMarkdown } from '../composables/useAsyncMarkdown'
@@ -82,6 +84,7 @@ const emit = defineEmits<{
 // ─── Shared display state ───────────────────
 
 const { node, color } = useNodeDisplay(toRef(props, 'pos'))
+const { isDark } = useTheme()
 
 // ─── Local state ────────────────────────────
 
@@ -163,7 +166,7 @@ function onToggleVisible(): void {
 
 /* ── Развёрнутый режим ── */
 .notes-preview:not(.notes-preview--collapsed) {
-  --enc-background: rgb(43 41 41 / 88%);
+  --enc-background: rgb(244 238 238 / 88%);
   padding: 0.714em 1em;
   padding-right: 1.714em;
   width: max-content;
@@ -174,6 +177,10 @@ function onToggleVisible(): void {
   box-shadow: 0 0.143em 0.857em rgba(0, 0, 0, 0.1);
   overflow: hidden;
   max-height: 11.429em;
+}
+
+.notes-preview--dark:not(.notes-preview--collapsed) {
+  --enc-background: rgb(43 41 41 / 88%);
 }
 
 .notes-preview--expanded {

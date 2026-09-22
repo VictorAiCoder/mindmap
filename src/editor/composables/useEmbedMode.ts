@@ -23,7 +23,7 @@ export function useEmbedMode(api: MindMapApi) {
   const embedMarkdown = ref('')
 
   function toggle(): void {
-    if (!isEmbedMode.value) {
+    if (!isEmbedMode.value && !api) {
       embedMarkdown.value = suppressExport(() => api.exportTree('markdown'))
     }
     isEmbedMode.value = !isEmbedMode.value
