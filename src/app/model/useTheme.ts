@@ -5,19 +5,40 @@ type Theme = 'light' | 'dark'
 
 const STORAGE_KEY = 'mindmap-theme'
 
+function hasStorage(): boolean {
+  return typeof localStorage !== 'undefined'
+}
+
 function readInitialTheme(): Theme {
-  const saved = localStorage.getItem(STORAGE_KEY)
-  return saved === 'dark' ? 'dark' : 'light'
+  if (!hasStorage()) return 'light'
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    return saved === 'dark' ? 'dark' : 'light'
+  } catch {
+    return 'light'
+  }
 }
 
 // ─── Singleton state (module-level) ──────────────────
 // Тема одна на всё приложение, поэтому state живёт в модуле,
 // а не создаётся заново при каждом вызове useTheme().
+//
+// ВАЖНО: на этапе импорта модуля localStorage не читаем (SSR/SSG),
+// иначе падает пререндер. Синхронизация — только на клиенте.
 
-const theme = ref<Theme>(readInitialTheme())
+const theme = ref<Theme>('light')
+
+if (hasStorage()) {
+  theme.value = readInitialTheme()
+}
 
 watch(theme, (value) => {
-  localStorage.setItem(STORAGE_KEY, value)
+  if (!hasStorage()) return
+  try {
+    localStorage.setItem(STORAGE_KEY, value)
+  } catch {
+    // Игнорируем переполнение квоты / приватный режим
+  }
 })
 
 // ─── Public API ──────────────────────────────────────

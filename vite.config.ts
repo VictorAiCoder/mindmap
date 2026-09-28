@@ -16,4 +16,9 @@ export default defineConfig({
   server: {
     port: 5173,
   },
+  build: {
+    // Never empty the output dir: dist/embed is produced by vite.embed.ts
+    // and must survive standalone app builds.
+    emptyOutDir: false,
+  },
 })

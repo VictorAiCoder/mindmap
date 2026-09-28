@@ -142,11 +142,12 @@ import { useHitTest } from '../composables/useHitTest'
 import { useTextEditor } from '../composables/useTextEditor'
 import type { NodeCommand } from '../types/node-command'
 import { useNodeOperations } from '../composables/useNodeOperations'
+import { readApiRef } from '../lib/readApiRef'
 
 import type { MindMapApi, NotifyFn } from '../types/mindmap-api'
 import { mindMapKey, notifyKey, globalZoomKey, imageStorageKey } from '../injection-keys'
 import type { LayoutPosition } from '@features/layout'
-import type { NodeDragState } from '@entities/node'
+import type { MindMapNode, NodeDragState } from '@entities/node'
 import type { StoredImage } from '@entities/image'
 
 // ═══════════════════════════════════════════
@@ -209,9 +210,11 @@ const wrapperRef = ref<HTMLElement | null>(null)
 // Layout — базовый источник позиций
 // ═══════════════════════════════════════════
 
-// Vue unwraps refs in provide/inject — mindmap.rootNode is a plain object.
+// `api` may be a raw MindMapApi (refs intact), a reactive proxy (refs
+// auto-unwrapped by the consumer's deep ref), or a hand-built API whose fields
+// are structural `{ value }` carriers. `readApiRef` tolerates all three.
 // Wrap in computed so useLayout and useConnections get a proper Ref.
-const rootNodeRef = computed(() => mindmap.rootNode.value)
+const rootNodeRef = computed(() => readApiRef<MindMapNode>(mindmap.rootNode) as MindMapNode)
 
 const { layoutData } = useLayout(rootNodeRef)
 
@@ -474,7 +477,8 @@ function handleEditSegment(nodeId: string) {
     return
   }
 
-  const img = mindmap.imageStorage?.images?.value?.find?.(i => i.id === node.imageId)
+  const imgs = readApiRef<StoredImage[]>(mindmap.imageStorage?.images) ?? []
+  const img = imgs.find(i => i.id === node.imageId)
   if (!img) {
     notify('Картинка не найдена', 'error', 'mdi-alert')
     return
@@ -482,7 +486,7 @@ function handleEditSegment(nodeId: string) {
 
   const sourceId = img.kind === 'raw' ? img.id : img.sourceId
 
-  const source = mindmap.imageStorage?.images?.value?.find?.(i => i.id === sourceId)
+  const source = imgs.find(i => i.id === sourceId)
   if (!source || source.kind !== 'raw') {
     notify('Не удалось найти исходную картинку', 'error', 'mdi-alert')
     return

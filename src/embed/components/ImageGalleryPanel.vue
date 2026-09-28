@@ -14,7 +14,7 @@
           <v-icon icon="mdi-image-multiple" color="primary" />
           <span class="text-h6">Галерея</span>
           <v-chip size="x-small" variant="tonal">
-            {{ imageStorage.totalCount.value }}
+            {{ totalCount }}
           </v-chip>
         </div>
         <v-btn
@@ -45,16 +45,16 @@
         >
           <v-btn value="all" size="small">
             Все
-            <v-chip size="x-small" class="ml-1">{{ imageStorage.totalCount.value }}</v-chip>
+            <v-chip size="x-small" class="ml-1">{{ totalCount }}</v-chip>
           </v-btn>
           <v-btn value="unused" size="small">
             Неисп.
             <v-chip
               size="x-small"
               class="ml-1"
-              :color="mindmap.unusedImageCount.value > 0 ? 'warning' : undefined"
+              :color="unusedImageCount > 0 ? 'warning' : undefined"
             >
-              {{ mindmap.unusedImageCount.value }}
+              {{ unusedImageCount }}
             </v-chip>
           </v-btn>
         </v-btn-toggle>
@@ -65,7 +65,7 @@
           icon="mdi-broom"
           variant="text"
           size="small"
-          :disabled="mindmap.unusedImageCount.value === 0"
+          :disabled="unusedImageCount === 0"
           @click="handlePurgeUnused"
         >
           <v-icon icon="mdi-broom" />
@@ -107,6 +107,7 @@ import { ref, computed, inject, type InjectionKey } from 'vue'
 import ImageGalleryCard from './ImageGalleryCard.vue'
 
 import { mindMapKey, notifyKey } from '../injection-keys'
+import { readApiRef } from '../lib/readApiRef'
 
 import type { MindMapNode } from '@entities/node'
 import type { StoredImage } from '@entities/image'
@@ -141,10 +142,24 @@ const notify = injectStrict(notifyKey)
 
 const imageStorage = mindmap.imageStorage
 
+// ─── Tolerant ref reads (raw API | reactive proxy | structural carrier) ───
+const totalCount = computed<number>(
+  () => readApiRef<number>(imageStorage?.totalCount) ?? 0
+)
+const unusedImageCount = computed<number>(
+  () => readApiRef<number>(mindmap.unusedImageCount) ?? 0
+)
+function readImages(): readonly StoredImage[] {
+  return readApiRef<readonly StoredImage[]>(imageStorage?.images) ?? []
+}
+function readRootNode(): MindMapNode | null {
+  return readApiRef<MindMapNode>(mindmap.rootNode) ?? null
+}
+
 // ─── Индекс использования (imageId → nodeId[]) ─
 const usageIndex = computed<Map<string, string[]>>(() => {
   const map = new Map<string, string[]>()
-  const root = mindmap.rootNode.value
+  const root = readRootNode()
   if (!root) return map
 
   const stack: MindMapNode[] = [root]
@@ -166,7 +181,7 @@ const filter = ref<'all' | 'unused'>('all')
 
 const filteredImages = computed<StoredImage[]>(() => {
   const q = search.value.trim().toLowerCase()
-  const raw = imageStorage?.images?.value
+  const raw = readImages()
   let list: readonly StoredImage[] = Array.isArray(raw) ? raw : []
 
   if (filter.value === 'unused') {
@@ -188,7 +203,7 @@ function handleRename(id: string, newName: string) {
 
 function handleDelete(id: string) {
   const usages = usageIndex.value.get(id) ?? []
-  const img = imageStorage?.images?.value?.find?.(i => i.id === id)
+  const img = readImages().find?.(i => i.id === id)
 
   if (usages.length > 0) {
     const ok = confirm(
@@ -209,7 +224,7 @@ function handleDelete(id: string) {
 }
 
 function handlePurgeUnused() {
-  const unused = (imageStorage?.images?.value ?? []).filter(
+  const unused = readImages().filter(
     img => !usageIndex.value.has(img.id)
   )
   if (unused.length === 0) return
@@ -235,7 +250,7 @@ function handleHighlight(id: string) {
 }
 
 function detachImageFromNodes(imageId: string) {
-  const root = mindmap.rootNode.value
+  const root = readRootNode()
   if (!root) return
 
   const stack: MindMapNode[] = [root]

@@ -1,6 +1,7 @@
 // embed/composables/useTextEditor.ts
 import { ref, nextTick, type Ref, type ComputedRef } from 'vue'
 import type { MindMapApi, NotifyFn } from '../types/mindmap-api'
+import { readApiRef } from '../lib/readApiRef'
 import type { LayoutPosition } from '@features/layout'
 import type { MindMapNode } from '@entities/node'
 
@@ -53,7 +54,7 @@ export function useTextEditor(opts: UseTextEditorOptions) {
       }
       return null
     }
-    return walk(mindmap.rootNode.value)
+    return walk(readApiRef<MindMapNode>(mindmap.rootNode) as MindMapNode)
   }
 
   function startEdit(nodeId: string): void {

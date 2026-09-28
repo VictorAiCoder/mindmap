@@ -15,7 +15,12 @@ import {
   getFileFormat,
 } from '@shared/lib/persistence-utils'
 
+function hasStorage(): boolean {
+  return typeof localStorage !== 'undefined'
+}
+
 export function loadFromStorage(): MindMapDocument | null {
+  if (!hasStorage()) return null
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
@@ -27,6 +32,7 @@ export function loadFromStorage(): MindMapDocument | null {
 }
 
 function saveToStorage(doc: MindMapDocument): void {
+  if (!hasStorage()) return
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(doc))
   } catch (e) {

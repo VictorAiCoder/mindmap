@@ -91,6 +91,7 @@ import { renderMarkdown } from '../lib/markdown'
 import { renderMermaidInHtml } from '../lib/mermaid'
 import { findNodeById } from '@entities/mindmap'
 import { mindMapKey } from '../injection-keys'
+import { readApiRef } from '../lib/readApiRef'
 import NotesToolbar from './NotesToolbar.vue'
 
 const props = defineProps({
@@ -108,8 +109,9 @@ const textareaRef = ref(null)
 // --- Текущий узел ---
 
 const node = computed(() => {
-  if (!props.nodeId || !mindmap?.rootNode?.value) return null
-  return findNodeById(mindmap.rootNode.value, props.nodeId)
+  const root = readApiRef(mindmap?.rootNode)
+  if (!props.nodeId || !root) return null
+  return findNodeById(root, props.nodeId)
 })
 
 // --- Синхронизация ---

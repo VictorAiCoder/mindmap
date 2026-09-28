@@ -5,6 +5,7 @@ import type { StoredImage } from '@entities/image'
 import type { MindMapApi } from '../types/mindmap-api'
 import { parseMarkdownToTree } from '../lib/parse'
 import { processTree } from '../lib/treeManipulators'
+import { readApiRef } from '../lib/readApiRef'
 
 declare const $fetch: <T = any>(url: string, options?: any) => Promise<T>
 
@@ -42,7 +43,11 @@ export function useMindMapData(options: UseMindMapDataOptions): UseMindMapDataRe
 
   // ─── API mode: use provided API directly ───────
   if (api) {
-    const rootNode = computed(() => api.value?.rootNode ?? null) as unknown as Ref<MindMapNode | null>
+    // The API may be raw (ref field), a reactive proxy (auto-unwrapped), or a
+    // hand-built `{ value }` carrier — readApiRef normalises all three.
+    const rootNode = computed(
+      () => readApiRef<MindMapNode>(api.value?.rootNode) ?? null
+    ) as Ref<MindMapNode | null>
     const imagePool = ref<StoredImage[]>([]) as Ref<StoredImage[]>
     const isLoading = ref(false)
     return { rootNode, imagePool, isLoading }

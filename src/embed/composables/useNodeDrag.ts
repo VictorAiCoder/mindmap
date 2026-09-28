@@ -1,7 +1,9 @@
 // embed/composables/useNodeDrag.ts
 import { ref, computed, type Ref, type ComputedRef } from 'vue'
 import { findNodeById, collectVisibleDescendantIds } from '@entities/mindmap'
+import { readApiRef } from '../lib/readApiRef'
 import type { MindMapApi } from '../types/mindmap-api'
+import type { MindMapNode } from '@entities/node'
 import type { PositionMap } from '@features/layout'
 
 const MOVE_THRESHOLD = 4
@@ -74,7 +76,7 @@ export function useNodeDrag(
     hasMoved.value = false
     dropTargetId.value = null
 
-    const root = mindmap.rootNode.value
+    const root = readApiRef<MindMapNode>(mindmap.rootNode)
     const node = findNodeById(root, nodeId)
     dragGroupIds.value = node
       ? collectVisibleDescendantIds(node)
